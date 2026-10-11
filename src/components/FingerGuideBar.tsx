@@ -55,7 +55,12 @@ export const FingerGuideBar: React.FC<FingerGuideBarProps> = ({
               )}
               {targetKey.isHomeKey && (
                 <span className="text-[9px] text-amber-800 bg-amber-100 border border-amber-300 px-1 py-0.2 rounded-full font-bold hidden md:inline">
-                  ★ Gờ mốc
+                  ★ Gờ mốc phím {targetKey.label}
+                </span>
+              )}
+              {targetKey.code.startsWith('Numpad') && (
+                <span className="text-[9px] text-emerald-800 bg-emerald-100 border border-emerald-300 px-1 py-0.2 rounded font-bold hidden sm:inline">
+                  🖩 Numpad (1 Tay)
                 </span>
               )}
             </>

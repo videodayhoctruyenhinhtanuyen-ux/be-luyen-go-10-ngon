@@ -13,7 +13,7 @@ Tài liệu này hướng dẫn chi tiết từng bước để đồng bộ và
 - **Tài khoản Vercel**: `https://vercel.com/new?teamSlug=luyengo10ngon`
 - **Tài khoản đăng nhập giáo viên quản trị**:
   - Tên đăng nhập: `admin` (hoặc `giaovien`)
-  - Mật khẩu: `Laichau@2026`
+  - Mật khẩu: `Tanuyen@2026`
 
 ---
 

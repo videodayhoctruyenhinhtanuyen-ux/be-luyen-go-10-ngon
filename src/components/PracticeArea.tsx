@@ -59,6 +59,9 @@ interface PracticeAreaProps {
   onToggleKeyboardImeMode?: (mode?: KeyboardImeMode) => void;
   alternativeAllowedKeys?: string[];
   smartHintExplanation?: string;
+  sgkBoxHeight?: number;
+  inputBoxHeight?: number;
+  isCompactHeight?: boolean;
 }
 
 type TextSize = 'large' | 'huge' | 'normal';
@@ -110,6 +113,9 @@ export const PracticeArea: React.FC<PracticeAreaProps> = ({
   userTypedText,
   keyboardImeMode = 'unikey_v',
   onToggleKeyboardImeMode,
+  sgkBoxHeight = 126,
+  inputBoxHeight = 44,
+  isCompactHeight = false,
 }) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const activeCharRef = useRef<HTMLSpanElement>(null);
@@ -615,11 +621,12 @@ export const PracticeArea: React.FC<PracticeAreaProps> = ({
             </span>
           </div>
 
-          {/* KHUNG VĂN BẢN MẪU HIỂN THỊ CỐ ĐỊNH 4 DÒNG VĂN BẢN (SGK) */}
+          {/* KHUNG VĂN BẢN MẪU HIỂN THỊ CỐ ĐỊNH (TỰ ĐỘNG CĂN CHỈNH CHIỀU CAO VỪA KHÍT THEO VIEWPORT) */}
           <div
             ref={containerRef}
             onClick={handleFocusInput}
-            className={`w-full bg-slate-50/90 border border-indigo-200 hover:border-indigo-300 rounded-lg p-2 font-sgk-text ${fontSizeClass} select-none cursor-text shadow-2xs h-[126px] min-h-[126px] max-h-[126px] overflow-y-auto custom-scrollbar flex flex-col gap-1.5 transition-all`}
+            style={{ height: `${sgkBoxHeight}px`, maxHeight: `${sgkBoxHeight}px` }}
+            className={`w-full bg-slate-50/90 border border-indigo-200 hover:border-indigo-300 rounded-lg p-2 font-sgk-text ${fontSizeClass} select-none cursor-text shadow-2xs overflow-y-auto custom-scrollbar flex flex-col gap-1.5 transition-all`}
           >
             {tokenLines.map((lineTokens, lineIdx) => {
               const isChunkHighlighted =
@@ -776,8 +783,9 @@ export const PracticeArea: React.FC<PracticeAreaProps> = ({
           {/* KHUNG NHẬP VĂN BẢN (ĐỘ CAO VỪA ĐỦ min-h-[40px] sm:min-h-[44px] - CHỈ LƯU GIỮ 1 DÒNG HIỆN THỜI, XÓA TRẮNG KHI ENTER) */}
           <div
             onClick={handleFocusInput}
+            style={{ minHeight: `${inputBoxHeight}px` }}
             className={`
-              w-full bg-white rounded-xl px-3.5 py-1 font-input-box text-base sm:text-lg font-bold leading-normal cursor-text relative shadow-sm transition-all flex items-center select-none min-h-[40px] sm:min-h-[44px]
+              w-full bg-white rounded-xl px-3 py-1 font-input-box text-base sm:text-lg font-bold leading-normal cursor-text relative shadow-sm transition-all flex items-center select-none
               ${
                 hasMistake
                   ? 'border-2 border-rose-500 ring-2 ring-rose-100 bg-rose-50/20'

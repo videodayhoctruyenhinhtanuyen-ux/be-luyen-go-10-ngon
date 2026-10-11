@@ -27,6 +27,9 @@ interface KeyboardProps {
   showFingerDots?: boolean;
   theme?: KeyboardSkinTheme;
   onOpenThemeModal?: () => void;
+  isCompactHeight?: boolean;
+  maxUnitSize?: number;
+  suggestedKeyHeight?: number;
 }
 
 export const Keyboard: React.FC<KeyboardProps> = ({
@@ -44,6 +47,9 @@ export const Keyboard: React.FC<KeyboardProps> = ({
   showFingerDots = true,
   theme,
   onOpenThemeModal,
+  isCompactHeight = false,
+  maxUnitSize,
+  suggestedKeyHeight,
 }) => {
   const activeTheme = theme || DEFAULT_KEYBOARD_THEME;
   const isKeyPressed = (code: string) => pressedKeys.has(code);
@@ -67,35 +73,48 @@ export const Keyboard: React.FC<KeyboardProps> = ({
       const width = containerRef.current.clientWidth;
       if (width <= 0) return;
 
-      // Outer frame and plate padding (~16px total)
-      const availableWidth = Math.max(300, width - 16);
+      // Outer frame and plate padding (~16px total, or ~10px in compact mode)
+      const framePadding = isCompactHeight ? 10 : 16;
+      const availableWidth = Math.max(300, width - framePadding);
       // Total keyboard width: 22.7 * unitSize + 76px
       const fitUnitByWidth = Math.floor((availableWidth - 76) / 22.7);
 
       // Measure available height in viewport
       const vh = window.innerHeight || 768;
       const rect = containerRef.current.getBoundingClientRect();
-      const topOffset = rect.top > 0 ? rect.top : 330;
+      const topOffset = rect.top > 0 ? rect.top : (isCompactHeight ? 280 : 330);
       // Reserve 20px for bottom safety margin & footer
-      const maxKeyboardAvailableHeight = Math.max(180, vh - topOffset - 20);
+      const maxKeyboardAvailableHeight = Math.max(160, vh - topOffset - (isCompactHeight ? 16 : 20));
 
-      // Keyboard key rows height: 5.76 * unitSize + plate/frame padding (16px)
-      const fitUnitByHeight = Math.floor((maxKeyboardAvailableHeight - 16) / 5.76);
+      // Keyboard key rows height: 5.76 * unitSize + plate/frame padding
+      const fitUnitByHeight = Math.floor((maxKeyboardAvailableHeight - framePadding) / 5.76);
 
       let finalUnit = fitUnitByWidth;
       if (fitUnitByHeight > 0 && fitUnitByHeight < fitUnitByWidth) {
         finalUnit = fitUnitByHeight;
       }
-      finalUnit = Math.max(28, Math.min(52, finalUnit));
+
+      if (maxUnitSize && maxUnitSize < finalUnit) {
+        finalUnit = maxUnitSize;
+      }
+
+      finalUnit = Math.max(22, Math.min(52, finalUnit));
       setUnitSize(finalUnit);
 
-      // Mở rộng chiều cao phím: tăng thêm ~12-16% so với unitSize để phím to rõ hơn
-      const maxKeyHeightAllowed = Math.floor((maxKeyboardAvailableHeight - 16) / 5.76);
-      const computedHeight = Math.max(
-        finalUnit,
-        Math.min(Math.round(finalUnit * 1.15), maxKeyHeightAllowed > finalUnit ? maxKeyHeightAllowed : finalUnit)
-      );
-      setKeyHeight(Math.max(28, Math.min(58, computedHeight)));
+      // Mở rộng chiều cao phím: tăng thêm ~12-16% so với unitSize khi còn đủ chỗ
+      const maxKeyHeightAllowed = Math.floor((maxKeyboardAvailableHeight - framePadding) / 5.76);
+      let computedHeight = finalUnit;
+      if (maxKeyHeightAllowed > finalUnit && !isCompactHeight) {
+        computedHeight = Math.min(Math.round(finalUnit * 1.15), maxKeyHeightAllowed);
+      } else if (maxKeyHeightAllowed > 0) {
+        computedHeight = Math.min(finalUnit, maxKeyHeightAllowed);
+      }
+
+      if (suggestedKeyHeight && suggestedKeyHeight > 0) {
+        computedHeight = Math.min(computedHeight, suggestedKeyHeight);
+      }
+
+      setKeyHeight(Math.max(22, Math.min(56, computedHeight)));
     };
 
     calculateSize();
@@ -106,7 +125,7 @@ export const Keyboard: React.FC<KeyboardProps> = ({
       ro.disconnect();
       window.removeEventListener('resize', calculateSize);
     };
-  }, []);
+  }, [isCompactHeight, maxUnitSize, suggestedKeyHeight]);
 
   useEffect(() => {
     const handleKeyToggle = (e: KeyboardEvent) => {
@@ -334,11 +353,15 @@ export const Keyboard: React.FC<KeyboardProps> = ({
     <div ref={containerRef} className="w-full mx-auto overflow-x-auto pb-1 custom-scrollbar">
       {/* Keyboard Outer 3D Playful Frame - Spans 100% full width to eliminate blank gaps */}
       <div
-        className={`w-full relative p-2 rounded-2xl shadow-lg transition-all duration-300 ${activeTheme.outerFrameClass}`}
+        className={`w-full relative ${
+          isCompactHeight ? 'p-1 sm:p-1.5 rounded-xl' : 'p-1.5 sm:p-2 rounded-2xl'
+        } shadow-lg transition-all duration-300 ${activeTheme.outerFrameClass}`}
       >
         {/* Inner Switch Plate with locked real-world physical proportions - Stretches 100% full width */}
         <div
-          className={`w-full relative p-1.5 sm:p-2 rounded-xl flex flex-col gap-1 sm:gap-1.5 transition-all duration-300 ${activeTheme.plateClass}`}
+          className={`w-full relative ${
+            isCompactHeight ? 'p-1 rounded-lg gap-0.5 sm:gap-1' : 'p-1.5 sm:p-2 rounded-xl gap-1 sm:gap-1.5'
+          } flex flex-col transition-all duration-300 ${activeTheme.plateClass}`}
         >
           {/* ========================================================================= */}
           {/* BẢNG ĐÈN LED CHỈ BÁO TRẠNG THÁI: NUM LOCK, CAPS LOCK, SCROLL LOCK          */}

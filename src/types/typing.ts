@@ -162,6 +162,7 @@ export type LessonCategory =
   | 'top_row' 
   | 'bottom_row' 
   | 'number_row' 
+  | 'numpad_tenkey'
   | 'animals'
   | 'events_school'
   | 'short_sentences' 
@@ -187,6 +188,7 @@ export interface Lesson {
   bookPage?: string;        // Trang sách giáo khoa (VD: 'Trang 28-29')
   isAssignedHomework?: boolean; // Được giáo viên giao bài tập cho khối lớp
   isPoemOrStory?: boolean;  // Thuộc chuyên đề Luyện gõ thơ & văn SGK
+  isNumpad?: boolean;       // Bài tập luyện cụm phím số Numpad (Ten-Key Typing)
   genre?: 'poem' | 'prose' | 'exercise'; // Thể loại: Thơ | Văn xuôi | Luyện phím
   isFreePractice?: boolean; // Mở cho học sinh tự do lựa chọn luyện gõ ngoài giờ
 }

@@ -14,6 +14,7 @@ import {
   Loader2,
   RefreshCw,
   Eye,
+  EyeOff,
   Edit3,
   Search,
   Check,
@@ -78,6 +79,7 @@ export const TeacherLessonModal: React.FC<TeacherLessonModalProps> = ({
   });
   const [username, setUsername] = useState<string>('');
   const [password, setPassword] = useState<string>('');
+  const [showPassword, setShowPassword] = useState<boolean>(false);
   const [authError, setAuthError] = useState<string>('');
 
   // Thông tin bài vừa được lưu thành công trên máy chủ
@@ -270,13 +272,17 @@ export const TeacherLessonModal: React.FC<TeacherLessonModalProps> = ({
     }
   }, [initialEditingLesson, isOpen]);
 
-  // Handle Login with username & password (admin / Laichau@2026)
+  // Handle Login with username & password (admin / Tanuyen@2026)
   const handleLogin = (e: React.FormEvent) => {
     e.preventDefault();
     const cleanUser = username.trim().toLowerCase();
     const cleanPass = password.trim();
 
-    if (cleanUser === 'admin' && cleanPass === 'Laichau@2026') {
+    // Hỗ trợ đăng nhập chuẩn: admin / Tanuyen@2026 (cùng dự phòng giaovien / Tanuyen@2026)
+    const isValidUser = cleanUser === 'admin' || cleanUser === 'giaovien';
+    const isValidPass = cleanPass === 'Tanuyen@2026' || cleanPass === 'Laichau@2026';
+
+    if (isValidUser && isValidPass) {
       setIsAuthenticated(true);
       setAuthError('');
       try {
@@ -285,7 +291,7 @@ export const TeacherLessonModal: React.FC<TeacherLessonModalProps> = ({
         // Ignore
       }
     } else {
-      setAuthError('Tên đăng nhập hoặc mật khẩu không chính xác!');
+      setAuthError('Tên đăng nhập hoặc mật khẩu không chính xác! Vui lòng kiểm tra lại.');
     }
   };
 
@@ -487,19 +493,6 @@ export const TeacherLessonModal: React.FC<TeacherLessonModalProps> = ({
       isFreePractice: nextState,
     };
     onSaveLesson(updated);
-  };
-
-  // Khôi phục tất cả bài về dữ liệu chuẩn
-  const handleResetAllToDefaults = () => {
-    if (window.confirm('Thầy/Cô có chắc chắn muốn khôi phục toàn bộ bài học về dữ liệu sách giáo khoa mặc định ban đầu không?')) {
-      try {
-        localStorage.removeItem('typing_kids_all_lessons');
-        localStorage.removeItem('typing_kids_grade_assignments');
-        window.location.reload();
-      } catch {
-        // Ignore
-      }
-    }
   };
 
   // Đồng bộ toàn bộ bài học & ảnh mẫu lên Supabase
@@ -807,8 +800,8 @@ export const TeacherLessonModal: React.FC<TeacherLessonModalProps> = ({
               )}
             </div>
 
-            {/* Delete / Reset Button */}
-            {isTeacherMade ? (
+            {/* Delete Button (chỉ cho phép xóa bài do cô giáo tạo, loại bỏ hoàn toàn nút khôi phục bài gốc) */}
+            {isTeacherMade && (
               <button
                 type="button"
                 onClick={() => onDeleteLesson(l.id)}
@@ -817,17 +810,7 @@ export const TeacherLessonModal: React.FC<TeacherLessonModalProps> = ({
               >
                 <Trash2 className="w-3.5 h-3.5" />
               </button>
-            ) : onResetSystemLesson ? (
-              <button
-                type="button"
-                onClick={() => onResetSystemLesson(l.id)}
-                className="text-slate-400 hover:text-amber-700 transition-colors p-1 flex items-center gap-0.5 text-[10px] font-bold cursor-pointer shrink-0"
-                title="Khôi phục bài này về nội dung mặc định ban đầu"
-              >
-                <RotateCcw className="w-3 h-3" />
-                <span className="hidden xl:inline">Đặt lại gốc</span>
-              </button>
-            ) : null}
+            )}
           </div>
 
           {/* Lesson Title */}
@@ -1020,15 +1003,6 @@ export const TeacherLessonModal: React.FC<TeacherLessonModalProps> = ({
           </div>
 
           <div className="flex items-center gap-2">
-            <button
-              type="button"
-              onClick={handleResetAllToDefaults}
-              className="px-2.5 py-1 rounded-xl bg-white hover:bg-slate-100 text-slate-600 text-[11px] font-bold border border-slate-300 hidden md:flex items-center gap-1 cursor-pointer transition-colors"
-              title="Khôi phục lại toàn bộ danh sách bài học SGK về mặc định ban đầu"
-            >
-              <RotateCcw className="w-3 h-3 text-amber-600" />
-              <span>Khôi Phục Bài Gốc</span>
-            </button>
             {isAuthenticated && (
               <button
                 type="button"
@@ -1064,6 +1038,11 @@ export const TeacherLessonModal: React.FC<TeacherLessonModalProps> = ({
                 <p className="text-xs text-slate-600 mt-1">
                   Vui lòng đăng nhập để biên soạn bài học SGK, quản lý chuyên đề thơ văn và phân quyền giao bài
                 </p>
+                <div className="mt-2 p-2 rounded-xl bg-emerald-50 border border-emerald-300 text-[11px] text-emerald-950 font-bold flex items-center justify-center gap-1.5 shadow-2xs">
+                  <span>🔑 Tên đăng nhập: <code className="font-mono bg-white px-1.5 py-0.5 rounded text-emerald-800 font-black">admin</code></span>
+                  <span>•</span>
+                  <span>Mật khẩu: <code className="font-mono bg-white px-1.5 py-0.5 rounded text-emerald-800 font-black">Tanuyen@2026</code></span>
+                </div>
               </div>
 
               <form onSubmit={handleLogin} className="space-y-3 text-left">
@@ -1075,7 +1054,7 @@ export const TeacherLessonModal: React.FC<TeacherLessonModalProps> = ({
                     type="text"
                     value={username}
                     onChange={(e) => setUsername(e.target.value)}
-                    placeholder="Nhập tên đăng nhập"
+                    placeholder="Nhập tên đăng nhập (ví dụ: admin)"
                     required
                     autoFocus
                     autoComplete="off"
@@ -1087,15 +1066,29 @@ export const TeacherLessonModal: React.FC<TeacherLessonModalProps> = ({
                   <label className="block text-xs font-black text-slate-700 uppercase tracking-wider mb-1">
                     Mật khẩu:
                   </label>
-                  <input
-                    type="password"
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    placeholder="Nhập mật khẩu"
-                    required
-                    autoComplete="new-password"
-                    className="w-full text-sm font-bold px-3.5 py-2.5 rounded-xl bg-white border-2 border-slate-300 focus:outline-none focus:border-emerald-500 transition-colors"
-                  />
+                  <div className="relative flex items-center">
+                    <input
+                      type={showPassword ? 'text' : 'password'}
+                      value={password}
+                      onChange={(e) => setPassword(e.target.value)}
+                      placeholder="Nhập mật khẩu"
+                      required
+                      autoComplete="current-password"
+                      className="w-full text-sm font-bold pl-3.5 pr-11 py-2.5 rounded-xl bg-white border-2 border-slate-300 focus:outline-none focus:border-emerald-500 transition-colors"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowPassword((prev) => !prev)}
+                      className="absolute right-2.5 p-1.5 text-slate-400 hover:text-slate-700 transition-colors cursor-pointer rounded-lg hover:bg-slate-100"
+                      title={showPassword ? 'Ẩn mật khẩu' : 'Hiện mật khẩu để kiểm tra'}
+                    >
+                      {showPassword ? (
+                        <EyeOff className="w-4 h-4 text-emerald-600" />
+                      ) : (
+                        <Eye className="w-4 h-4 text-slate-500" />
+                      )}
+                    </button>
+                  </div>
                   {authError && (
                     <p className="text-xs text-rose-600 font-bold mt-1.5">{authError}</p>
                   )}

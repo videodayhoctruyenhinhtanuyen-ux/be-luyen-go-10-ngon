@@ -7,12 +7,14 @@ interface TextbookIllustrationCardProps {
   lesson: Lesson;
   onOpenTeacherModal?: () => void;
   onOpenCurriculumModal?: () => void;
+  isCompactHeight?: boolean;
 }
 
 export const TextbookIllustrationCard: React.FC<TextbookIllustrationCardProps> = ({
   lesson,
   onOpenTeacherModal,
   onOpenCurriculumModal,
+  isCompactHeight = false,
 }) => {
   const [isZoomed, setIsZoomed] = useState<boolean>(false);
   
@@ -61,7 +63,9 @@ export const TextbookIllustrationCard: React.FC<TextbookIllustrationCardProps> =
             src={currentImgSrc}
             alt={`Ảnh sách giáo khoa về bài gõ: ${lesson.title}`}
             onError={handleImageError}
-            className="w-full max-h-[105px] sm:max-h-[115px] xl:max-h-[120px] object-contain rounded-lg transition-transform duration-300 group-hover:scale-102"
+            className={`w-full ${
+              isCompactHeight ? 'max-h-[75px]' : 'max-h-[105px] sm:max-h-[115px] xl:max-h-[120px]'
+            } object-contain rounded-lg transition-transform duration-300 group-hover:scale-102`}
             loading="eager"
           />
 

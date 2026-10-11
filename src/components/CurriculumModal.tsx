@@ -26,7 +26,7 @@ export const CurriculumModal: React.FC<CurriculumModalProps> = ({
   onOpenTeacherModal,
   initialGradeFilter,
 }) => {
-  const [filterTab, setFilterTab] = useState<'all' | '3' | '4' | '5' | 'poems' | 'teacher'>(
+  const [filterTab, setFilterTab] = useState<'all' | '3' | '4' | '5' | 'poems' | 'numpad' | 'teacher'>(
     initialGradeFilter ? String(initialGradeFilter) as any : 'all'
   );
 
@@ -40,6 +40,7 @@ export const CurriculumModal: React.FC<CurriculumModalProps> = ({
     if (filterTab === 'all') return true;
     if (filterTab === 'teacher') return l.id?.startsWith('teacher-') || !!l.authorTeacher;
     if (filterTab === 'poems') return !!l.isPoemOrStory || l.category === 'poems_stories';
+    if (filterTab === 'numpad') return !!l.isNumpad || l.category === 'numpad_tenkey';
     if (filterTab === '3') return l.gradeLevel === 3 || (!l.gradeLevel && (l.level || 0) <= 6);
     if (filterTab === '4') return l.gradeLevel === 4 || (!l.gradeLevel && (l.level || 0) > 6 && (l.level || 0) <= 10);
     if (filterTab === '5') return l.gradeLevel === 5 || (!l.gradeLevel && (l.level || 0) > 10);
@@ -137,6 +138,18 @@ export const CurriculumModal: React.FC<CurriculumModalProps> = ({
           >
             <Feather className="w-3.5 h-3.5 text-amber-500" />
             <span>Thơ &amp; Văn SGK</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setFilterTab('numpad')}
+            className={`px-4 py-1.5 rounded-xl text-xs font-black transition-all cursor-pointer flex items-center gap-1 ${
+              filterTab === 'numpad'
+                ? 'bg-emerald-600 text-white shadow ring-2 ring-emerald-300'
+                : 'bg-emerald-50 text-emerald-900 hover:bg-emerald-100 border border-emerald-200'
+            }`}
+          >
+            <span>🖩 Phím Số Numpad</span>
           </button>
 
           {teacherLessons.length > 0 && (

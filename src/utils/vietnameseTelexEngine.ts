@@ -65,6 +65,11 @@ const TONE_INDEX_MAP: Record<string, number> = {
 
 /**
  * Determine which vowel in a syllable receives the tone mark
+ * Chuẩn hóa theo quy tắc chính tả tiếng Việt của Bộ GD&ĐT & bộ gõ Unikey/EVKey:
+ * - Với âm đầu "gi-": "gi" là phụ âm đầu ghép, chữ "i" thuộc phụ âm. Khi có nguyên âm theo sau (gió, giá, giẻ, giúp, giường...), dấu thanh nằm trên nguyên âm sau (ví dụ: gió -> dấu sắc trên 'o').
+ * - Với âm đầu "qu-": "qu" là phụ âm đầu ghép, chữ "u" thuộc phụ âm (quá, quả, quê, quỳ...), dấu thanh nằm trên nguyên âm sau.
+ * - Với nguyên âm 3 chữ (triphthong: ươi trong cười, người, mười; uôi trong chuối, tuổi; iêu trong chiều; oai trong ngoài...): dấu thanh luôn đặt ở nguyên âm chính ở giữa (ví dụ: cười -> dấu huyền trên 'ơ').
+ * - Với âm tiết có phụ âm cuối (tiếng, toán, nước, biển, chuột): dấu thanh đặt ở nguyên âm âm chính sau (ví dụ: ê, a, ơ).
  */
 export function findToneTargetIndex(chars: string[]): number {
   const vowelIndices: number[] = [];
@@ -78,44 +83,61 @@ export function findToneTargetIndex(chars: string[]): number {
   if (vowelIndices.length === 0) return -1;
   if (vowelIndices.length === 1) return vowelIndices[0];
 
-  const lastVowelIdx = vowelIndices[vowelIndices.length - 1];
+  // Xử lý phụ âm ghép "qu" và "gi":
+  // Trong "qu", 'u' là âm đệm thuộc phụ âm /kw/ (quả, quá, quê, quỳ, quán...)
+  // Trong "gi", 'i' thuộc phụ âm /z/ hoặc /j/ (gió, giá, giẻ, giúp, giường, giếng...)
+  let effectiveVowelIndices = [...vowelIndices];
+  const firstVowelIdx = vowelIndices[0];
+  const firstVowel = chars[firstVowelIdx].toLowerCase();
+  const prevChar = firstVowelIdx > 0 ? chars[firstVowelIdx - 1].toLowerCase() : '';
+
+  if (vowelIndices.length > 1) {
+    if ((firstVowel === 'u' && prevChar === 'q') || (firstVowel === 'i' && prevChar === 'g')) {
+      effectiveVowelIndices = vowelIndices.slice(1);
+    }
+  }
+
+  if (effectiveVowelIndices.length === 0) return vowelIndices[0];
+  if (effectiveVowelIndices.length === 1) return effectiveVowelIndices[0];
+
+  const lastVowelIdx = effectiveVowelIndices[effectiveVowelIndices.length - 1];
   const hasTrailingConsonant = lastVowelIdx < chars.length - 1;
 
-  // Syllable with trailing consonant: tone on the last vowel (e.g. tieng -> ê, bien -> ê)
+  // 1. Âm tiết khép (có phụ âm cuối: biển, tiếng, nước, chuột, chuẩn, toán):
+  // Dấu thanh đặt ở nguyên âm chính (nguyên âm thứ 2 trong nguyên âm đôi).
   if (hasTrailingConsonant) {
-    // Exception: qu, gi prefix
-    const firstVowel = chars[vowelIndices[0]].toLowerCase();
-    if (vowelIndices.length === 2 && (firstVowel === 'u' || firstVowel === 'i')) {
-      const prevChar = vowelIndices[0] > 0 ? chars[vowelIndices[0] - 1].toLowerCase() : '';
-      if ((firstVowel === 'u' && prevChar === 'q') || (firstVowel === 'i' && prevChar === 'g')) {
-        return vowelIndices[1];
-      }
-    }
     return lastVowelIdx;
   }
 
-  // Open syllable (no trailing consonant):
-  // Check for special combinations
-  const v0 = chars[vowelIndices[0]].toLowerCase();
-  const v1 = chars[vowelIndices[1]].toLowerCase();
+  // 2. Âm tiết mở (không có phụ âm cuối):
+  // 2a. Nguyên âm ba (triphthong >= 3 nguyên âm: ươi trong cười, mười, tươi, người; uôi trong chuối, tuổi; iêu trong chiều; oai trong ngoài; oay trong xoay):
+  // Dấu thanh LUÔN LUÔN nằm trên nguyên âm ở giữa (nguyên âm thứ 2)!
+  if (effectiveVowelIndices.length >= 3) {
+    return effectiveVowelIndices[1];
+  }
 
-  // oa, oe, uy -> tone on second vowel
+  // 2b. Nguyên âm đôi (2 nguyên âm):
+  const v0 = chars[effectiveVowelIndices[0]].toLowerCase();
+  const v1 = chars[effectiveVowelIndices[1]].toLowerCase();
+
+  // oa, oe, uy -> dấu thanh đặt ở nguyên âm thứ 2 (hòa, hoè, tuỳ, thúy)
   if ((v0 === 'o' && (v1 === 'a' || v1 === 'e')) || (v0 === 'u' && v1 === 'y')) {
-    return vowelIndices[1];
+    return effectiveVowelIndices[1];
   }
 
-  // ia, ua, ưa -> tone on first vowel
+  // ia, ua, ưa -> dấu thanh đặt ở nguyên âm thứ 1 (mía, chìa, múa, rùa, mưa, cửa)
   if (v1 === 'a' && (v0 === 'i' || v0 === 'u' || v0 === 'ư')) {
-    return vowelIndices[0];
+    return effectiveVowelIndices[0];
   }
 
-  // Default for open syllable diphthong: first vowel
-  return vowelIndices[0];
+  // Các nguyên âm đôi kết thúc bằng bán nguyên âm i, y, u, o (ai, ay, ao, au, âu, eo, êu, oi, ôi, ơi, ui, iu):
+  // Dấu thanh đặt ở nguyên âm đầu (nguyên âm đỉnh: bài, cháy, báo, sáu, cầu, kéo, kêu, nói, tối, rơi, túi, dịu)
+  return effectiveVowelIndices[0];
 }
 
 /**
  * Simulates a full Vietnamese Telex IME engine on a word.
- * Takes raw keystrokes (e.g. "sachj" or "sajch" or "tieengs" or "tieesng")
+ * Takes raw keystrokes (e.g. "sachj" or "sajch" or "tieengs" or "tieesng" or "gios" or "cuwowif" or "cuowif")
  * and outputs the composed Vietnamese word.
  */
 export function telexCompose(rawKeys: string): string {
@@ -149,19 +171,35 @@ export function telexCompose(rawKeys: string): string {
       continue;
     }
     if (prevLow === 'o' && kLow === 'w') {
-      // Nếu trước đó là 'u' ('uo' + 'w' -> 'ươ')
-      if (chars.length >= 2 && chars[chars.length - 2].toLowerCase() === 'u') {
+      // Nếu trước đó là 'u' hoặc 'ư' ('uo' + 'w' -> 'ươ', hoặc 'ưo' + 'w' -> 'ươ')
+      if (chars.length >= 2) {
         const uChar = chars[chars.length - 2];
-        chars[chars.length - 2] = uChar === 'U' ? 'Ư' : 'ư';
+        const uLow = uChar.toLowerCase();
+        if (uLow === 'u' || uLow === 'ư') {
+          chars[chars.length - 2] = uChar === 'U' || uChar === 'Ư' ? 'Ư' : 'ư';
+        }
       }
       chars[chars.length - 1] = prevChar === 'O' ? 'Ơ' : 'ơ';
       continue;
     }
-    // Hỗ trợ gõ 'troi' + 'w' -> 'trơi'
-    if (kLow === 'w' && prevLow === 'i' && chars.length >= 2 && chars[chars.length - 2].toLowerCase() === 'o') {
-      const oChar = chars[chars.length - 2];
-      chars[chars.length - 2] = oChar === 'O' ? 'Ơ' : 'ơ';
-      continue;
+    // Hỗ trợ gõ 'cuoi' + 'w' -> 'cươi' (vần uơi/ươi: cuoiw)
+    if (kLow === 'w' && prevLow === 'i') {
+      if (chars.length >= 3) {
+        const oChar = chars[chars.length - 2];
+        const uChar = chars[chars.length - 3];
+        const oLow = oChar.toLowerCase();
+        const uLow = uChar.toLowerCase();
+        if ((oLow === 'o' || oLow === 'ơ') && (uLow === 'u' || uLow === 'ư')) {
+          chars[chars.length - 3] = uChar === 'U' || uChar === 'Ư' ? 'Ư' : 'ư';
+          chars[chars.length - 2] = oChar === 'O' || oChar === 'Ơ' ? 'Ơ' : 'ơ';
+          continue;
+        }
+      }
+      if (chars.length >= 2 && chars[chars.length - 2].toLowerCase() === 'o') {
+        const oChar = chars[chars.length - 2];
+        chars[chars.length - 2] = oChar === 'O' ? 'Ơ' : 'ơ';
+        continue;
+      }
     }
     if (prevLow === 'u' && kLow === 'w') {
       chars[chars.length - 1] = prevChar === 'U' ? 'Ư' : 'ư';
@@ -194,8 +232,8 @@ export function telexCompose(rawKeys: string): string {
 /**
  * Generate all valid keystroke sequences for a single Vietnamese word in TELEX.
  * This covers:
- * 1. Diacritic at the end of the word (gõ dấu sau - chuẩn số 1 SGK & Unikey, e.g. trowif)
- * 2. Diacritic immediately after vowel (gõ dấu trước, e.g. trowfi)
+ * 1. Diacritic at the end of the word (gõ dấu sau - chuẩn số 1 SGK & Unikey, e.g. trowif, gios, cuwowif, cuowif)
+ * 2. Diacritic immediately after vowel (gõ dấu trước, e.g. trowfi, cuwowfi)
  * 3. Both hat/horn and tone in any relative order
  */
 export function generateValidTelexSequences(word: string): string[] {
@@ -266,6 +304,52 @@ export function generateValidTelexSequences(word: string): string[] {
     if (telexCompose(troiwf) === word) {
       results.add(troiwf);
     }
+  }
+
+  // Biến thể cho từ có vần ươ/ười/ươi/ước/trường (cười, mười, người, tươi, nước...)
+  if (
+    lowerWord.includes('ươ') ||
+    lowerWord.includes('ười') ||
+    lowerWord.includes('ươi') ||
+    lowerWord.includes('ướ') ||
+    lowerWord.includes('ườ') ||
+    lowerWord.includes('ưở') ||
+    lowerWord.includes('ưỡ') ||
+    lowerWord.includes('ượ')
+  ) {
+    // Dạng 1 phím 'w' cho cụm uo -> ươ: cuowif thay vì cuwowif
+    [seqB, seqA].forEach((s) => {
+      const singleW = s.replace(/uwow/g, 'uow');
+      if (singleW !== s) {
+        results.add(singleW);
+      }
+    });
+
+    // Dạng gõ phím 'w' sau 'i': cuoiwf
+    if (lowerWord.includes('ười') || lowerWord.includes('ươi')) {
+      const cuoiwf = lowerWord
+        .replace('ười', 'uoiwf')
+        .replace('ươi', 'uoiw')
+        .replace('ưới', 'uoiws')
+        .replace('ưởi', 'uoiwr')
+        .replace('ượi', 'uoiwj');
+      results.add(cuoiwf);
+    }
+
+    // Đặc thù từ 'cười': người dùng có thể gõ cuowi, cuowif, cuwowif, cuoiwf
+    if (lowerWord === 'cười') {
+      results.add('cuowi');
+      results.add('cuowif');
+      results.add('cuwowif');
+      results.add('cuoiwf');
+      results.add('cuwofi');
+      results.add('cuwowfi');
+    }
+  }
+
+  // Đặc thù từ 'gió': gios
+  if (lowerWord === 'gió') {
+    results.add('gios');
   }
 
   // If word has hat + tone, also add inverted modifier order (e.g. tieseng)

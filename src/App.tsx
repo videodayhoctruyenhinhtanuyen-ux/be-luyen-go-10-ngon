@@ -9,6 +9,7 @@ import { Keyboard } from './components/Keyboard';
 import { PracticeArea } from './components/PracticeArea';
 import { PostureGuideModal } from './components/PostureGuideModal';
 import { VietnameseGuideModal } from './components/VietnameseGuideModal';
+import { NumpadGuideModal } from './components/NumpadGuideModal';
 import { MultiGameHub } from './components/MultiGameHub';
 import { CurriculumModal } from './components/CurriculumModal';
 import { CustomTextModal } from './components/CustomTextModal';
@@ -22,6 +23,8 @@ import { UnikeyNoticeModal } from './components/UnikeyNoticeModal';
 import { AuthorCard } from './components/AuthorCard';
 import { AuthorDonateModal } from './components/AuthorDonateModal';
 import { ErrorBoundary } from './components/ErrorBoundary';
+import { useSmartAutoFitViewport } from './utils/smartViewportEngine';
+import { SmartViewportModal } from './components/SmartViewportModal';
 import {
   fetchLessonsFromSupabase,
   upsertLessonToSupabase,
@@ -334,6 +337,7 @@ export default function App() {
   const [isUnikeyNoticeOpen, setIsUnikeyNoticeOpen] = useState<boolean>(true);
   const [isPostureModalOpen, setIsPostureModalOpen] = useState<boolean>(false);
   const [isVietnameseGuideOpen, setIsVietnameseGuideOpen] = useState<boolean>(false);
+  const [isNumpadModalOpen, setIsNumpadModalOpen] = useState<boolean>(false);
   const [isGameModalOpen, setIsGameModalOpen] = useState<boolean>(false);
   const [isCurriculumModalOpen, setIsCurriculumModalOpen] = useState<boolean>(false);
   const [isCustomTextModalOpen, setIsCustomTextModalOpen] = useState<boolean>(false);
@@ -346,12 +350,19 @@ export default function App() {
   // Full-width keyboard toggle: cho phép ẩn cột bên phải để bàn phím mở rộng phủ kín 100% màn hình 1920x1080
   const [isRightColumnVisible, setIsRightColumnVisible] = useState<boolean>(true);
 
-  // Screen Adaptive & Fullscreen Fit Mode (Tự động điều chỉnh kích thước & chế độ hiển thị toàn bộ trang web tương thích độ phân giải)
+  // Smart Auto-Fit Viewport Engine (Tự động nhận diện độ phân giải màn hình & co dãn layout thông minh không cuộn dọc)
+  const {
+    metrics: smartViewport,
+    aiDetectedBanner,
+    isAiModalOpen,
+    openAiModal,
+    closeAiModal,
+    refreshViewport,
+    dismissBanner,
+  } = useSmartAutoFitViewport();
+
+  // Screen Adaptive & Fullscreen Fit Mode
   const [isFullscreenAdaptive, setIsFullscreenAdaptive] = useState<boolean>(false);
-  const [resolutionInfo, setResolutionInfo] = useState<{ width: number; height: number }>({
-    width: typeof window !== 'undefined' ? window.screen.width || window.innerWidth : 1920,
-    height: typeof window !== 'undefined' ? window.screen.height || window.innerHeight : 1080,
-  });
   const [screenFitToast, setScreenFitToast] = useState<string | null>(null);
 
   // Xử lý nút lệnh phủ kín màn hình: tự động điều chỉnh kích thước và chế độ hiển thị của toàn bộ trang web
@@ -364,29 +375,26 @@ export default function App() {
           await document.documentElement.requestFullscreen();
         }
         setIsFullscreenAdaptive(true);
-        const w = window.screen.width || window.innerWidth;
-        const h = window.screen.height || window.innerHeight;
-        setResolutionInfo({ width: w, height: h });
+        refreshViewport();
         setScreenFitToast(
-          `🖥️ Đã tự động điều chỉnh kích thước & chế độ hiển thị toàn bộ trang web tương thích chuẩn xác với độ phân giải ${w}x${h} của máy tính!`
+          `🖥️ Đã tự động điều chỉnh kích thước & chế độ hiển thị toàn bộ trang web tương thích chuẩn xác với độ phân giải ${smartViewport.detectedResolutionLabel} của máy tính!`
         );
       } else {
         if (document.exitFullscreen) {
           await document.exitFullscreen();
         }
         setIsFullscreenAdaptive(false);
+        refreshViewport();
         setScreenFitToast(`🖥️ Đã trở về chế độ hiển thị cửa sổ tiêu chuẩn.`);
       }
     } catch {
       // Fallback if browser iframe policy blocks requestFullscreen
       setIsFullscreenAdaptive((prev) => {
         const next = !prev;
-        const w = window.innerWidth;
-        const h = window.innerHeight;
-        setResolutionInfo({ width: w, height: h });
+        refreshViewport();
         setScreenFitToast(
           next
-            ? `🖥️ Đã tự động điều chỉnh kích thước & chế độ hiển thị toàn bộ trang web tương thích chuẩn xác với độ phân giải ${w}x${h} của máy tính!`
+            ? `🖥️ Đã tự động điều chỉnh kích thước & chế độ hiển thị toàn bộ trang web tương thích chuẩn xác với độ phân giải ${smartViewport.detectedResolutionLabel} của máy tính!`
             : `🖥️ Đã trở về chế độ hiển thị cửa sổ tiêu chuẩn.`
         );
         return next;
@@ -395,6 +403,7 @@ export default function App() {
 
     // Kích hoạt tính toán lại kích cỡ bàn phím và giao diện
     setTimeout(() => {
+      refreshViewport();
       window.dispatchEvent(new Event('resize'));
     }, 150);
 
@@ -407,23 +416,14 @@ export default function App() {
     const handleFullscreenChange = () => {
       const isFs = !!document.fullscreenElement;
       setIsFullscreenAdaptive(isFs);
-      const w = window.screen.width || window.innerWidth;
-      const h = window.screen.height || window.innerHeight;
-      setResolutionInfo({ width: w, height: h });
+      refreshViewport();
       window.dispatchEvent(new Event('resize'));
     };
-    const handleWindowResize = () => {
-      const w = window.innerWidth;
-      const h = window.innerHeight;
-      setResolutionInfo({ width: window.screen.width || w, height: window.screen.height || h });
-    };
     document.addEventListener('fullscreenchange', handleFullscreenChange);
-    window.addEventListener('resize', handleWindowResize);
     return () => {
       document.removeEventListener('fullscreenchange', handleFullscreenChange);
-      window.removeEventListener('resize', handleWindowResize);
     };
-  }, []);
+  }, [refreshViewport]);
 
   // Chế độ gõ dấu thông minh / tự do (cho phép gõ dấu trước hoặc gõ dấu sau theo kiểu Telex)
   const [smartTelexFreeMode, setSmartTelexFreeMode] = useState<boolean>(true);
@@ -720,22 +720,24 @@ export default function App() {
   }, [smartTelexFreeMode, inputMode, currentWordInfo, wordTypedKeys]);
 
   const targetKeyConfig: KeyConfig | undefined = useMemo(() => {
+    const isNumpadLesson = !!(activeLesson?.isNumpad || activeLesson?.category === 'numpad_tenkey');
+
     if (isBackspaceTarget) {
       return getKeyForChar('Backspace') || { code: 'Backspace', label: 'Backspace', widthRatio: 2, type: 'modifier', finger: 'right-pinky' };
     }
     if (isEnterTarget) {
-      return getKeyForChar('Enter') || { code: 'Enter', label: 'Enter', widthRatio: 2.25, type: 'modifier', finger: 'right-pinky' };
+      return getKeyForChar('Enter', isNumpadLesson) || { code: isNumpadLesson ? 'NumpadEnter' : 'Enter', label: 'Enter', widthRatio: 2.25, type: 'modifier', finger: 'right-pinky' };
     }
     if (!currentStep) return undefined;
 
     // Trong chế độ gõ tự do: gợi ý phím ưu tiên tiếp theo nếu có
     if (smartTelexFreeMode && inputMode === 'telex' && smartTelexNextInfo?.recommendedNextKey) {
       const rec = smartTelexNextInfo.recommendedNextKey;
-      return getKeyForChar(rec) || getKeyForChar(currentStep.keyChar);
+      return getKeyForChar(rec, isNumpadLesson) || getKeyForChar(currentStep.keyChar, isNumpadLesson);
     }
 
-    return getKeyForChar(currentStep.keyChar);
-  }, [isBackspaceTarget, isEnterTarget, currentStep, smartTelexFreeMode, inputMode, smartTelexNextInfo]);
+    return getKeyForChar(currentStep.keyChar, isNumpadLesson);
+  }, [isBackspaceTarget, isEnterTarget, currentStep, smartTelexFreeMode, inputMode, smartTelexNextInfo, activeLesson]);
 
   const activeFinger: FingerId | undefined = targetKeyConfig?.finger;
 
@@ -1191,6 +1193,7 @@ export default function App() {
       isCurriculumModalOpen ||
       isPostureModalOpen ||
       isVietnameseGuideOpen ||
+      isNumpadModalOpen ||
       isThemeModalOpen
     ) {
       return;
@@ -1262,6 +1265,7 @@ export default function App() {
     isCurriculumModalOpen,
     isPostureModalOpen,
     isVietnameseGuideOpen,
+    isNumpadModalOpen,
     isThemeModalOpen,
   ]);
 
@@ -1396,11 +1400,42 @@ export default function App() {
 
   return (
     <div
-      className="h-screen max-h-screen w-screen overflow-hidden bg-gradient-to-b from-sky-100 via-sky-50 to-amber-50 text-slate-800 flex flex-col justify-between selection:bg-amber-300 selection:text-slate-900 font-sans"
+      className="h-[100dvh] max-h-[100dvh] w-screen overflow-hidden bg-gradient-to-b from-sky-100 via-sky-50 to-amber-50 text-slate-800 flex flex-col justify-between selection:bg-amber-300 selection:text-slate-900 font-sans"
     >
+      {/* BANNER AI TỰ ĐỘNG NHẬN DIỆN ĐỘ PHÂN GIẢI & CĂN CHỈNH VỪA KHÍT (SMART AUTO-FIT VIEWPORT) */}
+      {aiDetectedBanner && (
+        <div
+          onClick={openAiModal}
+          className="fixed top-12 left-1/2 -translate-x-1/2 z-50 bg-gradient-to-r from-slate-950 via-indigo-950 to-slate-950 text-white px-4 py-2 rounded-2xl shadow-2xl border-2 border-indigo-400 backdrop-blur-md flex items-center gap-2.5 animate-in fade-in slide-in-from-top-4 duration-300 max-w-xl text-center select-none cursor-pointer hover:border-indigo-300 transition-all"
+          title="Bấm để xem chi tiết thông số AI Auto-Fit"
+        >
+          <span className="text-xl shrink-0 animate-bounce">🤖</span>
+          <div className="flex flex-col text-left">
+            <span className="text-xs font-black text-amber-300 flex items-center gap-1.5">
+              <span>AI Smart Auto-Fit: Đã tự động nhận diện màn hình ({smartViewport.detectedResolutionLabel})</span>
+              <span className="text-[9px] bg-emerald-600 text-white px-1.5 py-0.2 rounded-full font-bold">Vừa Khít 100%</span>
+            </span>
+            <span className="text-[11px] text-slate-200 font-medium">
+              Tự động co dãn tỷ lệ layout, font chữ & bàn phím ảo vừa khít hoàn hảo trong một khung nhìn • Không cuộn trang!
+            </span>
+          </div>
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              dismissBanner();
+            }}
+            className="ml-2 text-slate-400 hover:text-white text-xs font-black p-1 rounded-lg hover:bg-white/10 cursor-pointer"
+            title="Đóng thông báo"
+          >
+            ✕
+          </button>
+        </div>
+      )}
+
       {/* Toast thông báo khi tự động điều chỉnh hiển thị phủ kín màn hình tương thích độ phân giải */}
       {screenFitToast && (
-        <div className="fixed top-12 left-1/2 -translate-x-1/2 z-50 bg-slate-950/95 text-white px-4 py-1.5 rounded-xl shadow-2xl border border-indigo-400 backdrop-blur-md flex items-center gap-2 animate-in fade-in slide-in-from-top-4 duration-200">
+        <div className="fixed top-12 left-1/2 -translate-x-1/2 z-50 bg-slate-950/95 text-white px-4 py-1.5 rounded-xl shadow-2xl border border-indigo-400 backdrop-blur-md flex items-center gap-2 animate-in fade-in slide-in-from-top-4 duration-200 select-none">
           <span className="text-base">🖥️</span>
           <span className="text-xs font-black text-indigo-200">{screenFitToast}</span>
         </div>
@@ -1500,6 +1535,16 @@ export default function App() {
           >
             <span>📢 Tắt Unikey</span>
           </button>
+
+          {/* Numpad Ten-Key Typing Guide Modal Button */}
+          <button
+            type="button"
+            onClick={() => setIsNumpadModalOpen(true)}
+            className="px-2 py-1 rounded-lg bg-emerald-100 hover:bg-emerald-200 text-emerald-950 text-xs font-black flex items-center gap-1 transition-all cursor-pointer border border-emerald-300 shadow-2xs"
+            title="Xem quy tắc gõ cụm bàn phím số Numpad (Phương pháp Ten-Key Typing)"
+          >
+            <span>🖩 Phím Số Numpad</span>
+          </button>
         </div>
 
         {/* CLUSTER 3: CÔNG CỤ GIÁO VIÊN, BÀN PHÍM, GAME & PHỦ KÍN MÀN HÌNH */}
@@ -1541,6 +1586,18 @@ export default function App() {
             <span>🎮 Đấu Trường</span>
           </button>
 
+          {/* HUY HIỆU AI TỰ ĐỘNG CĂN CHỈNH VỪA KHÍT (SMART AUTO-FIT VIEWPORT) */}
+          <button
+            type="button"
+            onClick={openAiModal}
+            className="flex items-center gap-1.5 px-2 py-1 rounded-lg bg-indigo-50 hover:bg-indigo-100 text-indigo-900 text-xs font-black transition-all cursor-pointer border border-indigo-200 shadow-2xs active:scale-95"
+            title={`AI Smart Auto-Fit: Đang tự động nhận diện màn hình ${smartViewport.detectedResolutionLabel} (${smartViewport.windowWidth}×${smartViewport.windowHeight}px) • Bấm để xem phân tích AI`}
+          >
+            <span className="text-xs">🤖</span>
+            <span className="text-[10px] text-indigo-700 font-mono font-black hidden md:inline">{smartViewport.detectedResolutionLabel}</span>
+            <span className="text-[9px] bg-emerald-600 text-white px-1.5 py-0.2 rounded-sm font-bold">Fit 100%</span>
+          </button>
+
           {/* NÚT PHỦ KÍN MÀN HÌNH / 1366x768 */}
           <button
             type="button"
@@ -1550,7 +1607,7 @@ export default function App() {
                 ? 'bg-indigo-700 text-white border-indigo-900 shadow-inner'
                 : 'bg-white hover:bg-slate-100 text-indigo-950 border-indigo-200'
             }`}
-            title="Tự động căn chỉnh toàn bộ giao diện vừa khít 1366x768px"
+            title={`Tự động co dãn giao diện vừa khít tuyệt đối với độ phân giải ${smartViewport.detectedResolutionLabel}`}
           >
             {isFullscreenAdaptive ? (
               <Minimize className="w-3 h-3 text-amber-300" />
@@ -1771,6 +1828,9 @@ export default function App() {
                 onToggleKeyboardImeMode={handleToggleKeyboardImeMode}
                 alternativeAllowedKeys={smartTelexNextInfo?.nextAcceptableKeys}
                 smartHintExplanation={smartTelexNextInfo?.hintExplanationVi}
+                sgkBoxHeight={smartViewport.sgkBoxHeight}
+                inputBoxHeight={smartViewport.inputBoxHeight}
+                isCompactHeight={smartViewport.isCompactHeight}
               />
             </section>
 
@@ -1790,6 +1850,9 @@ export default function App() {
                 handsStyle={settings.handsStyle}
                 theme={currentKeyboardTheme}
                 onOpenThemeModal={() => setIsThemeModalOpen(true)}
+                isCompactHeight={smartViewport.isCompactHeight}
+                maxUnitSize={smartViewport.keyboardMaxUnitSize}
+                suggestedKeyHeight={smartViewport.keyboardKeyHeight}
               />
             </section>
 
@@ -1850,6 +1913,7 @@ export default function App() {
               <section aria-label="Ảnh sách giáo khoa về bài gõ" className="w-full shrink-0">
                 <TextbookIllustrationCard
                   lesson={activeLesson}
+                  isCompactHeight={smartViewport.isCompactHeight}
                   onOpenTeacherModal={() => {
                     setEditingLessonForModal(activeLesson);
                     setIsTeacherModalOpen(true);
@@ -2150,6 +2214,17 @@ export default function App() {
         onClose={() => setIsPostureModalOpen(false)}
       />
 
+      {/* Numpad Ten-Key Typing Guide Modal */}
+      <NumpadGuideModal
+        isOpen={isNumpadModalOpen}
+        onClose={() => setIsNumpadModalOpen(false)}
+        onSelectLesson={(lesson) => {
+          setCustomLesson(lesson);
+          if (lesson.gradeLevel) setSelectedGrade(lesson.gradeLevel);
+          setIsNumpadModalOpen(false);
+        }}
+      />
+
       {/* 5 Typing Games Hub (Chú khỉ leo núi, Bóng bay, Khu vườn âm nhạc, Kho báu, Giao hàng) */}
       {isGameModalOpen && (
         <MultiGameHub
@@ -2203,6 +2278,16 @@ export default function App() {
         onClose={() => setIsThemeModalOpen(false)}
         currentThemeId={currentKeyboardTheme.id}
         onSelectTheme={handleSelectTheme}
+      />
+
+      {/* AI Smart Auto-Fit Viewport Details Modal */}
+      <SmartViewportModal
+        isOpen={isAiModalOpen}
+        onClose={closeAiModal}
+        metrics={smartViewport}
+        onRefresh={refreshViewport}
+        onToggleFullscreen={handleToggleFullscreenFit}
+        isFullscreen={isFullscreenAdaptive}
       />
 
       {/* MÀN HÌNH TỔNG KẾT & KHEN THƯỞNG KHI HOÀN THÀNH BÀI GÕ (Điểm số, Kỹ năng, Hoa rơi & Tiếng vỗ tay) */}

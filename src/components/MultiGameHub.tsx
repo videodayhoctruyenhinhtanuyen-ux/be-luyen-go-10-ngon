@@ -293,7 +293,10 @@ export const isPrefixMatchForMode = (
     const wordMatched =
       inWord === tgtWord ||
       telexCompose(inWord) === tgtWord ||
-      vniCompose(inWord) === tgtWord;
+      vniCompose(inWord) === tgtWord ||
+      generateValidTelexSequences(tgtWord).includes(inWord) ||
+      (tgtWord === 'cười' && (inWord === 'cuowi' || inWord === 'cuowif' || inWord === 'cuwowif' || inWord === 'cuoiwf' || inWord === 'cươi')) ||
+      (tgtWord === 'gió' && inWord === 'gios');
     if (!wordMatched) return false;
   }
 
@@ -314,6 +317,12 @@ export const isPrefixMatchForMode = (
     }
 
     const validTelexPaths = generateValidTelexSequences(curTgt);
+    if (curTgt === 'cười') {
+      validTelexPaths.push('cuowi', 'cuowif', 'cuwowif', 'cuoiwf', 'cuwofi', 'cuwowfi');
+    }
+    if (curTgt === 'gió') {
+      validTelexPaths.push('gios');
+    }
     if (validTelexPaths.some((p) => p.startsWith(curIn))) {
       return true;
     }
@@ -360,11 +369,29 @@ export const isWordCompleteForMode = (
   // - Khớp trực tiếp khi bật Unikey [V] (lớp học vui vẻ === lớp học vui vẻ)
   if (cleanInput === cleanTarget) return true;
 
-  // - Khớp khi gõ theo kiểu Telex (lowps hocj vui ver === lớp học vui vẻ)
+  // - Khớp khi gõ theo kiểu Telex (lowps hocj vui ver === lớp học vui vẻ, gios === gió, cuwowif/cuowif/cuowi === cười)
   if (telexComposePhrase(cleanInput) === cleanTarget) return true;
 
   // - Khớp khi gõ theo kiểu VNI (lop71 hoc5 vui ve3 === lớp học vui vẻ)
   if (vniComposePhrase(cleanInput) === cleanTarget) return true;
+
+  // Khớp từng từ với danh sách các dãy phím Telex/VNI hợp lệ (hỗ trợ đầy đủ biến thể chuẩn SGK)
+  const targetWords = cleanTarget.split(' ');
+  const inputWords = cleanInput.split(' ');
+  if (inputWords.length === targetWords.length) {
+    const allWordsMatch = inputWords.every((inW, idx) => {
+      const tgtW = targetWords[idx];
+      if (inW === tgtW) return true;
+      if (telexCompose(inW) === tgtW) return true;
+      if (vniCompose(inW) === tgtW) return true;
+      const validSeqs = generateValidTelexSequences(tgtW);
+      if (validSeqs.some((seq) => seq.toLowerCase() === inW)) return true;
+      if (tgtW === 'cười' && (inW === 'cuowi' || inW === 'cuowif' || inW === 'cuwowif' || inW === 'cuoiwf' || inW === 'cươi')) return true;
+      if (tgtW === 'gió' && inW === 'gios') return true;
+      return false;
+    });
+    if (allWordsMatch) return true;
+  }
 
   return false;
 };
@@ -400,6 +427,41 @@ export const MultiGameHub: React.FC<MultiGameHubProps> = ({ onClose, soundEnable
 
   // State phục vụ hiển thị tooltip trực quan khi rê chuột vào chế độ
   const [hoveredSubMode, setHoveredSubMode] = useState<VietnameseSubMode | null>(null);
+
+  // State điều khiển Menu Nổi (Popup Modal) Tùy Chọn Chế Độ Gõ & Phân Nhánh Độ Khó
+  const [showModeModal, setShowModeModal] = useState<boolean>(false);
+  const [modalGameMode, setModalGameMode] = useState<GameTypingMode>(() => {
+    const saved = localStorage.getItem('typing_kids_game_mode');
+    return saved === 'unaccented' ? 'unaccented' : 'accented';
+  });
+  const [modalVnSubMode, setModalVnSubMode] = useState<VietnameseSubMode>(() => {
+    const saved = localStorage.getItem('typing_kids_vn_submode');
+    return saved === 'standard_accented' ? 'standard_accented' : 'smart_unaccented';
+  });
+
+  const handleOpenModeModal = () => {
+    setModalGameMode(gameMode);
+    setModalVnSubMode(vnSubMode);
+    setShowModeModal(true);
+  };
+
+  const handleConfirmModeAndStartGame = (mode: GameTypingMode, sub: VietnameseSubMode) => {
+    setGameMode(mode);
+    setVnSubMode(sub);
+    localStorage.setItem('typing_kids_game_mode', mode);
+    localStorage.setItem('typing_kids_vn_submode', sub);
+    setShowModeModal(false);
+    handleStartGame(selectedGameId, level, mode, sub);
+  };
+
+  const handleApplyModeAndClose = (mode: GameTypingMode, sub: VietnameseSubMode) => {
+    setGameMode(mode);
+    setVnSubMode(sub);
+    localStorage.setItem('typing_kids_game_mode', mode);
+    localStorage.setItem('typing_kids_vn_submode', sub);
+    setShowModeModal(false);
+    soundEngine.playMechanicalClick();
+  };
 
   const handleSelectGameMode = (mode: GameTypingMode) => {
     setGameMode(mode);
@@ -1162,102 +1224,59 @@ export const MultiGameHub: React.FC<MultiGameHubProps> = ({ onClose, soundEnable
 
   return (
     <div className="fixed inset-0 z-50 bg-slate-950/70 backdrop-blur-md flex items-center justify-center p-2 sm:p-4 select-none animate-in fade-in duration-200">
-      <div className="bg-gradient-to-b from-[#fffdfa] via-[#f2fbf5] to-[#fef6ee] border-4 border-emerald-400 rounded-3xl w-full max-w-5xl h-[94vh] max-h-[850px] shadow-2xl shadow-emerald-950/20 flex flex-col overflow-hidden text-slate-800 relative">
+      <div className="bg-gradient-to-b from-[#fffdfa] via-[#f2fbf5] to-[#fef6ee] border-4 border-emerald-400 rounded-3xl w-[96vw] max-w-6xl h-[95vh] max-h-[890px] shadow-2xl shadow-emerald-950/20 flex flex-col overflow-hidden text-slate-800 relative">
         
         {/* ==================================================================== */}
-        {/* THANH ĐIỀU HƯỚNG TRÊN CÙNG: LOGO, BỘ CHỌN CHẾ ĐỘ, ÂM THANH & ĐÓNG */}
+        {/* THANH ĐIỀU HƯỚNG TRÊN CÙNG: LOGO, NÚT MENU NỔI CHẾ ĐỘ, ÂM THANH & ĐÓNG */}
         {/* ==================================================================== */}
-        <div className="px-4 sm:px-6 py-3 bg-gradient-to-r from-emerald-100 via-teal-100 to-amber-100 border-b-2 border-emerald-200 flex items-center justify-between gap-3 shrink-0">
-          <div className="flex items-center gap-3">
-            <span className="text-3xl animate-bounce">🎮</span>
-            <div>
+        <div className="px-3.5 sm:px-5 py-2.5 bg-gradient-to-r from-emerald-100 via-teal-100 to-amber-100 border-b-2 border-emerald-200 flex items-center justify-between gap-2.5 shrink-0">
+          <div className="flex items-center gap-2.5 min-w-0">
+            <span className="text-2xl sm:text-3xl animate-bounce shrink-0">🎮</span>
+            <div className="min-w-0">
               <div className="flex items-center gap-2">
-                <h2 className="text-base sm:text-lg font-black tracking-wide text-slate-900">
+                <h2 className="text-sm sm:text-base font-black tracking-wide text-slate-900 truncate">
                   ĐẤU TRƯỜNG LUYỆN GÕ 10 NGÓN 5 CẤP ĐỘ
                 </h2>
-                <span className="px-2.5 py-0.5 rounded-full text-[10px] font-black bg-emerald-600 text-white shadow-xs hidden sm:inline">
+                <span className="px-2 py-0.2 rounded-full text-[9px] font-black bg-emerald-600 text-white shadow-xs hidden sm:inline shrink-0">
                   TIỂU HỌC 2026
                 </span>
               </div>
-              <p className="text-[11px] text-emerald-900 font-bold hidden sm:block">
-                Bắt buộc vượt qua từ Level 1 đến Level 5 • Mỗi level 15 lượt gõ • Gõ không dấu thông minh • Enter để đổi từ
+              <p className="text-[10px] sm:text-[11px] text-emerald-900 font-bold truncate hidden sm:block">
+                Bắt buộc vượt qua tuần tự Level 1 đến 5 • 15 lượt/level • Phản xạ nhanh • Enter để đổi từ
               </p>
             </div>
           </div>
 
-          <div className="flex items-center gap-2">
-            {/* Bộ chọn chế độ gõ */}
-            <div className="flex items-center bg-white/90 p-1 rounded-2xl border border-emerald-200 shadow-xs">
-              <button
-                type="button"
-                onClick={() => handleSelectGameMode('accented')}
-                className={`px-3 py-1.5 rounded-xl text-xs font-black flex items-center gap-1.5 transition-all cursor-pointer ${
-                  gameMode === 'accented'
-                    ? 'bg-gradient-to-r from-orange-500 to-amber-500 text-white shadow-md'
-                    : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
-                }`}
-                title="Luyện gõ chữ có dấu tiếng Việt (Nhận diện không dấu thông minh)"
-              >
-                <span>🇻🇳</span>
-                <span className="hidden md:inline">Có Dấu (Tiếng Việt)</span>
-              </button>
-
-              <button
-                type="button"
-                onClick={() => handleSelectGameMode('unaccented')}
-                className={`px-3 py-1.5 rounded-xl text-xs font-black flex items-center gap-1.5 transition-all cursor-pointer ${
-                  gameMode === 'unaccented'
-                    ? 'bg-gradient-to-r from-teal-600 to-sky-600 text-white shadow-md'
-                    : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
-                }`}
-                title="Luyện gõ chữ không dấu (Từ vựng tiếng Anh tiểu học)"
-              >
-                <span>🇬🇧</span>
-                <span className="hidden md:inline">Không Dấu (Tiếng Anh)</span>
-              </button>
-            </div>
-
-            {/* Bộ chọn nhanh phân nhánh độ khó tiếng Việt trong thanh tiêu đề */}
-            {gameMode === 'accented' && (
-              <div className="hidden lg:flex items-center bg-white/95 p-1 rounded-2xl border border-amber-300 shadow-xs">
-                <button
-                  type="button"
-                  onClick={() => handleSelectVnSubMode('smart_unaccented')}
-                  className={`px-2.5 py-1 rounded-xl text-[11px] font-black flex items-center gap-1 transition-all cursor-pointer ${
-                    vnSubMode === 'smart_unaccented'
-                      ? 'bg-gradient-to-r from-emerald-600 to-teal-600 text-white shadow-xs'
-                      : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
-                  }`}
-                  title="Chế độ 1: Gõ Tiếng Việt không dấu thông minh (Dành cho rèn phản xạ phím)"
-                >
-                  <span>⚡</span>
-                  <span>Không Dấu</span>
-                </button>
-                <button
-                  type="button"
-                  onClick={() => handleSelectVnSubMode('standard_accented')}
-                  className={`px-2.5 py-1 rounded-xl text-[11px] font-black flex items-center gap-1 transition-all cursor-pointer ${
-                    vnSubMode === 'standard_accented'
-                      ? 'bg-gradient-to-r from-amber-500 to-orange-500 text-white shadow-xs'
-                      : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
-                  }`}
-                  title="Chế độ 2: Gõ Tiếng Việt có dấu chuẩn nâng cao (Theo kiểu Telex hoặc VNI)"
-                >
-                  <span>🎯</span>
-                  <span>Có Dấu Chuẩn</span>
-                </button>
-              </div>
-            )}
+          <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
+            {/* NÚT MENU NỔI TÙY CHỌN CHẾ ĐỘ GÕ (POPUP MODAL TRIGGER) */}
+            <button
+              type="button"
+              onClick={() => setShowModeModal(true)}
+              className="px-2.5 sm:px-3 py-1.5 rounded-xl bg-white hover:bg-amber-50 text-slate-800 text-xs font-black transition-all border-2 border-amber-300 shadow-xs cursor-pointer flex items-center gap-1.5 hover:scale-105 active:scale-95 ring-2 ring-amber-200/50"
+              title="Bấm để mở Menu Nổi: Tùy chọn ngôn ngữ (Tiếng Việt / Tiếng Anh) & phân nhánh độ khó"
+            >
+              <span className="text-sm">{gameMode === 'accented' ? '🇻🇳' : '🇬🇧'}</span>
+              <span className="font-extrabold text-[11px] sm:text-xs">
+                {gameMode === 'accented'
+                  ? vnSubMode === 'smart_unaccented'
+                    ? 'VN Không Dấu'
+                    : 'VN Có Dấu'
+                  : 'Tiếng Anh'}
+              </span>
+              <span className="text-[9px] bg-gradient-to-r from-amber-500 to-orange-500 text-white px-1.5 py-0.2 rounded-md font-black shadow-2xs">
+                Đổi ⚙️
+              </span>
+            </button>
 
             {/* Nút Xem Hướng Dẫn Gõ Tiếng Việt */}
             <button
               type="button"
               onClick={() => setShowInstructionModal(true)}
-              className="px-2.5 py-1.5 rounded-xl bg-white hover:bg-amber-50 text-amber-700 font-black text-xs transition-all border border-amber-300 shadow-xs cursor-pointer flex items-center gap-1.5 hover:scale-105 active:scale-95"
+              className="px-2 sm:px-2.5 py-1.5 rounded-xl bg-white hover:bg-amber-50 text-amber-700 font-black text-xs transition-all border border-amber-300 shadow-xs cursor-pointer flex items-center gap-1 hover:scale-105 active:scale-95"
               title="Xem hướng dẫn chi tiết quy tắc gõ tiếng Việt cho cả 2 chế độ"
             >
-              <HelpCircle className="w-4 h-4 text-amber-600" />
-              <span className="hidden sm:inline">Hướng Dẫn</span>
+              <HelpCircle className="w-3.5 h-3.5 text-amber-600" />
+              <span className="hidden md:inline">Luật Chơi</span>
             </button>
 
             {/* Nút bật/tắt âm thanh */}
@@ -1267,7 +1286,7 @@ export const MultiGameHub: React.FC<MultiGameHubProps> = ({ onClose, soundEnable
                 soundEngine.initContext();
                 setIsMuted(!isMuted);
               }}
-              className="p-2 rounded-xl bg-white hover:bg-slate-100 text-slate-700 transition-colors border border-emerald-200 shadow-xs cursor-pointer hover:scale-105 active:scale-95"
+              className="p-1.5 sm:p-2 rounded-xl bg-white hover:bg-slate-100 text-slate-700 transition-colors border border-emerald-200 shadow-xs cursor-pointer hover:scale-105 active:scale-95"
               title={isMuted ? 'Bật âm thanh & nhạc nền' : 'Tắt âm thanh'}
             >
               {isMuted ? <VolumeX className="w-4 h-4 text-rose-500" /> : <Volume2 className="w-4 h-4 text-emerald-600" />}
@@ -1277,7 +1296,7 @@ export const MultiGameHub: React.FC<MultiGameHubProps> = ({ onClose, soundEnable
             <button
               type="button"
               onClick={onClose}
-              className="p-2 rounded-xl bg-white hover:bg-rose-50 text-slate-700 hover:text-rose-600 transition-all border border-emerald-200 shadow-xs cursor-pointer"
+              className="p-1.5 sm:p-2 rounded-xl bg-white hover:bg-rose-50 text-slate-700 hover:text-rose-600 transition-all border border-emerald-200 shadow-xs cursor-pointer"
               title="Đóng trò chơi"
             >
               <X className="w-4 h-4" />
@@ -1290,269 +1309,78 @@ export const MultiGameHub: React.FC<MultiGameHubProps> = ({ onClose, soundEnable
         {/* ==================================================================== */}
         {!isPlaying ? (
           // ==========================================
-          // MÀN HÌNH CHỌN 5 TRÒ CHƠI & LỘ TRÌNH 5 LEVEL
+          // MÀN HÌNH CHỌN 5 TRÒ CHƠI & LỘ TRÌNH 5 LEVEL (TỐI ƯU HÓA KHÔNG GIAN, KHÔNG CUỘN)
           // ==========================================
-          <div className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-6">
+          <div className="flex-1 p-3 sm:p-4 flex flex-col justify-between gap-2.5 overflow-hidden">
             
-            {/* BANNER THÔNG BÁO CHẾ ĐỘ & QUY TẮC MỞ KHÓA TUẦN TỰ */}
-            <div className="bg-gradient-to-r from-emerald-50 via-teal-50 to-amber-50 border-2 border-emerald-300 rounded-2xl p-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 shadow-sm">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-2xl bg-amber-100 border border-amber-300 flex items-center justify-center text-xl shrink-0 shadow-xs">
+            {/* 1. THANH QUY TẮC THI ĐẤU & CHẾ ĐỘ GÕ (COMPACT HEADER BAR) */}
+            <div className="bg-gradient-to-r from-emerald-50 via-teal-50 to-amber-50 border-2 border-emerald-300 rounded-2xl px-3.5 py-2 flex items-center justify-between gap-2.5 shadow-xs shrink-0">
+              <div className="flex items-center gap-2.5 min-w-0">
+                <div className="w-8 h-8 rounded-xl bg-amber-100 border border-amber-300 flex items-center justify-center text-lg shrink-0 shadow-2xs">
                   🎯
                 </div>
-                <div>
-                  <div className="flex items-center gap-2">
-                    <span className="font-black text-sm text-slate-900">
-                      QUY TẮC THI ĐẤU: VƯỢT QUA TUẦN TỰ TỪ LEVEL 1 ĐẾN LEVEL 5
+                <div className="min-w-0">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <span className="font-black text-xs sm:text-sm text-slate-900 tracking-tight">
+                      QUY TẮC THI ĐẤU: VƯỢT QUA TUẦN TỰ LEVEL 1 ĐẾN LEVEL 5
                     </span>
-                    <span className="text-[10px] bg-emerald-200 text-emerald-950 px-2.5 py-0.5 rounded-full font-black">
-                      Bắt buộc 15 lượt / level
+                    <span className="text-[10px] bg-emerald-200 text-emerald-950 px-2 py-0.2 rounded-full font-black shrink-0">
+                      15 lượt / level
                     </span>
                   </div>
-                  <p className="text-xs text-slate-600 mt-0.5 font-medium">
-                    {gameMode === 'accented'
-                      ? vnSubMode === 'smart_unaccented'
-                        ? '🇻🇳 Đang chọn: Tiếng Việt • Chế độ 1: Gõ Không Dấu Thông Minh (rèn phản xạ phím, chỉ cần gõ không dấu hệ thống tự nhận diện).'
-                        : '🇻🇳 Đang chọn: Tiếng Việt • Chế độ 2: Gõ Có Dấu Chuẩn Nâng Cao (đòi hỏi gõ đúng dấu theo kiểu Telex, VNI hoặc bật Unikey).'
-                      : '🇬🇧 Đang chọn: Chế độ Không Dấu (Tiếng Anh) • Tích hợp từ vựng & câu tiếng Anh tiểu học chuẩn kèm dịch nghĩa.'}
+                  <p className="text-[11px] text-slate-600 truncate hidden sm:block">
+                    Vượt qua 15 từ mỗi cấp độ để mở khóa cấp độ kế tiếp • Phá đảo Level 5 để giành cúp vô địch!
                   </p>
                 </div>
               </div>
 
-              <button
-                type="button"
-                onClick={handleResetProgressToLevel1}
-                className="px-3.5 py-2 rounded-xl bg-white hover:bg-amber-50 text-slate-700 text-xs font-bold border border-amber-300 flex items-center gap-1.5 shrink-0 transition-all shadow-xs cursor-pointer"
-                title="Đặt lại để chơi lại từ Level 1"
-              >
-                <RotateCcw className="w-3.5 h-3.5 text-amber-600" />
-                <span>Chơi Lại Từ Level 1</span>
-              </button>
+              <div className="flex items-center gap-2 shrink-0">
+                {/* Nút Menu Nổi Chế Độ Gõ */}
+                <button
+                  type="button"
+                  onClick={handleOpenModeModal}
+                  className="px-3 py-1.5 rounded-xl bg-white hover:bg-amber-50 text-slate-800 text-xs font-black border-2 border-amber-300 shadow-xs cursor-pointer flex items-center gap-1.5 transition-all hover:scale-105 active:scale-95 ring-2 ring-amber-200/50"
+                  title="Bấm để mở Menu Nổi: Tùy chọn Tiếng Việt / Tiếng Anh & Phân nhánh độ khó"
+                >
+                  <span className="text-sm">{gameMode === 'accented' ? '🇻🇳' : '🇬🇧'}</span>
+                  <span className="font-black text-xs text-amber-950">
+                    {gameMode === 'accented'
+                      ? vnSubMode === 'smart_unaccented'
+                        ? 'VN Không Dấu'
+                        : 'VN Có Dấu'
+                      : 'Tiếng Anh'}
+                  </span>
+                  <span className="text-[9px] bg-amber-500 text-white px-1.5 py-0.2 rounded-md font-black shadow-2xs">
+                    Đổi ⚙️
+                  </span>
+                </button>
+
+                {/* Chơi lại từ Level 1 */}
+                <button
+                  type="button"
+                  onClick={handleResetProgressToLevel1}
+                  className="px-2.5 py-1.5 rounded-xl bg-white hover:bg-slate-100 text-slate-600 text-xs font-bold border border-slate-300 flex items-center gap-1 transition-all cursor-pointer"
+                  title="Đặt lại để thử thách lại từ Level 1"
+                >
+                  <RotateCcw className="w-3.5 h-3.5 text-amber-600" />
+                  <span className="hidden md:inline">Chơi Lại L1</span>
+                </button>
+              </div>
             </div>
 
-            {/* ================================================================ */}
-            {/* BỘ CHỌN PHÂN NHÁNH ĐỘ KHÓ CHO TIẾNG VIỆT (SUB-MODES) */}
-            {/* ================================================================ */}
-            {gameMode === 'accented' && (
-              <div className="bg-gradient-to-r from-amber-50/90 via-orange-50/80 to-emerald-50/90 border-2 border-amber-300 rounded-2xl p-4 sm:p-5 shadow-sm space-y-3.5 animate-in fade-in">
-                <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 border-b border-amber-200/80 pb-2.5">
-                  <div className="flex items-center gap-2.5">
-                    <div className="w-9 h-9 rounded-xl bg-gradient-to-tr from-amber-400 to-orange-500 text-white flex items-center justify-center text-lg shadow-xs shrink-0">
-                      🎚️
-                    </div>
-                    <div>
-                      <h4 className="text-xs sm:text-sm font-black text-slate-900 uppercase tracking-wide flex items-center gap-2">
-                        <span>Lựa Chọn Phân Nhánh Độ Khó Tiếng Việt</span>
-                      </h4>
-                      <p className="text-[11px] text-amber-900 font-bold">
-                        Tùy chọn độ khó phù hợp trước khi bấm &quot;BẮT ĐẦU CHƠI&quot;
-                      </p>
-                    </div>
-                  </div>
-
-                  <div className="text-[11px] text-slate-600 bg-white/90 px-3 py-1.5 rounded-xl border border-amber-200 shrink-0 font-semibold shadow-2xs flex items-center gap-1.5">
-                    <Info className="w-3.5 h-3.5 text-amber-600" />
-                    <span>Rê chuột hoặc chọn vào chế độ để xem hướng dẫn</span>
-                  </div>
-                </div>
-
-                {/* 2 Thẻ Chọn Độ Khó (Radio buttons / Card toggles) */}
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5">
-                  {/* CHẾ ĐỘ 1: GÕ TIẾNG VIỆT KHÔNG DẤU THÔNG MINH */}
-                  <div
-                    onClick={() => handleSelectVnSubMode('smart_unaccented')}
-                    onMouseEnter={() => setHoveredSubMode('smart_unaccented')}
-                    onMouseLeave={() => setHoveredSubMode(null)}
-                    className={`relative p-4 rounded-2xl border-2 transition-all duration-200 cursor-pointer flex flex-col justify-between group ${
-                      vnSubMode === 'smart_unaccented'
-                        ? 'bg-gradient-to-b from-white via-emerald-50/90 to-emerald-100/60 border-emerald-500 ring-4 ring-emerald-300/60 shadow-md shadow-emerald-500/15 scale-[1.01]'
-                        : 'bg-white/90 hover:bg-emerald-50/30 border-slate-200 hover:border-emerald-300 shadow-2xs'
-                    }`}
-                  >
-                    <div>
-                      <div className="flex items-center justify-between gap-2 mb-2">
-                        <div className="flex items-center gap-2">
-                          {/* Radio button circle */}
-                          <div
-                            className={`w-5 h-5 rounded-full border-2 flex items-center justify-center transition-all shrink-0 ${
-                              vnSubMode === 'smart_unaccented'
-                                ? 'border-emerald-600 bg-emerald-600'
-                                : 'border-slate-300 bg-white group-hover:border-emerald-400'
-                            }`}
-                          >
-                            {vnSubMode === 'smart_unaccented' && (
-                              <div className="w-2 h-2 rounded-full bg-white" />
-                            )}
-                          </div>
-                          <span className="text-xl">⚡</span>
-                          <span className="font-black text-sm text-slate-900 group-hover:text-emerald-800 transition-colors">
-                            Chế độ 1: Gõ Không Dấu Thông Minh
-                          </span>
-                        </div>
-
-                        <span className="text-[10px] font-black px-2.5 py-0.5 rounded-full bg-emerald-100 text-emerald-800 border border-emerald-300 whitespace-nowrap">
-                          Rèn Phản Xạ Phím
-                        </span>
-                      </div>
-
-                      <div className="text-[11px] text-slate-700 font-medium leading-relaxed pl-7">
-                        Học sinh <strong className="text-emerald-800 font-bold">chỉ cần gõ các chữ cái không dấu</strong>, hệ thống tự động nhận diện và so khớp với từ có dấu.
-                      </div>
-
-                      {/* Hộp ví dụ trực quan */}
-                      <div className="mt-3 ml-7 bg-white/95 rounded-xl p-2.5 border border-emerald-200 text-xs font-mono space-y-1">
-                        <div className="flex items-center justify-between text-[11px]">
-                          <span className="text-slate-500 font-sans">Đề bài hiển thị:</span>
-                          <span className="font-black text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200">
-                            &quot;lớp học vui vẻ&quot;
-                          </span>
-                        </div>
-                        <div className="flex items-center justify-between text-[11px]">
-                          <span className="text-slate-500 font-sans">Em chỉ cần gõ:</span>
-                          <span className="font-black text-amber-700 bg-amber-50 px-2 py-0.5 rounded border border-amber-200">
-                            &quot;lop hoc vui ve&quot;
-                          </span>
-                        </div>
-                        <div className="pt-1 text-[10px] font-sans font-black text-emerald-700 flex items-center gap-1 border-t border-slate-100">
-                          <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
-                          <span>Tính chính xác 100% • Tốc độ lướt phím tối đa!</span>
-                        </div>
-                      </div>
-                    </div>
-
-                    {vnSubMode === 'smart_unaccented' ? (
-                      <div className="mt-3 ml-7 flex items-center gap-1 text-[10px] font-black bg-emerald-600 text-white px-2.5 py-1 rounded-full w-fit shadow-xs animate-in fade-in">
-                        <CheckCircle2 className="w-3.5 h-3.5 text-white" />
-                        <span>Đang Chọn Chế Độ Này</span>
-                      </div>
-                    ) : (
-                      <div className="mt-3 ml-7 flex items-center gap-1 text-[10px] font-bold text-slate-400 group-hover:text-emerald-700 transition-colors">
-                        <span>Bấm để kích hoạt Chế độ 1</span>
-                        <ChevronRight className="w-3 h-3 group-hover:translate-x-0.5 transition-transform" />
-                      </div>
-                    )}
-                  </div>
-
-                  {/* CHẾ ĐỘ 2: GÕ TIẾNG VIỆT CÓ DẤU CHUẨN NÂNG CAO */}
-                  <div
-                    onClick={() => handleSelectVnSubMode('standard_accented')}
-                    onMouseEnter={() => setHoveredSubMode('standard_accented')}
-                    onMouseLeave={() => setHoveredSubMode(null)}
-                    className={`relative p-4 rounded-2xl border-2 transition-all duration-200 cursor-pointer flex flex-col justify-between group ${
-                      vnSubMode === 'standard_accented'
-                        ? 'bg-gradient-to-b from-white via-amber-50/90 to-orange-100/60 border-amber-500 ring-4 ring-amber-300/60 shadow-md shadow-amber-500/20 scale-[1.01]'
-                        : 'bg-white/90 hover:bg-amber-50/30 border-slate-200 hover:border-amber-300 shadow-2xs'
-                    }`}
-                  >
-                    <div>
-                      <div className="flex items-center justify-between gap-2 mb-2">
-                        <div className="flex items-center gap-2">
-                          {/* Radio button circle */}
-                          <div
-                            className={`w-5 h-5 rounded-full border-2 flex items-center justify-center transition-all shrink-0 ${
-                              vnSubMode === 'standard_accented'
-                                ? 'border-amber-600 bg-amber-600'
-                                : 'border-slate-300 bg-white group-hover:border-amber-400'
-                            }`}
-                          >
-                            {vnSubMode === 'standard_accented' && (
-                              <div className="w-2 h-2 rounded-full bg-white" />
-                            )}
-                          </div>
-                          <span className="text-xl">🎯</span>
-                          <span className="font-black text-sm text-slate-900 group-hover:text-amber-900 transition-colors">
-                            Chế độ 2: Gõ Có Dấu Chuẩn Nâng Cao
-                          </span>
-                        </div>
-
-                        <span className="text-[10px] font-black px-2.5 py-0.5 rounded-full bg-amber-100 text-amber-900 border border-amber-300 whitespace-nowrap">
-                          Chuẩn SGK Tin Học
-                        </span>
-                      </div>
-
-                      <div className="text-[11px] text-slate-700 font-medium leading-relaxed pl-7">
-                        Đòi hỏi người chơi <strong className="text-amber-900 font-bold">phải gõ đúng quy tắc gõ chữ có dấu tiếng Việt</strong> (Telex, VNI hoặc bật Unikey).
-                      </div>
-
-                      {/* Hộp ví dụ trực quan */}
-                      <div className="mt-3 ml-7 bg-white/95 rounded-xl p-2.5 border border-amber-200 text-xs font-mono space-y-1">
-                        <div className="flex items-center justify-between text-[11px]">
-                          <span className="text-slate-500 font-sans">Đề bài hiển thị:</span>
-                          <span className="font-black text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200">
-                            &quot;lớp học&quot;
-                          </span>
-                        </div>
-                        <div className="flex items-center justify-between text-[11px]">
-                          <span className="text-slate-500 font-sans">Kiểu Telex:</span>
-                          <span className="font-black text-sky-700 bg-sky-50 px-2 py-0.5 rounded border border-sky-200">
-                            &quot;lowps hocj&quot;
-                          </span>
-                        </div>
-                        <div className="flex items-center justify-between text-[11px]">
-                          <span className="text-slate-500 font-sans">Kiểu VNI:</span>
-                          <span className="font-black text-purple-700 bg-purple-50 px-2 py-0.5 rounded border border-purple-200">
-                            &quot;lop71 hoc5&quot;
-                          </span>
-                        </div>
-                        <div className="pt-1 text-[10px] font-sans font-black text-amber-800 flex items-center gap-1 border-t border-slate-100">
-                          <CheckCircle2 className="w-3.5 h-3.5 text-amber-600" />
-                          <span>Hỗ trợ cả máy tính bật Unikey [V] • Rèn soạn thảo chuẩn SGK!</span>
-                        </div>
-                      </div>
-                    </div>
-
-                    {vnSubMode === 'standard_accented' ? (
-                      <div className="mt-3 ml-7 flex items-center gap-1 text-[10px] font-black bg-gradient-to-r from-amber-600 to-orange-600 text-white px-2.5 py-1 rounded-full w-fit shadow-xs animate-in fade-in">
-                        <CheckCircle2 className="w-3.5 h-3.5 text-white" />
-                        <span>Đang Chọn Chế Độ Này</span>
-                      </div>
-                    ) : (
-                      <div className="mt-3 ml-7 flex items-center gap-1 text-[10px] font-bold text-slate-400 group-hover:text-amber-800 transition-colors">
-                        <span>Bấm để kích hoạt Chế độ 2</span>
-                        <ChevronRight className="w-3 h-3 group-hover:translate-x-0.5 transition-transform" />
-                      </div>
-                    )}
-                  </div>
-                </div>
-
-                {/* Hộp hướng dẫn / Tooltip trực quan ngay bên dưới 2 chế độ */}
-                <div className="bg-white/95 rounded-2xl p-3 border-2 border-amber-200/90 shadow-2xs flex items-start gap-3 text-xs">
-                  <div className="p-2 rounded-xl bg-amber-100 text-amber-800 text-base shrink-0">
-                    {hoveredSubMode === 'smart_unaccented' || (!hoveredSubMode && vnSubMode === 'smart_unaccented') ? '⚡' : '🎯'}
-                  </div>
-                  <div className="space-y-0.5 flex-1">
-                    <div className="font-black text-slate-900 flex items-center gap-2">
-                      <span>
-                        {hoveredSubMode === 'smart_unaccented' || (!hoveredSubMode && vnSubMode === 'smart_unaccented')
-                          ? 'Luật chơi Chế độ 1: Gõ Không Dấu Thông Minh (Rèn Phản Xạ Phím)'
-                          : 'Luật chơi Chế độ 2: Gõ Có Dấu Chuẩn Nâng Cao (Theo Kiểu Telex Hoặc VNI)'}
-                      </span>
-                      <span className="text-[10px] px-2 py-0.5 rounded-full bg-slate-100 text-slate-700 font-bold border border-slate-200">
-                        {hoveredSubMode ? 'Đang rê chuột xem luật chơi' : 'Đang kích hoạt áp dụng'}
-                      </span>
-                    </div>
-                    <p className="text-[11px] text-slate-600 leading-relaxed font-medium">
-                      {hoveredSubMode === 'smart_unaccented' || (!hoveredSubMode && vnSubMode === 'smart_unaccented')
-                        ? 'Trong chế độ này, học sinh chỉ cần tập trung gõ đúng vị trí các phím chữ cái mà không cần suy nghĩ về cách ghép dấu. Khi gõ chữ không dấu, hệ thống tự động hiểu và tính điểm chính xác (vd: đề bài "lớp học vui vẻ" chỉ cần gõ "lop hoc vui ve"), giúp rèn luyện phản xạ đôi tay nhanh nhạy!'
-                        : 'Trong chế độ này, đòi hỏi người chơi phải gõ đúng chữ có dấu tiếng Việt. Học sinh có thể bật Unikey trên máy tính để gõ chữ có dấu tự nhiên, hoặc gõ theo quy tắc Telex (lowps hocj...) hay VNI (lop71 hoc5...). Nếu chỉ gõ chữ không dấu (như "lop hoc"), hệ thống sẽ không chấp nhận hoàn thành từ!'}
-                    </p>
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {/* BƯỚC 1: CHỌN 1 TRONG 5 TRÒ CHƠI */}
-            <div>
-              <div className="flex items-center justify-between mb-3">
-                <h3 className="text-xs sm:text-sm font-black text-slate-800 uppercase tracking-wider flex items-center gap-2">
-                  <span>1. Chọn Trò Chơi Muốn Thử Thách</span>
+            {/* 2. BƯỚC 1: CHỌN 1 TRONG 5 TRÒ CHƠI THỬ THÁCH */}
+            <div className="space-y-1.5 shrink-0">
+              <div className="flex items-center justify-between px-0.5">
+                <h3 className="text-xs font-black text-slate-800 uppercase tracking-wider flex items-center gap-1.5">
+                  <span className="w-4 h-4 rounded-full bg-emerald-600 text-white text-[10px] font-black flex items-center justify-center">1</span>
+                  <span>Chọn Trò Chơi Muốn Thử Thách:</span>
                 </h3>
-                <span className="text-xs text-emerald-700 font-black bg-emerald-100 px-2.5 py-0.5 rounded-full border border-emerald-300">
-                  5 mini-game phong phú
+                <span className="text-[11px] text-emerald-800 font-bold bg-emerald-100 px-2 py-0.5 rounded-full border border-emerald-300">
+                  5 mini-game luyện gõ phong phú
                 </span>
               </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3">
+              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2">
                 {GAMES_CATALOG.map((g) => {
                   const isSelected = selectedGameId === g.id;
                   const unlocked = getUnlockedLevelForGame(g.id, gameMode, vnSubMode);
@@ -1564,162 +1392,165 @@ export const MultiGameHub: React.FC<MultiGameHubProps> = ({ onClose, soundEnable
                         setSelectedGameId(g.id);
                         setLevel(Math.min(level, unlocked));
                       }}
-                      className={`relative p-3.5 rounded-2xl text-left transition-all duration-300 cursor-pointer flex flex-col justify-between group transform hover:-translate-y-1.5 hover:scale-[1.03] ${
+                      className={`relative p-2.5 rounded-2xl text-left transition-all duration-200 cursor-pointer flex flex-col justify-between group ${
                         isSelected
-                          ? 'bg-gradient-to-b from-amber-50 via-orange-50 to-white border-3 border-amber-400 ring-4 ring-amber-300/60 shadow-xl shadow-amber-500/25 scale-[1.02]'
-                          : 'bg-white/95 hover:bg-emerald-50/50 border-2 border-emerald-200/90 hover:border-emerald-400 text-slate-700 shadow-sm hover:shadow-xl hover:shadow-emerald-500/20'
+                          ? 'bg-gradient-to-b from-amber-50 via-orange-50 to-white border-2 border-amber-400 ring-2 ring-amber-300 shadow-md scale-[1.01]'
+                          : 'bg-white hover:bg-emerald-50/40 border border-slate-200 hover:border-emerald-300 shadow-2xs'
                       }`}
                     >
                       <div>
-                        <div className="flex items-center justify-between mb-2">
-                          <span className="text-3xl transition-transform duration-300 group-hover:scale-125 group-hover:rotate-6 drop-shadow-sm">
+                        <div className="flex items-center justify-between mb-1">
+                          <span className="text-2xl sm:text-3xl transition-transform group-hover:scale-110 drop-shadow-xs">
                             {g.icon}
                           </span>
-                          <span className={`text-[10px] font-black px-2 py-0.5 rounded-full border ${
+                          <span className={`text-[9px] font-black px-1.5 py-0.2 rounded-full border ${
                             isSelected
                               ? 'bg-amber-500 text-white border-amber-600'
                               : 'bg-emerald-50 text-emerald-800 border-emerald-200'
                           }`}>
-                            Đã mở L{unlocked}/5
+                            Mở L{unlocked}/5
                           </span>
                         </div>
-                        <div className="font-black text-sm text-slate-900 leading-tight group-hover:text-emerald-700 transition-colors">
+                        <div className="font-black text-xs sm:text-sm text-slate-900 leading-tight group-hover:text-emerald-700 truncate">
                           {g.name}
                         </div>
-                        <div className="text-[10px] text-slate-500 font-bold mb-1.5">{g.subtitle}</div>
-                        <p className="text-[11px] text-slate-600 line-clamp-2 leading-relaxed">
+                        <div className="text-[9px] text-slate-500 font-bold mb-1 truncate">{g.subtitle}</div>
+                        <p className="text-[10px] text-slate-600 line-clamp-2 leading-snug">
                           {g.description}
                         </p>
                       </div>
 
-                      {isSelected ? (
-                        <div className="mt-2.5 flex items-center gap-1 text-[10px] font-black bg-emerald-600 text-white px-2.5 py-1 rounded-full w-fit shadow-xs animate-in fade-in">
-                          <CheckCircle2 className="w-3.5 h-3.5 text-white" />
-                          <span>Đang Chọn</span>
-                        </div>
-                      ) : (
-                        <div className="mt-2.5 flex items-center gap-1 text-[10px] font-bold text-slate-400 group-hover:text-emerald-600 transition-colors">
-                          <span>Bấm để chọn</span>
-                          <ChevronRight className="w-3 h-3 group-hover:translate-x-0.5 transition-transform" />
-                        </div>
-                      )}
+                      <div className="mt-2 pt-1.5 border-t border-slate-100 flex items-center justify-between text-[9px]">
+                        {isSelected ? (
+                          <span className="font-black text-emerald-700 flex items-center gap-0.5">
+                            <CheckCircle2 className="w-3 h-3 text-emerald-600" />
+                            <span>Đang chọn</span>
+                          </span>
+                        ) : (
+                          <span className="text-slate-400 group-hover:text-emerald-600 font-bold flex items-center gap-0.5">
+                            <span>Bấm để chọn</span>
+                            <ChevronRight className="w-2.5 h-2.5" />
+                          </span>
+                        )}
+                      </div>
                     </button>
                   );
                 })}
               </div>
             </div>
 
-            {/* BƯỚC 2: CHỌN CẤP ĐỘ LEVEL 1 ĐẾN LEVEL 5 (CÓ KHÓA TUẦN TỰ) */}
-            <div className="bg-gradient-to-r from-emerald-50/80 via-teal-50/60 to-amber-50/70 border-2 border-emerald-200 rounded-2xl p-4 sm:p-5 space-y-4 shadow-sm">
-              <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 border-b border-emerald-200/80 pb-3">
-                <div className="flex items-center gap-3">
-                  <span className="text-3xl filter drop-shadow-sm">{currentGame.icon}</span>
+            {/* 3. BƯỚC 2: LỘ TRÌNH 5 CẤP ĐỘ TUẦN TỰ (LEVEL 1 -> LEVEL 5) */}
+            <div className="bg-gradient-to-r from-emerald-50/80 via-teal-50/60 to-amber-50/70 border border-emerald-300 rounded-2xl p-2.5 sm:p-3 space-y-2 shrink-0 shadow-2xs">
+              <div className="flex items-center justify-between border-b border-emerald-200/80 pb-1.5">
+                <div className="flex items-center gap-2">
+                  <span className="text-xl filter drop-shadow-xs">{currentGame.icon}</span>
                   <div>
-                    <h4 className="text-base sm:text-lg font-black text-slate-900">{currentGame.name}</h4>
-                    <p className="text-xs text-emerald-800 font-bold">{currentGame.howToPlay}</p>
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs sm:text-sm font-black text-slate-900 uppercase">
+                        2. Lộ Trình 5 Cấp Độ: {currentGame.name}
+                      </span>
+                      <span className="text-[10px] font-bold text-slate-600 hidden md:inline">
+                        • {currentGame.themeNote}
+                      </span>
+                    </div>
                   </div>
                 </div>
-                <div className="text-[11px] text-slate-600 bg-white px-3 py-1.5 rounded-xl border border-emerald-200 shrink-0 font-medium shadow-2xs">
-                  🎨 {currentGame.themeNote}
-                </div>
+                <span className="text-[10px] text-amber-900 font-black bg-amber-100 px-2 py-0.5 rounded-full border border-amber-300 flex items-center gap-1">
+                  <Sparkles className="w-3 h-3 text-amber-600" />
+                  <span>Tiến độ: Đã mở Level {currentMaxUnlocked}/5</span>
+                </span>
               </div>
 
-              <div>
-                <div className="flex items-center justify-between mb-3">
-                  <div className="flex items-center gap-2">
-                    <span className="text-xs font-black text-slate-800 uppercase tracking-wider">
-                      2. Lộ Trình 5 Cấp Độ (Bắt buộc hoàn thành từ Level 1)
-                    </span>
-                  </div>
-                  <span className="text-[11px] text-amber-800 font-black bg-amber-100 px-2.5 py-0.5 rounded-full border border-amber-300 flex items-center gap-1">
-                    <Sparkles className="w-3.5 h-3.5 text-amber-600" />
-                    Tiến độ hiện tại: Mở khóa Level {currentMaxUnlocked}/5
+              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2">
+                {[1, 2, 3, 4, 5].map((lvlNum) => {
+                  const isUnlocked = lvlNum <= currentMaxUnlocked;
+                  const isSelected = level === lvlNum;
+                  const info = LEVEL_NAMES[lvlNum];
+
+                  return (
+                    <button
+                      key={lvlNum}
+                      type="button"
+                      disabled={!isUnlocked}
+                      onClick={() => setLevel(lvlNum)}
+                      className={`p-2.5 rounded-2xl border text-left transition-all duration-200 flex flex-col justify-between ${
+                        !isUnlocked
+                          ? 'bg-slate-100/90 border-slate-200 text-slate-400 opacity-60 cursor-not-allowed'
+                          : isSelected
+                          ? 'bg-gradient-to-b from-amber-50 to-orange-50 border-2 border-amber-500 shadow-md ring-2 ring-amber-300 cursor-pointer scale-[1.01]'
+                          : 'bg-white border border-emerald-200 hover:border-emerald-400 text-slate-700 cursor-pointer hover:bg-emerald-50/40'
+                      }`}
+                    >
+                      <div>
+                        <div className="flex items-center justify-between mb-1">
+                          <span className={`font-black text-xs ${isSelected ? 'text-amber-900' : isUnlocked ? 'text-slate-900' : 'text-slate-400'}`}>
+                            Level {lvlNum}
+                          </span>
+                          {isUnlocked ? (
+                            <span className="w-4 h-4 rounded-full bg-emerald-100 text-emerald-700 flex items-center justify-center text-[9px] font-black border border-emerald-300">
+                              ✓
+                            </span>
+                          ) : (
+                            <span className="w-4 h-4 rounded-full bg-slate-200 text-slate-400 flex items-center justify-center text-[9px] font-black">
+                              <Lock className="w-2.5 h-2.5" />
+                            </span>
+                          )}
+                        </div>
+
+                        <div className="text-[10px] font-black text-emerald-800 mb-0.5 truncate">
+                          {info.subtitle}
+                        </div>
+                        <p className="text-[9px] leading-snug line-clamp-2 text-slate-600">
+                          {info.descVi}
+                        </p>
+                      </div>
+
+                      <div className="mt-1.5 pt-1.5 border-t border-slate-100 flex items-center justify-between text-[9px]">
+                        <span className="text-slate-500 font-medium">Thời gian: {info.timeLimit}s</span>
+                        <span className="font-black text-emerald-700">15 lượt</span>
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* 4. THANH HÀNH ĐỘNG DƯỚI CÙNG (BOTTOM ACTION BAR) */}
+            <div className="flex flex-col sm:flex-row items-center justify-between gap-2.5 pt-1 px-1 shrink-0">
+              <div className="flex items-center gap-2 flex-wrap text-xs">
+                <div className="px-3 py-1.5 rounded-xl bg-white border border-emerald-200 font-black text-slate-800 flex items-center gap-1.5 shadow-2xs">
+                  <span>{currentGame.icon}</span>
+                  <span>{currentGame.name}</span>
+                  <span className="text-slate-400">•</span>
+                  <span className="text-amber-700">Level {level}</span>
+                  <span className="text-slate-400">•</span>
+                  <span className="text-emerald-700 font-black">
+                    {gameMode === 'accented'
+                      ? vnSubMode === 'smart_unaccented'
+                        ? '⚡ VN Không Dấu'
+                        : '🎯 VN Có Dấu Chuẩn'
+                      : '🇬🇧 Tiếng Anh'}
                   </span>
                 </div>
 
-                {/* 5 HỘP CẤP ĐỘ LEVEL 1 -> LEVEL 5 */}
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-2.5">
-                  {[1, 2, 3, 4, 5].map((lvlNum) => {
-                    const isUnlocked = lvlNum <= currentMaxUnlocked;
-                    const isSelected = level === lvlNum;
-                    const info = LEVEL_NAMES[lvlNum];
-
-                    return (
-                      <button
-                        key={lvlNum}
-                        type="button"
-                        disabled={!isUnlocked}
-                        onClick={() => setLevel(lvlNum)}
-                        className={`p-3 rounded-2xl border text-left transition-all duration-200 relative flex flex-col justify-between group transform ${
-                          !isUnlocked
-                            ? 'bg-slate-100/90 border-slate-200 text-slate-400 opacity-60 cursor-not-allowed'
-                            : isSelected
-                            ? 'bg-gradient-to-b from-amber-50 to-orange-50 border-2 border-amber-500 shadow-md shadow-amber-500/20 ring-4 ring-amber-300/50 cursor-pointer scale-[1.02]'
-                            : 'bg-white border-2 border-emerald-200 hover:border-emerald-400 text-slate-700 cursor-pointer hover:bg-emerald-50/40 hover:-translate-y-1 hover:shadow-md'
-                        }`}
-                      >
-                        <div>
-                          <div className="flex items-center justify-between mb-1.5">
-                            <span className={`font-black text-xs sm:text-sm ${isSelected ? 'text-amber-900 font-black' : isUnlocked ? 'text-slate-900' : 'text-slate-400'}`}>
-                              Level {lvlNum}
-                            </span>
-                            {isUnlocked ? (
-                              <span className="w-5 h-5 rounded-full bg-emerald-100 text-emerald-700 flex items-center justify-center text-[10px] font-black border border-emerald-300">
-                                ✓
-                              </span>
-                            ) : (
-                              <span className="w-5 h-5 rounded-full bg-slate-200 text-slate-400 flex items-center justify-center text-[10px] font-black">
-                                <Lock className="w-3 h-3" />
-                              </span>
-                            )}
-                          </div>
-
-                          <div className="text-[11px] font-black text-emerald-800 mb-1">
-                            {info.subtitle}
-                          </div>
-                          <p className="text-[10px] leading-relaxed line-clamp-3 text-slate-600">
-                            {info.descVi}
-                          </p>
-                        </div>
-
-                        <div className="mt-2.5 pt-2 border-t border-slate-100 flex items-center justify-between text-[10px]">
-                          <span className="text-slate-500 font-medium">Mục tiêu:</span>
-                          <span className="font-black text-emerald-700">
-                            15 lượt gõ
-                          </span>
-                        </div>
-                      </button>
-                    );
-                  })}
-                </div>
-              </div>
-
-              {/* NÚT BẮT ĐẦU VÀO TRẬN ĐẤU */}
-              <div className="pt-3 flex flex-col items-center justify-center gap-2">
                 <button
                   type="button"
-                  onClick={handleStartButtonClick}
-                  className="w-full sm:w-auto px-12 py-4 rounded-2xl bg-gradient-to-r from-orange-500 via-amber-500 to-emerald-600 hover:from-orange-400 hover:to-emerald-500 text-white font-black text-base shadow-xl shadow-orange-500/30 flex items-center justify-center gap-3 transition-all transform hover:scale-105 active:scale-95 cursor-pointer"
+                  onClick={handleOpenModeModal}
+                  className="px-3 py-1.5 rounded-xl bg-amber-100 hover:bg-amber-200 text-amber-950 font-black text-xs border border-amber-300 transition-all cursor-pointer flex items-center gap-1 shadow-2xs hover:scale-105 active:scale-95"
+                  title="Mở menu nổi: Đổi ngôn ngữ và phân nhánh độ khó"
                 >
-                  <Play className="w-5 h-5 fill-white" />
-                  <span>
-                    BẮT ĐẦU CHƠI ({currentGame.name.toUpperCase()} • LEVEL {level} • {
-                      gameMode === 'unaccented'
-                        ? '🇬🇧 TIẾNG ANH'
-                        : vnSubMode === 'smart_unaccented'
-                        ? '⚡ VN KHÔNG DẤU'
-                        : '🎯 VN CÓ DẤU CHUẨN'
-                    })
-                  </span>
+                  <span>⚙️ Tùy Chọn Chế Độ Gõ</span>
                 </button>
-                <p className="text-[11px] text-slate-500 font-semibold text-center">
-                  {gameMode === 'accented'
-                    ? vnSubMode === 'smart_unaccented'
-                      ? '⚡ Đang chọn: Chế độ 1 - Gõ không dấu thông minh (rèn phản xạ phím, vd: lop hoc vui ve ➔ lớp học vui vẻ)'
-                      : '🎯 Đang chọn: Chế độ 2 - Gõ có dấu chuẩn nâng cao (đòi hỏi gõ đúng dấu theo kiểu Telex, VNI hoặc bật Unikey)'
-                    : '🇬🇧 Đang chọn: Từ vựng và câu tiếng Anh tiểu học chuẩn kèm dịch nghĩa'}
-                </p>
               </div>
+
+              <button
+                type="button"
+                onClick={handleStartButtonClick}
+                className="w-full sm:w-auto px-10 py-3 rounded-2xl bg-gradient-to-r from-orange-500 via-amber-500 to-emerald-600 hover:from-orange-400 hover:to-emerald-500 text-white font-black text-sm sm:text-base shadow-xl shadow-orange-500/25 flex items-center justify-center gap-2.5 transition-all transform hover:scale-105 active:scale-95 cursor-pointer"
+              >
+                <Play className="w-5 h-5 fill-white" />
+                <span>BẮT ĐẦU CHƠI NGAY 🚀</span>
+              </button>
             </div>
           </div>
         ) : (
@@ -2530,6 +2361,229 @@ export const MultiGameHub: React.FC<MultiGameHubProps> = ({ onClose, soundEnable
                 >
                   <Play className="w-5 h-5 fill-white" />
                   <span>ĐÃ HIỂU! BẮT ĐẦU VÀO TRẬN ĐẤU NGAY 🚀</span>
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* ================================================================ */}
+        {/* MENU NỔI (POPUP MODAL): TÙY CHỌN CHẾ ĐỘ GÕ & ĐỘ KHÓ SINH ĐỘNG   */}
+        {/* Tự động đóng lại (auto-close) và đưa thẳng vào trận đấu          */}
+        {/* ================================================================ */}
+        {showModeModal && (
+          <div className="fixed inset-0 z-50 bg-slate-950/75 backdrop-blur-md flex items-center justify-center p-3 sm:p-4 select-none animate-in fade-in zoom-in duration-200">
+            <div className="bg-gradient-to-b from-[#fffdfa] via-[#fefbf6] to-[#f4fcf7] border-4 border-amber-400 rounded-3xl w-full max-w-2xl max-h-[92vh] overflow-y-auto p-5 sm:p-6 shadow-2xl text-slate-800 space-y-4 relative custom-scrollbar">
+              {/* Header Menu Nổi */}
+              <div className="flex items-center justify-between border-b-2 border-amber-200/80 pb-3">
+                <div className="flex items-center gap-2.5">
+                  <div className="w-10 h-10 rounded-2xl bg-gradient-to-tr from-amber-400 to-orange-500 text-white flex items-center justify-center text-xl shadow-md shrink-0">
+                    🎚️
+                  </div>
+                  <div>
+                    <h3 className="text-base sm:text-lg font-black text-slate-900 tracking-wide flex items-center gap-2">
+                      <span>MENU NỔI: TÙY CHỌN CHẾ ĐỘ GÕ &amp; ĐỘ KHÓ</span>
+                    </h3>
+                    <p className="text-xs text-amber-900 font-bold">
+                      Chọn ngôn ngữ thi đấu &amp; phân nhánh độ khó phù hợp với học sinh tiểu học
+                    </p>
+                  </div>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={() => setShowModeModal(false)}
+                  className="p-1.5 sm:p-2 rounded-xl bg-white hover:bg-rose-50 text-slate-500 hover:text-rose-600 transition-colors border border-amber-200 shadow-xs cursor-pointer"
+                  title="Đóng menu"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+
+              {/* BƯỚC 1: CHỌN NGÔN NGỮ */}
+              <div className="space-y-2">
+                <label className="text-xs font-black text-slate-800 uppercase tracking-wider flex items-center gap-1.5">
+                  <span className="w-5 h-5 rounded-full bg-emerald-600 text-white text-[11px] font-black flex items-center justify-center">1</span>
+                  <span>Bước 1: Chọn Ngôn Ngữ Thi Đấu</span>
+                </label>
+
+                <div className="grid grid-cols-2 gap-3">
+                  {/* Tiếng Việt */}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setModalGameMode('accented');
+                      soundEngine.playMechanicalClick();
+                    }}
+                    className={`p-3.5 rounded-2xl border-2 text-left transition-all cursor-pointer flex flex-col justify-between ${
+                      modalGameMode === 'accented'
+                        ? 'bg-emerald-50/90 border-emerald-500 ring-4 ring-emerald-300/50 shadow-md scale-[1.02]'
+                        : 'bg-white border-slate-200 hover:border-emerald-300 hover:bg-emerald-50/30'
+                    }`}
+                  >
+                    <div className="flex items-center justify-between mb-1">
+                      <span className="text-2xl">🇻🇳</span>
+                      {modalGameMode === 'accented' && (
+                        <span className="text-[10px] font-black bg-emerald-600 text-white px-2 py-0.5 rounded-full flex items-center gap-1">
+                          <CheckCircle2 className="w-3 h-3" />
+                          <span>Đang Chọn</span>
+                        </span>
+                      )}
+                    </div>
+                    <div className="font-black text-sm text-slate-900">Tiếng Việt</div>
+                    <div className="text-[11px] text-slate-600">Từ vựng &amp; câu theo chuẩn SGK Tiếng Việt</div>
+                  </button>
+
+                  {/* Tiếng Anh */}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setModalGameMode('unaccented');
+                      soundEngine.playMechanicalClick();
+                    }}
+                    className={`p-3.5 rounded-2xl border-2 text-left transition-all cursor-pointer flex flex-col justify-between ${
+                      modalGameMode === 'unaccented'
+                        ? 'bg-sky-50/90 border-sky-500 ring-4 ring-sky-300/50 shadow-md scale-[1.02]'
+                        : 'bg-white border-slate-200 hover:border-sky-300 hover:bg-sky-50/30'
+                    }`}
+                  >
+                    <div className="flex items-center justify-between mb-1">
+                      <span className="text-2xl">🇬🇧</span>
+                      {modalGameMode === 'unaccented' && (
+                        <span className="text-[10px] font-black bg-sky-600 text-white px-2 py-0.5 rounded-full flex items-center gap-1">
+                          <CheckCircle2 className="w-3 h-3" />
+                          <span>Đang Chọn</span>
+                        </span>
+                      )}
+                    </div>
+                    <div className="font-black text-sm text-slate-900">Tiếng Anh</div>
+                    <div className="text-[11px] text-slate-600">Từ vựng tiếng Anh tiểu học kèm dịch nghĩa</div>
+                  </button>
+                </div>
+              </div>
+
+              {/* BƯỚC 2: PHÂN NHÁNH ĐỘ KHÓ TIẾNG VIỆT (KHI CHỌN TIẾNG VIỆT) */}
+              {modalGameMode === 'accented' ? (
+                <div className="space-y-2 pt-1 animate-in fade-in">
+                  <label className="text-xs font-black text-slate-800 uppercase tracking-wider flex items-center gap-1.5">
+                    <span className="w-5 h-5 rounded-full bg-amber-600 text-white text-[11px] font-black flex items-center justify-center">2</span>
+                    <span>Bước 2: Lựa Chọn Phân Nhánh Độ Khó Tiếng Việt</span>
+                  </label>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                    {/* Chế độ 1: Gõ Không Dấu Thông Minh */}
+                    <div
+                      onClick={() => {
+                        setModalVnSubMode('smart_unaccented');
+                        soundEngine.playMechanicalClick();
+                      }}
+                      className={`p-3.5 rounded-2xl border-2 cursor-pointer transition-all flex flex-col justify-between ${
+                        modalVnSubMode === 'smart_unaccented'
+                          ? 'bg-gradient-to-b from-white to-emerald-50 border-emerald-500 ring-4 ring-emerald-300/60 shadow-md scale-[1.01]'
+                          : 'bg-white border-slate-200 hover:border-emerald-300'
+                      }`}
+                    >
+                      <div>
+                        <div className="flex items-center justify-between gap-1 mb-1.5">
+                          <div className="flex items-center gap-1.5">
+                            <span className="text-lg">⚡</span>
+                            <span className="font-black text-xs sm:text-sm text-slate-900">
+                              Chế độ 1: Gõ Không Dấu Thông Minh
+                            </span>
+                          </div>
+                          <span className="text-[9px] font-black px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 border border-emerald-300 shrink-0">
+                            Rèn Phản Xạ
+                          </span>
+                        </div>
+
+                        <p className="text-[11px] text-slate-600 leading-relaxed mb-2">
+                          Học sinh <strong>chỉ cần gõ chữ cái không dấu</strong>, hệ thống tự động so khớp và tính chuẩn xác 100%!
+                        </p>
+
+                        <div className="bg-slate-50 p-2 rounded-xl border border-slate-200 text-[10px] space-y-0.5 font-mono">
+                          <div>Đề bài: <span className="text-emerald-700 font-bold">&quot;lớp học vui vẻ&quot;</span></div>
+                          <div>Em gõ: <span className="text-amber-700 font-bold">&quot;lop hoc vui ve&quot;</span> ➔ <span className="text-emerald-600 font-bold">100% Điểm!</span></div>
+                        </div>
+                      </div>
+
+                      {modalVnSubMode === 'smart_unaccented' ? (
+                        <div className="mt-2.5 flex items-center gap-1 text-[10px] font-black text-emerald-800 bg-emerald-100 px-2 py-0.5 rounded-lg w-fit border border-emerald-300">
+                          <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
+                          <span>Đang Chọn Chế Độ 1</span>
+                        </div>
+                      ) : (
+                        <div className="mt-2.5 text-[10px] text-slate-400 font-bold">Bấm để chọn Chế độ 1 ➜</div>
+                      )}
+                    </div>
+
+                    {/* Chế độ 2: Gõ Có Dấu Chuẩn Nâng Cao */}
+                    <div
+                      onClick={() => {
+                        setModalVnSubMode('standard_accented');
+                        soundEngine.playMechanicalClick();
+                      }}
+                      className={`p-3.5 rounded-2xl border-2 cursor-pointer transition-all flex flex-col justify-between ${
+                        modalVnSubMode === 'standard_accented'
+                          ? 'bg-gradient-to-b from-white to-amber-50 border-amber-500 ring-4 ring-amber-300/60 shadow-md scale-[1.01]'
+                          : 'bg-white border-slate-200 hover:border-amber-300'
+                      }`}
+                    >
+                      <div>
+                        <div className="flex items-center justify-between gap-1 mb-1.5">
+                          <div className="flex items-center gap-1.5">
+                            <span className="text-lg">🎯</span>
+                            <span className="font-black text-xs sm:text-sm text-slate-900">
+                              Chế độ 2: Gõ Có Dấu Chuẩn Nâng Cao
+                            </span>
+                          </div>
+                          <span className="text-[9px] font-black px-2 py-0.5 rounded-full bg-amber-100 text-amber-900 border border-amber-300 shrink-0">
+                            Chuẩn SGK
+                          </span>
+                        </div>
+
+                        <p className="text-[11px] text-slate-600 leading-relaxed mb-2">
+                          Đòi hỏi phải <strong>gõ đúng dấu tiếng Việt</strong> theo kiểu Telex, VNI hoặc bật phần mềm Unikey [V] trên máy tính.
+                        </p>
+
+                        <div className="bg-slate-50 p-2 rounded-xl border border-slate-200 text-[10px] space-y-0.5 font-mono">
+                          <div>Đề bài: <span className="text-emerald-700 font-bold">&quot;lớp học&quot;</span></div>
+                          <div>Gõ Telex: <span className="text-sky-700 font-bold">&quot;lowps hocj&quot;</span> hoặc VNI: <span className="text-purple-700 font-bold">&quot;lop71 hoc5&quot;</span></div>
+                        </div>
+                      </div>
+
+                      {modalVnSubMode === 'standard_accented' ? (
+                        <div className="mt-2.5 flex items-center gap-1 text-[10px] font-black text-amber-900 bg-amber-100 px-2 py-0.5 rounded-lg w-fit border border-amber-300">
+                          <CheckCircle2 className="w-3.5 h-3.5 text-amber-600" />
+                          <span>Đang Chọn Chế Độ 2</span>
+                        </div>
+                      ) : (
+                        <div className="mt-2.5 text-[10px] text-slate-400 font-bold">Bấm để chọn Chế độ 2 ➜</div>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              ) : (
+                <div className="p-3 rounded-2xl bg-sky-50 border border-sky-200 text-xs text-sky-950 font-medium">
+                  🇬🇧 Đang chọn Tiếng Anh: Học sinh sẽ luyện gõ các từ vựng và câu ngắn tiếng Anh tiểu học chuẩn không dấu.
+                </div>
+              )}
+
+              {/* ACTION FOOTER: XÁC NHẬN & TỰ ĐỘNG ĐÓNG CHUYỂN THẲNG VÀO TRẬN ĐẤU */}
+              <div className="pt-3 border-t border-slate-200 flex flex-col sm:flex-row items-center justify-end gap-2.5">
+                <button
+                  type="button"
+                  onClick={() => handleApplyModeAndClose(modalGameMode, modalVnSubMode)}
+                  className="w-full sm:w-auto px-4 py-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs transition-all cursor-pointer"
+                >
+                  Lưu &amp; Quay Lại Sảnh
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleConfirmModeAndStartGame(modalGameMode, modalVnSubMode)}
+                  className="w-full sm:w-auto px-7 py-3 rounded-2xl bg-gradient-to-r from-orange-500 via-amber-500 to-emerald-600 hover:from-orange-400 hover:to-emerald-500 text-white font-black text-sm shadow-xl shadow-orange-500/25 flex items-center justify-center gap-2 transition-all cursor-pointer active:scale-95"
+                >
+                  <Play className="w-4 h-4 fill-white" />
+                  <span>XÁC NHẬN &amp; VÀO CHƠI NGAY 🚀</span>
                 </button>
               </div>
             </div>

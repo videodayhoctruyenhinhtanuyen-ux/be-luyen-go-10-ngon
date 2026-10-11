@@ -283,6 +283,13 @@ export function generateValidTelexSequencesForWord(word: string): string[][] {
         break;
       }
     }
+
+    // Đặc thù từ 'cười' cho phép gõ cuowif, cuowi
+    if (lowerCore === 'cười') {
+      rawSequences.push(['c', 'u', 'o', 'w', 'i', 'f']);
+      rawSequences.push(['c', 'u', 'o', 'w', 'i']);
+      rawSequences.push(['c', 'u', 'o', 'i', 'w', 'f']);
+    }
   }
 
   // Ghép lại tiền tố và hậu tố dấu câu

@@ -137,19 +137,26 @@ export const NAV_CLUSTER_ROWS: KeyConfig[][] = [
   ],
 ];
 
-// NUMPAD CLUSTER LAYOUT (Cụm bàn phím số đầy đủ)
+// NUMPAD CLUSTER LAYOUT (Cụm bàn phím số đầy đủ - Chuẩn phương pháp Ten-Key Typing)
+// 1. Hàng xuất phát: 4 (trỏ), 5 (giữa - có gờ nổi), 6 (áp út), Enter/+ (út), 0 (cái)
+// 2. Phân công ngón tay di chuyển dọc:
+//    - Ngón cái: phím 0
+//    - Ngón trỏ: phím 7, 4, 1, / và NumLock
+//    - Ngón giữa: phím 8, 5, 2, * (Phím 5 có gờ nổi mốc xúc giác)
+//    - Ngón áp út: phím 9, 6, 3, ., -
+//    - Ngón út: phím +, Enter
 export const NUMPAD_ROWS: KeyConfig[][] = [
   [
-    { code: 'NumLock', label: 'Num', subLabel: 'Lock', widthRatio: 1.0, type: 'modifier', finger: 'right-pinky' },
-    { code: 'NumpadDivide', label: '/', widthRatio: 1.0, type: 'modifier', finger: 'right-pinky' },
-    { code: 'NumpadMultiply', label: '*', widthRatio: 1.0, type: 'modifier', finger: 'right-pinky' },
-    { code: 'NumpadSubtract', label: '-', widthRatio: 1.0, type: 'modifier', finger: 'right-pinky' },
+    { code: 'NumLock', label: 'Num', subLabel: 'Lock', widthRatio: 1.0, type: 'modifier', finger: 'right-index' },
+    { code: 'NumpadDivide', label: '/', widthRatio: 1.0, type: 'modifier', finger: 'right-index', char: '/' },
+    { code: 'NumpadMultiply', label: '*', widthRatio: 1.0, type: 'modifier', finger: 'right-middle', char: '*' },
+    { code: 'NumpadSubtract', label: '-', widthRatio: 1.0, type: 'modifier', finger: 'right-ring', char: '-' },
   ],
   [
     { code: 'Numpad7', label: '7', subLabel: 'Home', widthRatio: 1.0, type: 'alpha', finger: 'right-index', char: '7' },
     { code: 'Numpad8', label: '8', subLabel: '↑', widthRatio: 1.0, type: 'alpha', finger: 'right-middle', char: '8' },
     { code: 'Numpad9', label: '9', subLabel: 'PgUp', widthRatio: 1.0, type: 'alpha', finger: 'right-ring', char: '9' },
-    { code: 'NumpadAdd', label: '+', widthRatio: 1.0, type: 'modifier', finger: 'right-pinky' },
+    { code: 'NumpadAdd', label: '+', widthRatio: 1.0, type: 'modifier', finger: 'right-pinky', char: '+' },
   ],
   [
     { code: 'Numpad4', label: '4', subLabel: '←', widthRatio: 1.0, type: 'alpha', finger: 'right-index', char: '4' },
@@ -180,6 +187,7 @@ export const NUMPAD_TOP_EXTRA_KEYS: KeyConfig[] = [
 // Fast lookup maps
 export const CODE_TO_KEY_MAP = new Map<string, KeyConfig>();
 export const CHAR_TO_KEY_MAP = new Map<string, KeyConfig>();
+export const NUMPAD_CHAR_TO_KEY_MAP = new Map<string, KeyConfig>();
 
 // Register function row, system keys, & 108-key top extra keys
 for (const key of [...FUNCTION_ROW, ...SYSTEM_TOP_KEYS, ...NUMPAD_TOP_EXTRA_KEYS]) {
@@ -211,17 +219,34 @@ for (const row of NAV_CLUSTER_ROWS) {
 for (const row of NUMPAD_ROWS) {
   for (const key of row) {
     CODE_TO_KEY_MAP.set(key.code, key);
+    if (key.char) {
+      NUMPAD_CHAR_TO_KEY_MAP.set(key.char, key);
+    }
   }
 }
+NUMPAD_CHAR_TO_KEY_MAP.set('\n', CODE_TO_KEY_MAP.get('NumpadEnter')!);
+NUMPAD_CHAR_TO_KEY_MAP.set('Enter', CODE_TO_KEY_MAP.get('NumpadEnter')!);
 
 // Special mappings
 CHAR_TO_KEY_MAP.set(' ', CODE_TO_KEY_MAP.get('Space')!);
 CHAR_TO_KEY_MAP.set('\n', CODE_TO_KEY_MAP.get('Enter')!);
 
-export function getKeyForChar(char: string): KeyConfig | undefined {
+export function getNumpadKeyForChar(char: string): KeyConfig | undefined {
   if (!char) return undefined;
+  return NUMPAD_CHAR_TO_KEY_MAP.get(char);
+}
+
+export function getKeyForChar(char: string, preferNumpad: boolean = false): KeyConfig | undefined {
+  if (!char) return undefined;
+
+  // Nếu đang trong chế độ luyện cụm phím số Numpad
+  if (preferNumpad) {
+    const numpadKey = NUMPAD_CHAR_TO_KEY_MAP.get(char);
+    if (numpadKey) return numpadKey;
+  }
+
   if (char === ' ' || char === 'Space') return CODE_TO_KEY_MAP.get('Space');
-  if (char === '\n' || char === 'Enter') return CODE_TO_KEY_MAP.get('Enter');
+  if (char === '\n' || char === 'Enter') return CODE_TO_KEY_MAP.get(preferNumpad ? 'NumpadEnter' : 'Enter');
   if (char === 'Backspace') return CODE_TO_KEY_MAP.get('Backspace');
   if (char === 'Shift') return CODE_TO_KEY_MAP.get('ShiftLeft');
 
