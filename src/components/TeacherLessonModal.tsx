@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import {
   X,
   Upload,
@@ -122,6 +122,38 @@ export const TeacherLessonModal: React.FC<TeacherLessonModalProps> = ({
   const [isAnalyzingImage, setIsAnalyzingImage] = useState<boolean>(false);
   const [ocrSuccessMsg, setOcrSuccessMsg] = useState<string>('');
   const [ocrErrorMsg, setOcrErrorMsg] = useState<string>('');
+
+  // Floating Toast Notification states cho nút "Lưu Lại Trực Tuyến & Cập Nhật Hệ Thống"
+  const [showSaveToast, setShowSaveToast] = useState<boolean>(false);
+  const [isToastFading, setIsToastFading] = useState<boolean>(false);
+  const [isSavingLesson, setIsSavingLesson] = useState<boolean>(false);
+  const toastTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const toastFadeTimerRef = useRef<NodeJS.Timeout | null>(null);
+
+  const triggerSaveToast = () => {
+    if (toastTimerRef.current) clearTimeout(toastTimerRef.current);
+    if (toastFadeTimerRef.current) clearTimeout(toastFadeTimerRef.current);
+
+    setIsToastFading(false);
+    setShowSaveToast(true);
+
+    // Sau 2.5 giây bắt đầu hiệu ứng fade-out nhẹ, đúng 3 giây (3000ms) thì biến mất hoàn toàn
+    toastFadeTimerRef.current = setTimeout(() => {
+      setIsToastFading(true);
+    }, 2500);
+
+    toastTimerRef.current = setTimeout(() => {
+      setShowSaveToast(false);
+      setIsToastFading(false);
+    }, 3000);
+  };
+
+  useEffect(() => {
+    return () => {
+      if (toastTimerRef.current) clearTimeout(toastTimerRef.current);
+      if (toastFadeTimerRef.current) clearTimeout(toastFadeTimerRef.current);
+    };
+  }, []);
 
   // Safe assignments dictionary
   const safeAssignments: Record<number, GradeAssignment> = useMemo(() => {
@@ -387,52 +419,64 @@ export const TeacherLessonModal: React.FC<TeacherLessonModalProps> = ({
       return;
     }
 
-    const lessonId = editingLessonId || `teacher-${Date.now()}`;
-    const cleanText = text.trim();
+    setIsSavingLesson(true);
 
-    let finalImageUrl = imageUrl.trim() || undefined;
+    try {
+      const lessonId = editingLessonId || `teacher-${Date.now()}`;
+      const cleanText = text.trim();
 
-    if (finalImageUrl && finalImageUrl.startsWith('data:image/')) {
-      try {
-        const uploadResult = await uploadImageToSupabaseStorage(finalImageUrl, title.trim());
-        if (uploadResult?.url) {
-          finalImageUrl = uploadResult.url;
+      let finalImageUrl = imageUrl.trim() || undefined;
+
+      if (finalImageUrl && finalImageUrl.startsWith('data:image/')) {
+        try {
+          const uploadResult = await uploadImageToSupabaseStorage(finalImageUrl, title.trim());
+          if (uploadResult?.url) {
+            finalImageUrl = uploadResult.url;
+          }
+        } catch (err) {
+          console.warn('Lưu ảnh vào bucket không thành công, tiếp tục lưu base64:', err);
         }
-      } catch (err) {
-        console.warn('Lưu ảnh vào bucket không thành công, tiếp tục lưu base64:', err);
       }
+
+      const updatedLesson: Lesson = {
+        id: lessonId,
+        level: 20,
+        category: isPoemOrStory ? 'poems_stories' : 'short_sentences',
+        categoryTitleVi: isPoemOrStory ? (genre === 'poem' ? `Thơ SGK Lớp ${gradeLevel}` : `Văn SGK Lớp ${gradeLevel}`) : `Bài Lớp ${gradeLevel}`,
+        title: title.trim(),
+        subtitle: `Do ${teacherName} biên soạn • Khối ${gradeLevel}`,
+        descriptionVi: teacherNote.trim() || 'Luyện gõ bài học theo yêu cầu của giáo viên.',
+        focusKeys: Array.from(new Set(cleanText.toLowerCase().split(''))).filter((c) => c !== ' ' && c !== '\n').slice(0, 10),
+        text: cleanText,
+        targetWpm: Number(targetWpm) || 18,
+        targetAccuracy: 90,
+        badgeName: isPoemOrStory ? (genre === 'poem' ? 'Nhà Thơ Nhí' : 'Cây Bút Trẻ') : 'Học Trò Xuất Sắc',
+        imageUrl: finalImageUrl,
+        gradeLevel: Number(gradeLevel),
+        authorTeacher: teacherName.trim(),
+        teacherNote: teacherNote.trim(),
+        isPoemOrStory: isPoemOrStory,
+        genre: genre,
+        isFreePractice: isFreePractice,
+      };
+
+      // Đồng bộ hóa logic lưu trữ lên hệ thống đám mây Supabase / cơ sở dữ liệu
+      await onSaveLesson(updatedLesson);
+      setLastSavedLesson(updatedLesson);
+      setSaveSuccessMsg(`🎉 Đã lưu bài "${updatedLesson.title}" và cập nhật hệ thống thành công!`);
+      setEditingLessonId(updatedLesson.id);
+
+      // Kích hoạt ngay bảng thông báo nổi Toast Notification hiển thị trong đúng 3 giây
+      triggerSaveToast();
+
+      setTimeout(() => {
+        setSaveSuccessMsg('');
+      }, 4500);
+    } catch (err) {
+      console.error('Lỗi khi lưu bài học trực tuyến:', err);
+    } finally {
+      setIsSavingLesson(false);
     }
-
-    const updatedLesson: Lesson = {
-      id: lessonId,
-      level: 20,
-      category: isPoemOrStory ? 'poems_stories' : 'short_sentences',
-      categoryTitleVi: isPoemOrStory ? (genre === 'poem' ? `Thơ SGK Lớp ${gradeLevel}` : `Văn SGK Lớp ${gradeLevel}`) : `Bài Lớp ${gradeLevel}`,
-      title: title.trim(),
-      subtitle: `Do ${teacherName} biên soạn • Khối ${gradeLevel}`,
-      descriptionVi: teacherNote.trim() || 'Luyện gõ bài học theo yêu cầu của giáo viên.',
-      focusKeys: Array.from(new Set(cleanText.toLowerCase().split(''))).filter((c) => c !== ' ' && c !== '\n').slice(0, 10),
-      text: cleanText,
-      targetWpm: Number(targetWpm) || 18,
-      targetAccuracy: 90,
-      badgeName: isPoemOrStory ? (genre === 'poem' ? 'Nhà Thơ Nhí' : 'Cây Bút Trẻ') : 'Học Trò Xuất Sắc',
-      imageUrl: finalImageUrl,
-      gradeLevel: Number(gradeLevel),
-      authorTeacher: teacherName.trim(),
-      teacherNote: teacherNote.trim(),
-      isPoemOrStory: isPoemOrStory,
-      genre: genre,
-      isFreePractice: isFreePractice,
-    };
-
-    onSaveLesson(updatedLesson);
-    setLastSavedLesson(updatedLesson);
-    setSaveSuccessMsg(`🎉 Đã lưu bài "${updatedLesson.title}" và cập nhật hệ thống thành công!`);
-    setEditingLessonId(updatedLesson.id);
-
-    setTimeout(() => {
-      setSaveSuccessMsg('');
-    }, 4500);
   };
 
   // Toggle Free Practice for a lesson directly
@@ -885,6 +929,63 @@ export const TeacherLessonModal: React.FC<TeacherLessonModalProps> = ({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-1 sm:p-2.5 md:p-3 bg-slate-950/75 backdrop-blur-md animate-in fade-in duration-200">
+      {/* ========================================================================= */}
+      {/* BẢNG THÔNG BÁO NỔI TOAST: "THÔNG BÁO ĐÃ GHI NHẬN YÊU CẦU THÀNH CÔNG"        */}
+      {/* TỰ ĐỘNG MỜ DẦN VÀ BIẾN MẤT SAU ĐÚNG 3 GIÂY                                */}
+      {/* ========================================================================= */}
+      {showSaveToast && (
+        <div
+          role="alert"
+          aria-live="assertive"
+          className={`fixed top-5 sm:top-7 left-1/2 -translate-x-1/2 z-[100] w-[94vw] max-w-lg transition-all duration-300 ease-out transform ${
+            isToastFading
+              ? 'opacity-0 -translate-y-5 scale-95 pointer-events-none'
+              : 'opacity-100 translate-y-0 scale-100'
+          }`}
+        >
+          <div className="relative overflow-hidden rounded-2xl bg-gradient-to-r from-emerald-600 via-teal-600 to-emerald-700 p-4 sm:p-4.5 text-white shadow-2xl shadow-emerald-950/50 border-2 border-emerald-300 backdrop-blur-md flex items-center gap-3.5">
+            {/* Hiệu ứng tia sáng phản chiếu nhẹ */}
+            <div className="absolute -top-10 -right-10 w-28 h-28 bg-white/15 rounded-full blur-xl pointer-events-none" />
+
+            {/* Icon tích xanh thành công */}
+            <div className="w-11 h-11 sm:w-12 sm:h-12 rounded-xl bg-white/20 border-2 border-white/40 flex items-center justify-center shrink-0 shadow-inner">
+              <CheckCircle2 className="w-7 h-7 text-white drop-shadow-md animate-pulse" />
+            </div>
+
+            {/* Nội dung thông báo IN HOA chuẩn xác theo yêu cầu */}
+            <div className="flex-1 min-w-0 pr-1">
+              <div className="flex items-center gap-1.5 flex-wrap">
+                <Sparkles className="w-4 h-4 text-amber-300 shrink-0" />
+                <h4 className="text-xs sm:text-sm font-black tracking-wider text-white uppercase drop-shadow-xs">
+                  THÔNG BÁO ĐÃ GHI NHẬN YÊU CẦU THÀNH CÔNG
+                </h4>
+              </div>
+              <p className="text-[11px] sm:text-xs text-emerald-100 font-semibold mt-1 leading-snug">
+                Dữ liệu bài soạn đã được lưu lại trực tuyến &amp; đồng bộ hóa toàn diện lên máy chủ đám mây!
+              </p>
+            </div>
+
+            {/* Nút đóng thông báo nếu muốn tắt sớm */}
+            <button
+              type="button"
+              onClick={() => {
+                setShowSaveToast(false);
+                setIsToastFading(false);
+              }}
+              className="p-1 rounded-lg text-emerald-200 hover:text-white hover:bg-white/15 transition-colors cursor-pointer shrink-0"
+              title="Đóng thông báo"
+            >
+              <X className="w-4 h-4" />
+            </button>
+
+            {/* Thanh tiến trình đếm ngược đúng 3 giây */}
+            <div className="absolute bottom-0 left-0 right-0 h-1.5 bg-black/25 overflow-hidden">
+              <div className="h-full bg-amber-300 origin-left animate-toast-countdown" />
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* CỬA SỔ QUẢN TRỊ TỐI ƯU HÓA TỐI ĐA KHÔNG GIAN (MAX-W-[1680PX] H-[98VH]) */}
       <div className="relative w-[99vw] max-w-[1680px] h-[98vh] max-h-[98vh] bg-white border-4 border-emerald-400 rounded-3xl shadow-2xl flex flex-col overflow-hidden text-slate-800">
         
@@ -1801,10 +1902,20 @@ export const TeacherLessonModal: React.FC<TeacherLessonModalProps> = ({
 
                     <button
                       type="submit"
-                      className="px-6 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-black text-sm flex items-center gap-2 shadow-lg border-b-2 border-emerald-800 active:border-b-0 cursor-pointer active:scale-95 transition-all"
+                      disabled={isSavingLesson}
+                      className="px-6 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-black text-sm flex items-center gap-2 shadow-lg border-b-2 border-emerald-800 active:border-b-0 cursor-pointer active:scale-95 transition-all disabled:opacity-75 disabled:cursor-not-allowed"
                     >
-                      <Save className="w-4 h-4" />
-                      <span>Lưu Lại Trực Tuyến &amp; Cập Nhật Hệ Thống</span>
+                      {isSavingLesson ? (
+                        <>
+                          <Loader2 className="w-4 h-4 animate-spin text-white" />
+                          <span>Đang Lưu Trực Tuyến...</span>
+                        </>
+                      ) : (
+                        <>
+                          <Save className="w-4 h-4" />
+                          <span>Lưu Lại Trực Tuyến &amp; Cập Nhật Hệ Thống</span>
+                        </>
+                      )}
                     </button>
                   </div>
                 </form>

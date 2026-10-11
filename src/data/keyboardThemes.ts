@@ -305,3 +305,8 @@ export const KEYBOARD_THEMES: KeyboardSkinTheme[] = [
     },
   },
 ];
+
+// Mặc định bàn phím trong giao diện phần mềm là bàn phím Cơ Keychron 2 Tone (Keychron C2 Two-Tone)
+export const DEFAULT_KEYBOARD_THEME_ID = 'keychron_two_tone_retro';
+export const DEFAULT_KEYBOARD_THEME: KeyboardSkinTheme =
+  KEYBOARD_THEMES.find((t) => t.id === DEFAULT_KEYBOARD_THEME_ID) || KEYBOARD_THEMES[0];

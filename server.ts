@@ -182,6 +182,25 @@ Chỉ trả về JSON theo cấu trúc sau, không kèm bất kỳ giải thích
   }
 });
 
+// Static endpoints cho SEO: robots.txt & sitemap.xml
+app.get('/robots.txt', (_req, res) => {
+  const robotsPath = path.join(__dirname, 'public', 'robots.txt');
+  if (fs.existsSync(robotsPath)) {
+    res.type('text/plain').sendFile(robotsPath);
+  } else {
+    res.type('text/plain').send('User-agent: *\nAllow: /\nSitemap: https://luyengo10ngon.vercel.app/sitemap.xml');
+  }
+});
+
+app.get('/sitemap.xml', (_req, res) => {
+  const sitemapPath = path.join(__dirname, 'public', 'sitemap.xml');
+  if (fs.existsSync(sitemapPath)) {
+    res.type('application/xml').sendFile(sitemapPath);
+  } else {
+    res.status(404).send('Not found');
+  }
+});
+
 // Khởi động server với Vite middlewares (development) hoặc static files (production)
 async function startServer() {
   if (process.env.NODE_ENV !== 'production') {

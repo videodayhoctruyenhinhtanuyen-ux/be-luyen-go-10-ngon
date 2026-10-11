@@ -393,3 +393,56 @@
 .animate-editor-cursor {
   animation: text-editor-blink 0.9s cubic-bezier(1, 0, 0, 1) infinite;
 }
+
+/* 3-SECOND TOAST COUNTDOWN ANIMATION */
+@keyframes toast-countdown {
+  from {
+    width: 100%;
+  }
+  to {
+    width: 0%;
+  }
+}
+
+.animate-toast-countdown {
+  animation: toast-countdown 3s linear forwards;
+}
+
+/* HIỆU ỨNG TUNG HOA ĂN MỪNG GÕ ĐÚNG TỪ (FLOWER CELEBRATION ANIMATION) */
+@keyframes flower-float-up {
+  0% {
+    opacity: 0;
+    transform: translateY(20px) scale(0.6) rotate(0deg);
+  }
+  20% {
+    opacity: 1;
+    transform: translateY(0px) scale(1.2) rotate(15deg);
+  }
+  80% {
+    opacity: 1;
+    transform: translateY(-45px) scale(1.05) rotate(-10deg);
+  }
+  100% {
+    opacity: 0;
+    transform: translateY(-80px) scale(0.7) rotate(25deg);
+  }
+}
+
+.animate-flower-float {
+  animation: flower-float-up 1.5s cubic-bezier(0.2, 0.8, 0.2, 1) forwards;
+}
+
+/* HIỆU ỨNG PHÁT SÁNG NỔI KHỐI KHI HOVER THẺ ĐẤU TRƯỜNG */
+@keyframes arena-glow-pulse {
+  0%, 100% {
+    box-shadow: 0 10px 25px -5px rgba(16, 185, 129, 0.2), 0 8px 10px -6px rgba(16, 185, 129, 0.1);
+  }
+  50% {
+    box-shadow: 0 18px 35px -5px rgba(245, 158, 11, 0.35), 0 12px 16px -6px rgba(245, 158, 11, 0.2);
+  }
+}
+
+.hover-arena-glow:hover {
+  animation: arena-glow-pulse 2s ease-in-out infinite;
+}
+

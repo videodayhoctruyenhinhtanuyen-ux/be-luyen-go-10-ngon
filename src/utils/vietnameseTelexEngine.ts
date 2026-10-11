@@ -66,7 +66,7 @@ const TONE_INDEX_MAP: Record<string, number> = {
 /**
  * Determine which vowel in a syllable receives the tone mark
  */
-function findToneTargetIndex(chars: string[]): number {
+export function findToneTargetIndex(chars: string[]): number {
   const vowelIndices: number[] = [];
   for (let i = 0; i < chars.length; i++) {
     const ch = chars[i].toLowerCase();
@@ -341,3 +341,147 @@ export function checkWordTelexProgress(
     expectedNextKeys: Array.from(nextKeysSet),
   };
 }
+
+/**
+ * Simulates a full Vietnamese VNI IME engine on a single word or syllable.
+ * Handles numbers 1..5 for tones, 6 (mũ), 7 (móc), 8 (trăng), 9 (đ).
+ */
+export function vniCompose(rawKeys: string): string {
+  const chars: string[] = [];
+
+  for (let i = 0; i < rawKeys.length; i++) {
+    const k = rawKeys[i];
+    const kLow = k.toLowerCase();
+    const prevChar = chars.length > 0 ? chars[chars.length - 1] : '';
+    const prevLow = prevChar.toLowerCase();
+
+    // 1. d/D + 9 -> đ/Đ
+    if (kLow === '9' && prevLow === 'd') {
+      chars[chars.length - 1] = prevChar === 'D' ? 'Đ' : 'đ';
+      continue;
+    }
+
+    // 2. Mũ (6): a -> â, e -> ê, o -> ô
+    if (kLow === '6') {
+      let targetIdx = -1;
+      for (let j = chars.length - 1; j >= 0; j--) {
+        const c = chars[j].toLowerCase();
+        if (c === 'a' || c === 'e' || c === 'o') {
+          targetIdx = j;
+          break;
+        }
+      }
+      if (targetIdx !== -1) {
+        const c = chars[targetIdx];
+        const isUp = c === c.toUpperCase();
+        if (c.toLowerCase() === 'a') chars[targetIdx] = isUp ? 'Â' : 'â';
+        else if (c.toLowerCase() === 'e') chars[targetIdx] = isUp ? 'Ê' : 'ê';
+        else if (c.toLowerCase() === 'o') chars[targetIdx] = isUp ? 'Ô' : 'ô';
+        continue;
+      }
+    }
+
+    // 3. Móc (7): o -> ơ, u -> ư, uo -> ươ
+    if (kLow === '7') {
+      let handled = false;
+      for (let j = chars.length - 1; j >= 1; j--) {
+        if (chars[j].toLowerCase() === 'o' && chars[j - 1].toLowerCase() === 'u') {
+          const isUpU = chars[j - 1] === chars[j - 1].toUpperCase();
+          const isUpO = chars[j] === chars[j].toUpperCase();
+          chars[j - 1] = isUpU ? 'Ư' : 'ư';
+          chars[j] = isUpO ? 'Ơ' : 'ơ';
+          handled = true;
+          break;
+        }
+      }
+      if (handled) continue;
+
+      for (let j = chars.length - 1; j >= 0; j--) {
+        const c = chars[j].toLowerCase();
+        if (c === 'o') {
+          chars[j] = chars[j] === 'O' ? 'Ơ' : 'ơ';
+          handled = true;
+          break;
+        } else if (c === 'u') {
+          chars[j] = chars[j] === 'U' ? 'Ư' : 'ư';
+          handled = true;
+          break;
+        }
+      }
+      if (handled) continue;
+    }
+
+    // 4. Trăng (8): a -> ă
+    if (kLow === '8') {
+      for (let j = chars.length - 1; j >= 0; j--) {
+        if (chars[j].toLowerCase() === 'a') {
+          chars[j] = chars[j] === 'A' ? 'Ă' : 'ă';
+          break;
+        }
+      }
+      continue;
+    }
+
+    // 5. Dấu thanh: 1 (sắc), 2 (huyền), 3 (hỏi), 4 (ngã), 5 (nặng), 0 (bỏ dấu)
+    if ('12345'.includes(kLow)) {
+      const toneIdx = parseInt(kLow, 10);
+      const targetIdx = findToneTargetIndex(chars);
+      if (targetIdx !== -1) {
+        const targetCh = chars[targetIdx];
+        const info = ACCENTED_TO_BASE_VOWEL[targetCh];
+        const baseVowel = info ? info.base : targetCh;
+        const variations = VOWEL_TONE_TABLE[baseVowel];
+        if (variations) {
+          chars[targetIdx] = variations[toneIdx];
+          continue;
+        }
+      }
+    } else if (kLow === '0') {
+      const targetIdx = findToneTargetIndex(chars);
+      if (targetIdx !== -1) {
+        const targetCh = chars[targetIdx];
+        const info = ACCENTED_TO_BASE_VOWEL[targetCh];
+        if (info) {
+          chars[targetIdx] = info.base;
+          continue;
+        }
+      }
+    }
+
+    chars.push(k);
+  }
+
+  return chars.join('');
+}
+
+/**
+ * Composes multi-word phrase with Telex engine
+ */
+export function telexComposePhrase(rawPhrase: string): string {
+  return rawPhrase
+    .split(' ')
+    .map((w) => telexCompose(w))
+    .join(' ');
+}
+
+/**
+ * Composes multi-word phrase with VNI engine
+ */
+export function vniComposePhrase(rawPhrase: string): string {
+  return rawPhrase
+    .split(' ')
+    .map((w) => vniCompose(w))
+    .join(' ');
+}
+
+/**
+ * Attempts to compose phrase using either Telex or VNI
+ */
+export function composeVietnamesePhrase(rawPhrase: string): string {
+  const telex = telexComposePhrase(rawPhrase);
+  if (telex !== rawPhrase) return telex;
+  const vni = vniComposePhrase(rawPhrase);
+  if (vni !== rawPhrase) return vni;
+  return rawPhrase;
+}
+

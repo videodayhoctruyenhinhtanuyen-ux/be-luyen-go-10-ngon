@@ -15,7 +15,7 @@ import { CustomTextModal } from './components/CustomTextModal';
 import { TeacherLessonModal } from './components/TeacherLessonModal';
 import { TextbookImageViewer, TextbookTab } from './components/TextbookImageViewer';
 import { TextbookIllustrationCard } from './components/TextbookIllustrationCard';
-import { KeyboardSkinTheme, KEYBOARD_THEMES } from './data/keyboardThemes';
+import { KeyboardSkinTheme, KEYBOARD_THEMES, DEFAULT_KEYBOARD_THEME, DEFAULT_KEYBOARD_THEME_ID } from './data/keyboardThemes';
 import { KeyboardThemeModal } from './components/KeyboardThemeModal';
 import { CompletionModal } from './components/CompletionModal';
 import { UnikeyNoticeModal } from './components/UnikeyNoticeModal';
@@ -429,14 +429,18 @@ export default function App() {
   const [smartTelexFreeMode, setSmartTelexFreeMode] = useState<boolean>(true);
   const [wordTypedKeys, setWordTypedKeys] = useState<string[]>([]);
 
-  // Keyboard theme skin state (8 themes)
+  // Keyboard theme skin state - Mặc định: Bàn phím Cơ Keychron 2 Tone
   const [currentKeyboardTheme, setCurrentKeyboardTheme] = useState<KeyboardSkinTheme>(() => {
     try {
       const savedId = localStorage.getItem('typing_kids_keyboard_theme');
-      const found = KEYBOARD_THEMES.find((t) => t.id === savedId);
-      return found || KEYBOARD_THEMES[0];
+      // Nếu có lưu và không phải là mẫu mặc định cũ ('dell_kb216_black')
+      if (savedId && savedId !== 'dell_kb216_black') {
+        const found = KEYBOARD_THEMES.find((t) => t.id === savedId);
+        if (found) return found;
+      }
+      return DEFAULT_KEYBOARD_THEME;
     } catch {
-      return KEYBOARD_THEMES[0];
+      return DEFAULT_KEYBOARD_THEME;
     }
   });
 
@@ -1531,10 +1535,10 @@ export default function App() {
             type="button"
             onClick={() => setIsGameModalOpen(true)}
             className="px-2 py-1 rounded-lg bg-gradient-to-r from-pink-500 via-rose-500 to-amber-500 hover:from-pink-400 hover:to-amber-400 text-white text-xs font-black flex items-center gap-1 transition-all cursor-pointer shadow-sm active:scale-95 animate-pulse"
-            title="Đấu trường 5 trò chơi luyện gõ"
+            title="Đấu trường luyện gõ 10 ngón 5 cấp độ"
           >
             <Gamepad2 className="w-3.5 h-3.5" />
-            <span>🎮 Trò Chơi</span>
+            <span>🎮 Đấu Trường</span>
           </button>
 
           {/* NÚT PHỦ KÍN MÀN HÌNH / 1366x768 */}

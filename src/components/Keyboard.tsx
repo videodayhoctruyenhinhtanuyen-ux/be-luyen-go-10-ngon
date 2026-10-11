@@ -10,7 +10,7 @@ import {
   CODE_TO_KEY_MAP,
 } from '../data/keyboardLayout';
 import { HandsOverlay } from './HandsOverlay';
-import { KeyboardSkinTheme, KEYBOARD_THEMES } from '../data/keyboardThemes';
+import { KeyboardSkinTheme, KEYBOARD_THEMES, DEFAULT_KEYBOARD_THEME } from '../data/keyboardThemes';
 
 interface KeyboardProps {
   targetKey?: KeyConfig;
@@ -45,7 +45,7 @@ export const Keyboard: React.FC<KeyboardProps> = ({
   theme,
   onOpenThemeModal,
 }) => {
-  const activeTheme = theme || KEYBOARD_THEMES[0];
+  const activeTheme = theme || DEFAULT_KEYBOARD_THEME;
   const isKeyPressed = (code: string) => pressedKeys.has(code);
 
   // Keyboard LED statuses

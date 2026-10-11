@@ -5,7 +5,7 @@ class SoundEngine {
   private isMuted: boolean = false;
   private volume: number = 0.7;
 
-  private initContext() {
+  public initContext() {
     if (!this.ctx && typeof window !== 'undefined') {
       const AudioCtx = window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
       if (AudioCtx) {
@@ -17,12 +17,106 @@ class SoundEngine {
     }
   }
 
+  private bgmInterval: number | null = null;
+  private isBgmPlaying: boolean = false;
+
   public setMuted(muted: boolean) {
     this.isMuted = muted;
+    if (muted) {
+      this.stopBGM();
+    }
   }
 
   public setVolume(vol: number) {
     this.volume = Math.max(0, Math.min(1, vol));
+  }
+
+  // Nhạc nền (BGM) vui nhộn, sống động bằng Web Audio API Synthesizer (pentatonic marimba/chiptune)
+  public startBGM() {
+    if (this.isMuted || this.isBgmPlaying) return;
+    try {
+      this.initContext();
+      if (!this.ctx) return;
+      this.isBgmPlaying = true;
+
+      // Giai điệu thiếu nhi vui tươi, nhộn nhịp âm giai Đô Trưởng / Son Trưởng
+      const melody = [
+        { note: 523.25, dur: 0.2 }, // C5
+        { note: 587.33, dur: 0.2 }, // D5
+        { note: 659.25, dur: 0.2 }, // E5
+        { note: 783.99, dur: 0.32 }, // G5
+        { note: 659.25, dur: 0.2 }, // E5
+        { note: 783.99, dur: 0.2 }, // G5
+        { note: 880.00, dur: 0.38 }, // A5
+        { note: 783.99, dur: 0.24 }, // G5
+        { note: 659.25, dur: 0.2 }, // E5
+        { note: 587.33, dur: 0.2 }, // D5
+        { note: 523.25, dur: 0.38 }, // C5
+        { note: 392.00, dur: 0.2 }, // G4
+        { note: 523.25, dur: 0.2 }, // C5
+        { note: 587.33, dur: 0.2 }, // D5
+        { note: 659.25, dur: 0.32 }, // E5
+        { note: 523.25, dur: 0.42 }, // C5
+      ];
+
+      const bassNotes = [261.63, 261.63, 329.63, 392.00, 349.23, 349.23, 261.63, 392.00];
+
+      let noteIdx = 0;
+      let bassIdx = 0;
+
+      const playStep = () => {
+        if (!this.isBgmPlaying || this.isMuted || !this.ctx) return;
+        const t = this.ctx.currentTime;
+        const currentMelody = melody[noteIdx % melody.length];
+
+        // Âm sắc Marimba / Bell trong trẻo
+        const osc = this.ctx.createOscillator();
+        const gain = this.ctx.createGain();
+        osc.type = 'triangle';
+        osc.frequency.setValueAtTime(currentMelody.note, t);
+
+        const vol = this.volume * 0.12;
+        gain.gain.setValueAtTime(vol, t);
+        gain.gain.exponentialRampToValueAtTime(0.0001, t + currentMelody.dur * 0.95);
+
+        osc.connect(gain);
+        gain.connect(this.ctx.destination);
+        osc.start(t);
+        osc.stop(t + currentMelody.dur);
+
+        // Nốt trầm hòa âm bass
+        if (noteIdx % 2 === 0) {
+          const bassOsc = this.ctx.createOscillator();
+          const bassGain = this.ctx.createGain();
+          bassOsc.type = 'sine';
+          bassOsc.frequency.setValueAtTime(bassNotes[bassIdx % bassNotes.length], t);
+
+          bassGain.gain.setValueAtTime(this.volume * 0.07, t);
+          bassGain.gain.exponentialRampToValueAtTime(0.0001, t + 0.34);
+
+          bassOsc.connect(bassGain);
+          bassGain.connect(this.ctx.destination);
+          bassOsc.start(t);
+          bassOsc.stop(t + 0.36);
+          bassIdx++;
+        }
+
+        noteIdx++;
+      };
+
+      playStep();
+      this.bgmInterval = window.setInterval(playStep, 250);
+    } catch {
+      // AudioContext error suppressed
+    }
+  }
+
+  public stopBGM() {
+    this.isBgmPlaying = false;
+    if (this.bgmInterval) {
+      clearInterval(this.bgmInterval);
+      this.bgmInterval = null;
+    }
   }
 
   // Realistic mechanical switch click

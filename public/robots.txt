@@ -1,0 +1,37 @@
+# ==============================================================================
+# Robots.txt for Luyện Gõ Bàn Phím 10 Ngón (https://luyengo10ngon.vercel.app/)
+# ==============================================================================
+
+# 1. Googlebot (Google Search)
+User-agent: Googlebot
+User-agent: Googlebot-Image
+User-agent: Googlebot-Mobile
+Allow: /
+
+# 2. Bingbot (Microsoft Bing)
+User-agent: Bingbot
+User-agent: msnbot
+Allow: /
+
+# 3. CocCocBot (Cốc Cốc Search - Trình duyệt & Công cụ tìm kiếm phổ biến tại Việt Nam)
+User-agent: CocCocBot
+User-agent: coccocbot-image
+User-agent: coccocbot-web
+Allow: /
+
+# 4. Trợ lý tìm kiếm & AI Crawlers (Tìm kiếm thông minh)
+User-agent: Applebot
+User-agent: DuckDuckBot
+User-agent: YandexBot
+User-agent: GPTBot
+User-agent: PerplexityBot
+User-agent: ClaudeBot
+Allow: /
+
+# 5. Tất cả các crawler hợp lệ khác
+User-agent: *
+Allow: /
+Disallow: /api/
+
+# Khai báo Sitemaps chính thức
+Sitemap: https://luyengo10ngon.vercel.app/sitemap.xml
