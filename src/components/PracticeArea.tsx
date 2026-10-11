@@ -115,6 +115,21 @@ export const PracticeArea: React.FC<PracticeAreaProps> = ({
   const activeCharRef = useRef<HTMLSpanElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const [isInputFocused, setIsInputFocused] = useState<boolean>(true);
+  const [capsLockOn, setCapsLockOn] = useState<boolean>(false);
+
+  useEffect(() => {
+    const handleKeyMod = (e: KeyboardEvent) => {
+      if (e.getModifierState) {
+        setCapsLockOn(e.getModifierState('CapsLock'));
+      }
+    };
+    window.addEventListener('keydown', handleKeyMod);
+    window.addEventListener('keyup', handleKeyMod);
+    return () => {
+      window.removeEventListener('keydown', handleKeyMod);
+      window.removeEventListener('keyup', handleKeyMod);
+    };
+  }, []);
 
   // Pop-up động viên tức thì
   const [encouragementToast, setEncouragementToast] = useState<{
@@ -600,11 +615,11 @@ export const PracticeArea: React.FC<PracticeAreaProps> = ({
             </span>
           </div>
 
-          {/* KHUNG VĂN BẢN MẪU TINH GỌN (min-h-[44px] max-h-[58px]) */}
+          {/* KHUNG VĂN BẢN MẪU HIỂN THỊ CỐ ĐỊNH 4 DÒNG VĂN BẢN (SGK) */}
           <div
             ref={containerRef}
             onClick={handleFocusInput}
-            className={`w-full bg-slate-50/90 border border-indigo-200 hover:border-indigo-300 rounded-lg p-1 sm:p-1.5 font-mono ${fontSizeClass} leading-snug select-none cursor-text shadow-2xs min-h-[44px] max-h-[58px] overflow-y-auto custom-scrollbar flex flex-col gap-0.5 transition-all`}
+            className={`w-full bg-slate-50/90 border border-indigo-200 hover:border-indigo-300 rounded-lg p-1.5 font-mono ${fontSizeClass} leading-snug select-none cursor-text shadow-2xs h-[124px] min-h-[124px] max-h-[124px] overflow-y-auto custom-scrollbar flex flex-col gap-1 transition-all`}
           >
             {tokenLines.map((lineTokens, lineIdx) => {
               const isChunkHighlighted =
@@ -615,9 +630,9 @@ export const PracticeArea: React.FC<PracticeAreaProps> = ({
               return (
                 <div
                   key={`line-${lineIdx}`}
-                  className={`w-full flex flex-wrap items-baseline gap-x-0 transition-all px-1 py-0.5 rounded-lg ${
+                  className={`w-full flex flex-wrap items-center gap-x-0 transition-all px-1.5 py-0.5 rounded-md min-h-[26px] ${
                     isCurrentActiveLine
-                      ? 'bg-sky-100/80 ring-1 ring-sky-400/80 shadow-2xs'
+                      ? 'bg-sky-100/90 ring-1 ring-sky-400 shadow-2xs'
                       : isChunkHighlighted
                       ? 'opacity-100'
                       : 'opacity-60'
@@ -723,42 +738,19 @@ export const PracticeArea: React.FC<PracticeAreaProps> = ({
         {/* TẦNG 2: Ô BÉ NHẬP VĂN BẢN LUYỆN GÕ PHÍM */}
         <div className="flex flex-col gap-1">
           <div className="flex items-center justify-between text-xs px-1 text-slate-700">
-            <span className="font-black text-slate-800 flex items-center gap-1.5">
+            <span className="font-black text-slate-800 flex items-center gap-1.5 flex-wrap">
               <ShieldCheck className="w-3.5 h-3.5 text-emerald-600" />
               <span>Ô Bé Gõ Phím (Kiểm Soát Nhập Liệu)</span>
               <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse ml-0.5" />
+              {capsLockOn && (
+                <span className="ml-1.5 inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-amber-400 text-slate-950 font-black text-[10px] shadow-xs animate-bounce border border-amber-500">
+                  ⚠️ Caps Lock Đang BẬT (Gõ Chữ HOA)
+                </span>
+              )}
             </span>
 
-            {/* Bố trí cụm nút điều khiển bộ gõ & nút xóa lùi */}
+            {/* Nút xóa lùi ký tự vừa gõ */}
             <div className="flex items-center gap-1.5">
-              {inputMode === 'telex' && onToggleKeyboardImeMode && (
-                <div className="flex items-center gap-0.5 bg-slate-100 p-0.5 rounded-lg border border-slate-200">
-                  <button
-                    type="button"
-                    onClick={() => onToggleKeyboardImeMode('unikey_v')}
-                    className={`text-[10px] font-black px-2 py-0.5 rounded-md transition-all cursor-pointer ${
-                      keyboardImeMode === 'unikey_v'
-                        ? 'bg-rose-500 text-white shadow-2xs'
-                        : 'text-slate-600 hover:text-slate-900'
-                    }`}
-                    title="Máy tính đang BẬT Unikey/EVKey chữ V"
-                  >
-                    🇻🇳 [V] Unikey
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => onToggleKeyboardImeMode('telex_e')}
-                    className={`text-[10px] font-black px-2 py-0.5 rounded-md transition-all cursor-pointer ${
-                      keyboardImeMode === 'telex_e'
-                        ? 'bg-sky-600 text-white shadow-2xs'
-                        : 'text-slate-600 hover:text-slate-900'
-                    }`}
-                    title="Máy tính TẮT Unikey để luyện từng phím Telex"
-                  >
-                    🔤 [E] Luyện phím
-                  </button>
-                </div>
-              )}
 
               {(currentLineTypedText.length > 0 || hasMistake) && (
                 <button

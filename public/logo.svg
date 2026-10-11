@@ -1,0 +1,206 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 500 500" width="100%" height="100%">
+  <defs>
+    <!-- Gradients -->
+    <linearGradient id="blueSwoosh" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#0284c7" />
+      <stop offset="50%" stop-color="#0369a1" />
+      <stop offset="100%" stop-color="#1e3a8a" />
+    </linearGradient>
+    <linearGradient id="orangeSwoosh" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#fb923c" />
+      <stop offset="50%" stop-color="#f97316" />
+      <stop offset="100%" stop-color="#ea580c" />
+    </linearGradient>
+    <linearGradient id="cyanArc" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#38bdf8" />
+      <stop offset="100%" stop-color="#0284c7" />
+    </linearGradient>
+    <filter id="shadow" x="-10%" y="-10%" width="120%" height="120%">
+      <feDropShadow dx="0" dy="4" stdDeviation="6" flood-opacity="0.15" />
+    </filter>
+  </defs>
+
+  <!-- Background White Circle -->
+  <circle cx="250" cy="250" r="236" fill="#ffffff" filter="url(#shadow)" />
+
+  <!-- Outer Cyan/Blue Swirl Arc (Top & Left) -->
+  <path d="M 90 390 C 25 320 20 180 80 100 C 140 25 300 20 400 80 C 430 100 455 130 470 165 C 445 125 405 85 350 65 C 250 25 120 50 65 140 C 15 220 25 340 90 390 Z" fill="url(#cyanArc)" />
+  <path d="M 60 340 C 25 270 30 170 85 110 C 135 55 240 40 330 65 C 250 45 150 70 100 130 C 50 190 45 280 60 340 Z" fill="#0284c7" opacity="0.6" />
+
+  <!-- Outer Orange Swirl Arc (Right & Bottom) -->
+  <path d="M 410 110 C 475 180 480 320 420 400 C 360 475 200 480 100 420 C 70 400 45 370 30 335 C 55 375 95 415 150 435 C 250 475 380 450 435 360 C 485 280 475 160 410 110 Z" fill="url(#orangeSwoosh)" />
+  <path d="M 440 160 C 475 230 470 330 415 390 C 365 445 260 460 170 435 C 250 455 350 430 400 370 C 450 310 455 220 440 160 Z" fill="#ea580c" opacity="0.6" />
+
+  <!-- Inner Subtle Ring -->
+  <circle cx="250" cy="250" r="215" fill="none" stroke="#e0f2fe" stroke-width="4" />
+
+  <!-- ================= KEYBOARD ILLUSTRATION ================= -->
+  <g transform="translate(250, 155)">
+    <!-- Cable -->
+    <path d="M 0 -38 C 0 -60 35 -70 45 -90" fill="none" stroke="#0284c7" stroke-width="5" stroke-linecap="round" />
+    <path d="M 0 -38 C -10 -65 -45 -70 -35 -90" fill="none" stroke="#38bdf8" stroke-width="4" stroke-linecap="round" />
+
+    <!-- Keyboard Base Body -->
+    <rect x="-160" y="-38" width="320" height="115" rx="14" fill="#0369a1" />
+    <rect x="-155" y="-34" width="310" height="107" rx="11" fill="#f8fafc" stroke="#cbd5e1" stroke-width="2" />
+
+    <!-- Keyboard Grid of Keys -->
+    <!-- Number Row -->
+    <g fill="#e2e8f0" stroke="#94a3b8" stroke-width="1.5">
+      <rect x="-145" y="-26" width="18" height="15" rx="3" />
+      <rect x="-123" y="-26" width="18" height="15" rx="3" />
+      <rect x="-101" y="-26" width="18" height="15" rx="3" />
+      <rect x="-79" y="-26" width="18" height="15" rx="3" />
+      <rect x="-57" y="-26" width="18" height="15" rx="3" fill="#38bdf8" />
+      <rect x="-35" y="-26" width="18" height="15" rx="3" fill="#0284c7" />
+      <rect x="-13" y="-26" width="18" height="15" rx="3" fill="#fb923c" />
+      <rect x="9" y="-26" width="18" height="15" rx="3" fill="#f97316" />
+      <rect x="31" y="-26" width="18" height="15" rx="3" fill="#ea580c" />
+      <rect x="53" y="-26" width="18" height="15" rx="3" />
+      <rect x="75" y="-26" width="18" height="15" rx="3" />
+      <rect x="97" y="-26" width="18" height="15" rx="3" />
+      <rect x="119" y="-26" width="26" height="15" rx="3" fill="#cbd5e1" />
+    </g>
+
+    <!-- QWERTY Row -->
+    <g fill="#e2e8f0" stroke="#94a3b8" stroke-width="1.5">
+      <rect x="-145" y="-7" width="24" height="15" rx="3" fill="#cbd5e1" />
+      <rect x="-117" y="-7" width="18" height="15" rx="3" />
+      <rect x="-95" y="-7" width="18" height="15" rx="3" />
+      <rect x="-73" y="-7" width="18" height="15" rx="3" />
+      <rect x="-51" y="-7" width="18" height="15" rx="3" fill="#0284c7" />
+      <rect x="-29" y="-7" width="18" height="15" rx="3" />
+      <rect x="-7" y="-7" width="18" height="15" rx="3" />
+      <rect x="15" y="-7" width="18" height="15" rx="3" fill="#f97316" />
+      <rect x="37" y="-7" width="18" height="15" rx="3" />
+      <rect x="59" y="-7" width="18" height="15" rx="3" />
+      <rect x="81" y="-7" width="18" height="15" rx="3" />
+      <rect x="103" y="-7" width="18" height="15" rx="3" />
+      <rect x="125" y="-7" width="20" height="15" rx="3" />
+    </g>
+
+    <!-- Home Row (ASDF - JKL;) -->
+    <g fill="#e2e8f0" stroke="#94a3b8" stroke-width="1.5">
+      <rect x="-145" y="12" width="28" height="15" rx="3" fill="#cbd5e1" />
+      <rect x="-113" y="12" width="18" height="15" rx="3" fill="#0284c7" />
+      <rect x="-91" y="12" width="18" height="15" rx="3" fill="#0284c7" />
+      <rect x="-69" y="12" width="18" height="15" rx="3" fill="#0284c7" />
+      <rect x="-47" y="12" width="18" height="15" rx="3" fill="#0369a1" stroke="#38bdf8" stroke-width="2" />
+      <rect x="-25" y="12" width="18" height="15" rx="3" />
+      <rect x="-3" y="12" width="18" height="15" rx="3" />
+      <rect x="19" y="12" width="18" height="15" rx="3" fill="#ea580c" stroke="#fed7aa" stroke-width="2" />
+      <rect x="41" y="12" width="18" height="15" rx="3" fill="#f97316" />
+      <rect x="63" y="12" width="18" height="15" rx="3" fill="#f97316" />
+      <rect x="85" y="12" width="18" height="15" rx="3" fill="#f97316" />
+      <rect x="107" y="12" width="38" height="15" rx="3" fill="#10b981" />
+    </g>
+
+    <!-- Bottom Row (ZXCVB - NM) -->
+    <g fill="#e2e8f0" stroke="#94a3b8" stroke-width="1.5">
+      <rect x="-145" y="31" width="34" height="15" rx="3" fill="#cbd5e1" />
+      <rect x="-107" y="31" width="18" height="15" rx="3" />
+      <rect x="-85" y="31" width="18" height="15" rx="3" />
+      <rect x="-63" y="31" width="18" height="15" rx="3" />
+      <rect x="-41" y="31" width="18" height="15" rx="3" />
+      <rect x="-19" y="31" width="18" height="15" rx="3" />
+      <rect x="3" y="31" width="18" height="15" rx="3" />
+      <rect x="25" y="31" width="18" height="15" rx="3" />
+      <rect x="47" y="31" width="18" height="15" rx="3" />
+      <rect x="69" y="31" width="18" height="15" rx="3" />
+      <rect x="91" y="31" width="54" height="15" rx="3" fill="#cbd5e1" />
+    </g>
+
+    <!-- Spacebar Row -->
+    <g fill="#cbd5e1" stroke="#94a3b8" stroke-width="1.5">
+      <rect x="-145" y="50" width="22" height="16" rx="3" />
+      <rect x="-119" y="50" width="20" height="16" rx="3" />
+      <rect x="-95" y="50" width="22" height="16" rx="3" />
+      <rect x="-69" y="50" width="138" height="16" rx="4" fill="#f1f5f9" stroke="#0284c7" stroke-width="2" />
+      <rect x="73" y="50" width="22" height="16" rx="3" />
+      <rect x="99" y="50" width="20" height="16" rx="3" />
+      <rect x="123" y="50" width="22" height="16" rx="3" />
+    </g>
+
+    <!-- Home Row Keycap Letters -->
+    <text x="-104" y="23" font-family="'Nunito', sans-serif" font-size="9" font-weight="900" fill="#ffffff" text-anchor="middle">A</text>
+    <text x="-82" y="23" font-family="'Nunito', sans-serif" font-size="9" font-weight="900" fill="#ffffff" text-anchor="middle">S</text>
+    <text x="-60" y="23" font-family="'Nunito', sans-serif" font-size="9" font-weight="900" fill="#ffffff" text-anchor="middle">D</text>
+    <text x="-38" y="23" font-family="'Nunito', sans-serif" font-size="10" font-weight="900" fill="#ffffff" text-anchor="middle">F</text>
+    <text x="28" y="23" font-family="'Nunito', sans-serif" font-size="10" font-weight="900" fill="#ffffff" text-anchor="middle">J</text>
+    <text x="50" y="23" font-family="'Nunito', sans-serif" font-size="9" font-weight="900" fill="#ffffff" text-anchor="middle">K</text>
+    <text x="72" y="23" font-family="'Nunito', sans-serif" font-size="9" font-weight="900" fill="#ffffff" text-anchor="middle">L</text>
+    <text x="94" y="23" font-family="'Nunito', sans-serif" font-size="9" font-weight="900" fill="#ffffff" text-anchor="middle">;</text>
+
+    <!-- Speed Action Streaks -->
+    <line x1="-185" y1="0" x2="-165" y2="0" stroke="#0284c7" stroke-width="4" stroke-linecap="round" />
+    <line x1="-195" y1="20" x2="-170" y2="20" stroke="#38bdf8" stroke-width="3" stroke-linecap="round" />
+    <line x1="-180" y1="40" x2="-165" y2="40" stroke="#0284c7" stroke-width="3.5" stroke-linecap="round" />
+
+    <line x1="165" y1="-15" x2="185" y2="-15" stroke="#f97316" stroke-width="4" stroke-linecap="round" />
+    <line x1="170" y1="10" x2="195" y2="10" stroke="#fb923c" stroke-width="3" stroke-linecap="round" />
+    <line x1="165" y1="35" x2="180" y2="35" stroke="#ea580c" stroke-width="3.5" stroke-linecap="round" />
+
+    <!-- ================= TWO CARTOON HANDS TYPING ================= -->
+    <!-- Left Hand -->
+    <g stroke="#0369a1" stroke-width="4" stroke-linecap="round" stroke-linejoin="round">
+      <!-- Arm Sleeves -->
+      <path d="M -115 -110 L -90 -65 L -65 -65 L -85 -110 Z" fill="#38bdf8" stroke="none" />
+      <path d="M -115 -110 L -90 -65 M -65 -65 L -85 -110" fill="none" />
+
+      <!-- Left Hand Palm & Fingers -->
+      <!-- Palm -->
+      <path d="M -90 -65 C -105 -50 -105 -25 -80 -15 C -65 -10 -50 -15 -45 -35 C -42 -50 -60 -65 -75 -65 Z" fill="#ffedd5" />
+      <!-- Pinky finger -->
+      <path d="M -102 -40 C -115 -35 -115 -15 -105 -5 C -100 0 -95 0 -95 -10" fill="#fed7aa" />
+      <!-- Ring finger -->
+      <path d="M -93 -35 C -100 -25 -95 5 -85 10 C -80 12 -75 5 -78 -15" fill="#fed7aa" />
+      <!-- Middle finger -->
+      <path d="M -78 -35 C -82 -20 -78 12 -65 14 C -60 14 -56 5 -62 -15" fill="#fed7aa" />
+      <!-- Index finger (Pressing F key) -->
+      <path d="M -62 -35 C -60 -15 -52 18 -40 18 C -35 18 -32 5 -42 -20" fill="#ffedd5" />
+      <!-- Thumb (resting on Space) -->
+      <path d="M -45 -20 C -35 -15 -25 35 -20 50 C -18 55 -12 55 -15 45 C -20 25 -32 -5 -40 -15" fill="#fed7aa" />
+    </g>
+
+    <!-- Right Hand -->
+    <g stroke="#ea580c" stroke-width="4" stroke-linecap="round" stroke-linejoin="round">
+      <!-- Arm Sleeves -->
+      <path d="M 85 -110 L 65 -65 L 90 -65 L 115 -110 Z" fill="#fb923c" stroke="none" />
+      <path d="M 85 -110 L 65 -65 M 90 -65 L 115 -110" fill="none" />
+
+      <!-- Right Hand Palm & Fingers -->
+      <path d="M 75 -65 C 60 -65 42 -50 45 -35 C 50 -15 65 -10 80 -15 C 105 -25 105 -50 90 -65 Z" fill="#ffedd5" />
+      <!-- Thumb (resting on Space) -->
+      <path d="M 40 -15 C 32 -5 20 25 15 45 C 12 55 18 55 20 50 C 25 35 35 -15 45 -20" fill="#fed7aa" />
+      <!-- Index finger (Pressing J key) -->
+      <path d="M 42 -20 C 32 5 35 18 40 18 C 52 18 60 -15 62 -35" fill="#ffedd5" />
+      <!-- Middle finger -->
+      <path d="M 62 -15 C 56 5 60 14 65 14 C 78 12 82 -20 78 -35" fill="#fed7aa" />
+      <!-- Ring finger -->
+      <path d="M 78 -15 C 75 5 80 12 85 10 C 95 5 100 -25 93 -35" fill="#fed7aa" />
+      <!-- Pinky finger -->
+      <path d="M 95 -10 C 95 0 100 0 105 -5 C 115 -15 115 -35 102 -40" fill="#fed7aa" />
+    </g>
+  </g>
+
+  <!-- ================= TYPOGRAPHY ================= -->
+  <!-- "LUYỆN GÕ" -->
+  <text x="250" y="295" font-family="'Nunito', 'Arial Black', sans-serif" font-size="46" font-weight="900" fill="#0284c7" text-anchor="middle" letter-spacing="1">LUYỆN GÕ</text>
+
+  <!-- "BÀN PHÍM" -->
+  <text x="250" y="348" font-family="'Nunito', 'Arial Black', sans-serif" font-size="52" font-weight="900" fill="#0369a1" text-anchor="middle" letter-spacing="2">BÀN PHÍM</text>
+
+  <!-- "10 NGÓN" with Speed Lines -->
+  <g transform="translate(250, 405)">
+    <!-- Speed Lines behind 10 -->
+    <line x1="-165" y1="-14" x2="-115" y2="-14" stroke="#f97316" stroke-width="6" stroke-linecap="round" />
+    <line x1="-155" y1="0" x2="-110" y2="0" stroke="#fb923c" stroke-width="5" stroke-linecap="round" />
+    <line x1="-140" y1="12" x2="-105" y2="12" stroke="#ea580c" stroke-width="5" stroke-linecap="round" />
+
+    <!-- 10 NGÓN in bright orange gradient -->
+    <text x="-10" y="5" font-family="'Nunito', 'Arial Black', sans-serif" font-size="64" font-weight="900" fill="url(#orangeSwoosh)" text-anchor="middle" font-style="italic">10 NGÓN</text>
+  </g>
+
+  <!-- "NHANH & CHÍNH XÁC" -->
+  <text x="250" y="445" font-family="'Nunito', sans-serif" font-size="19" font-weight="900" fill="#0f172a" text-anchor="middle" letter-spacing="3.5">NHANH &amp; CHÍNH XÁC</text>
+</svg>

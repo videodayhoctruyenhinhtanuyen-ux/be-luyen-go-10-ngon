@@ -11,9 +11,6 @@ import {
 } from '../data/keyboardLayout';
 import { HandsOverlay } from './HandsOverlay';
 import { KeyboardSkinTheme, KEYBOARD_THEMES } from '../data/keyboardThemes';
-import { Palette, Monitor, Laptop, Maximize2 } from 'lucide-react';
-
-export type KeyboardScalePreset = 'auto' | '1080p' | '768p';
 
 interface KeyboardProps {
   targetKey?: KeyConfig;
@@ -56,33 +53,13 @@ export const Keyboard: React.FC<KeyboardProps> = ({
   const [numLockActive, setNumLockActive] = useState<boolean>(true);
   const [scrollLockActive, setScrollLockActive] = useState<boolean>(false);
 
-  // Key hovered by mouse for instant finger & hand hint
-  const [hoveredKey, setHoveredKey] = useState<KeyConfig | null>(null);
-
-  // Resolution and scale presets: 'auto' | '1080p' | '768p'
-  const [scalePreset, setScalePreset] = useState<KeyboardScalePreset>(() => {
-    try {
-      const saved = localStorage.getItem('typing_keyboard_scale_preset') as KeyboardScalePreset;
-      return saved === '1080p' || saved === '768p' || saved === 'auto' ? saved : 'auto';
-    } catch {
-      return 'auto';
-    }
-  });
-
-  const [zoomPercent, setZoomPercent] = useState<number>(() => {
-    try {
-      const saved = localStorage.getItem('typing_keyboard_zoom_percent');
-      return saved ? Math.max(75, Math.min(135, Number(saved))) : 100;
-    } catch {
-      return 100;
-    }
-  });
-
   // Container ref to dynamically compute unit size ensuring true 1:1 keycap proportions
   const containerRef = useRef<HTMLDivElement>(null);
-  const [unitSize, setUnitSize] = useState<number>(45);
+  const [unitSize, setUnitSize] = useState<number>(40);
+  const [keyHeight, setKeyHeight] = useState<number>(46);
 
-  // Dynamic calculation of keycap unit size (U) based on available container width & screen resolution
+  // Tự động tính toán kích thước phím (U) theo chiều ngang container & chiều cao viewport
+  // Mở rộng chiều cao các phím to rõ, trực quan, loại bỏ khoảng trống thừa và vừa khít màn hình 1366x768
   useEffect(() => {
     if (!containerRef.current) return;
     const calculateSize = () => {
@@ -90,41 +67,35 @@ export const Keyboard: React.FC<KeyboardProps> = ({
       const width = containerRef.current.clientWidth;
       if (width <= 0) return;
 
-      // Outer frame and plate padding (~28px total)
-      const availableWidth = Math.max(300, width - 28);
-      // Total keyboard width is: 22.7 * unitSize + 76px
+      // Outer frame and plate padding (~16px total)
+      const availableWidth = Math.max(300, width - 16);
+      // Total keyboard width: 22.7 * unitSize + 76px
       const fitUnitByWidth = Math.floor((availableWidth - 76) / 22.7);
 
       // Measure available height in viewport
       const vh = window.innerHeight || 768;
       const rect = containerRef.current.getBoundingClientRect();
-      const topOffset = rect.top > 0 ? rect.top : 360;
-      // Reserve 24px for footer + bottom safety padding
-      const maxKeyboardAvailableHeight = Math.max(160, vh - topOffset - 24);
+      const topOffset = rect.top > 0 ? rect.top : 330;
+      // Reserve 20px for bottom safety margin & footer
+      const maxKeyboardAvailableHeight = Math.max(180, vh - topOffset - 20);
 
-      // Keyboard key rows height: 5.78 * unitSize + header (26px) + plate/frame padding & gaps (24px) = ~50px
-      const fitUnitByHeight = Math.floor((maxKeyboardAvailableHeight - 50) / 5.78);
+      // Keyboard key rows height: 5.76 * unitSize + plate/frame padding (16px)
+      const fitUnitByHeight = Math.floor((maxKeyboardAvailableHeight - 16) / 5.76);
 
-      let baseUnit = fitUnitByWidth;
-      if (scalePreset === '1080p') {
-        // Full HD 1920x1080
-        baseUnit = Math.max(34, Math.min(54, fitUnitByWidth));
-      } else if (scalePreset === '768p') {
-        // Màn hình 1366x768 của phòng máy: Đảm bảo vừa khít trong màn hình 768px không cuộn dọc
-        const heightTarget = fitUnitByHeight > 0 ? fitUnitByHeight : 30;
-        baseUnit = Math.max(25, Math.min(32, heightTarget, fitUnitByWidth));
-      } else {
-        // Tự động (Auto): Tự động co giãn để VỪA KHÍT cả chiều ngang lẫn chiều dọc (No Vertical Scroll)
-        if (fitUnitByHeight > 0 && fitUnitByHeight < fitUnitByWidth) {
-          baseUnit = Math.max(25, fitUnitByHeight);
-        } else {
-          baseUnit = Math.max(26, Math.min(48, fitUnitByWidth));
-        }
+      let finalUnit = fitUnitByWidth;
+      if (fitUnitByHeight > 0 && fitUnitByHeight < fitUnitByWidth) {
+        finalUnit = fitUnitByHeight;
       }
+      finalUnit = Math.max(28, Math.min(52, finalUnit));
+      setUnitSize(finalUnit);
 
-      // Apply zoom percentage multiplier
-      const finalUnit = Math.round(baseUnit * (zoomPercent / 100));
-      setUnitSize(Math.max(24, Math.min(68, finalUnit)));
+      // Mở rộng chiều cao phím: tăng thêm ~12-16% so với unitSize để phím to rõ hơn
+      const maxKeyHeightAllowed = Math.floor((maxKeyboardAvailableHeight - 16) / 5.76);
+      const computedHeight = Math.max(
+        finalUnit,
+        Math.min(Math.round(finalUnit * 1.15), maxKeyHeightAllowed > finalUnit ? maxKeyHeightAllowed : finalUnit)
+      );
+      setKeyHeight(Math.max(28, Math.min(58, computedHeight)));
     };
 
     calculateSize();
@@ -135,28 +106,7 @@ export const Keyboard: React.FC<KeyboardProps> = ({
       ro.disconnect();
       window.removeEventListener('resize', calculateSize);
     };
-  }, [scalePreset, zoomPercent]);
-
-  const handleChangePreset = (preset: KeyboardScalePreset) => {
-    setScalePreset(preset);
-    try {
-      localStorage.setItem('typing_keyboard_scale_preset', preset);
-    } catch {
-      // Ignore
-    }
-  };
-
-  const handleZoom = (delta: number) => {
-    setZoomPercent((prev) => {
-      const next = Math.max(75, Math.min(135, prev + delta));
-      try {
-        localStorage.setItem('typing_keyboard_zoom_percent', String(next));
-      } catch {
-        // Ignore
-      }
-      return next;
-    });
-  };
+  }, []);
 
   useEffect(() => {
     const handleKeyToggle = (e: KeyboardEvent) => {
@@ -175,10 +125,10 @@ export const Keyboard: React.FC<KeyboardProps> = ({
   }, []);
 
   // Proportional dimensional constants
-  const gap = 4; // gap between keycaps in px
+  const gap = 3.5; // gap between keycaps in px
   const sectionGap = Math.round(unitSize * 0.35); // gap between Main ANSI, Nav cluster, and Numpad
-  const fnKeyHeight = Math.round(unitSize * 0.78); // function keys have standard ~0.78-0.80 profile height
-  const mainKeyHeight = unitSize; // 1U key height is identical to width: 1:1 true physical square aspect ratio!
+  const fnKeyHeight = Math.round(keyHeight * 0.76); // function keys have standard ~0.76 profile height
+  const mainKeyHeight = keyHeight; // Keycap height boosted for prominent, easy-to-read presentation
 
   // Section widths calculated with mathematical precision:
   const mainSectionWidth = 15.0 * unitSize + 14 * gap;
@@ -263,15 +213,18 @@ export const Keyboard: React.FC<KeyboardProps> = ({
       ...options?.customStyle,
     };
 
-    const isHovered = hoveredKey?.code === key.code;
-
     return (
       <button
         key={key.code}
         type="button"
-        onClick={() => onKeyClick?.(key)}
-        onMouseEnter={() => setHoveredKey(key)}
-        onMouseLeave={() => setHoveredKey(null)}
+        onClick={() => {
+          if (key.code === 'CapsLock') {
+            setCapsLockActive((prev) => !prev);
+          } else if (key.code === 'NumLock') {
+            setNumLockActive((prev) => !prev);
+          }
+          onKeyClick?.(key);
+        }}
         style={styleObj}
         className={`
           relative select-none ${shapeRadiusClass} flex flex-col items-center justify-center p-0.5
@@ -279,26 +232,42 @@ export const Keyboard: React.FC<KeyboardProps> = ({
           ${isWrong ? 'key-wrong-shake' : isTarget ? 'key-target-pop' : themeKeycapClass}
           ${isPressed && !isTarget ? 'key-pressed' : ''}
           ${isEsc ? 'ring-1 ring-black/15 font-black text-rose-300' : ''}
-          ${isHovered ? 'ring-2 ring-sky-400 scale-105 z-30 shadow-lg' : ''}
+          ${key.code === 'CapsLock' && capsLockActive ? 'ring-2 ring-amber-400 bg-amber-950/80' : ''}
+          ${key.code === 'NumLock' && numLockActive ? 'ring-2 ring-emerald-400 bg-emerald-950/80' : ''}
+          hover:scale-102 hover:brightness-105
         `}
         title={`Phím ${key.label}: ${fingerInfo ? fingerInfo.nameVi : ''} (${fingerInfo?.hand === 'left' ? 'Bàn tay trái' : 'Bàn tay phải'})`}
       >
-        {/* Floating Tooltip when user hovers mouse on ANY key */}
-        {isHovered && fingerInfo && (
-          <div className="absolute -top-12 left-1/2 -translate-x-1/2 z-50 pointer-events-none whitespace-nowrap bg-slate-950/95 text-white text-[11px] font-black py-1 px-3 rounded-xl shadow-2xl border-2 border-sky-300 flex items-center gap-1.5 animate-in fade-in zoom-in-95 backdrop-blur-xs">
-            <span
-              className="w-2.5 h-2.5 rounded-full shrink-0 shadow-xs ring-1 ring-white"
-              style={{ backgroundColor: fingerInfo.color }}
-            />
-            <span>
-              Phím {key.label}: {fingerInfo.nameVi} ({fingerInfo.hand === 'left' ? 'Bàn tay trái' : 'Bàn tay phải'})
-            </span>
-            <div className="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-slate-950" />
+        {/* Đèn LED chỉ báo phần cứng ngay trên phím Caps Lock */}
+        {key.code === 'CapsLock' && (
+          <div
+            className={`absolute top-0.5 right-1 flex items-center gap-0.5 px-1 py-0.2 rounded text-[7px] font-black font-mono transition-all ${
+              capsLockActive
+                ? 'bg-amber-400 text-slate-950 shadow-[0_0_6px_#fbbf24] animate-pulse ring-1 ring-amber-300'
+                : 'bg-slate-700/60 text-slate-400'
+            }`}
+          >
+            <span className={`w-1.5 h-1.5 rounded-full ${capsLockActive ? 'bg-amber-900' : 'bg-slate-500'}`} />
+            <span>{capsLockActive ? 'ON' : 'OFF'}</span>
+          </div>
+        )}
+
+        {/* Đèn LED chỉ báo phần cứng ngay trên phím Num Lock */}
+        {key.code === 'NumLock' && (
+          <div
+            className={`absolute top-0.5 right-1 flex items-center gap-0.5 px-1 py-0.2 rounded text-[7px] font-black font-mono transition-all ${
+              numLockActive
+                ? 'bg-emerald-400 text-slate-950 shadow-[0_0_6px_#34d399] ring-1 ring-emerald-300'
+                : 'bg-slate-700/60 text-slate-400'
+            }`}
+          >
+            <span className={`w-1.5 h-1.5 rounded-full ${numLockActive ? 'bg-emerald-900' : 'bg-slate-500'}`} />
+            <span>{numLockActive ? 'ON' : 'OFF'}</span>
           </div>
         )}
 
         {/* Animated Bouncing Pointer Arrow on Target Key */}
-        {isTarget && !isHovered && (
+        {isTarget && (
           <div className="absolute -top-7 left-1/2 -translate-x-1/2 flex flex-col items-center pointer-events-none animate-guide-arrow z-40 whitespace-nowrap">
             <span className="px-2 py-0.5 rounded-full text-[9px] font-black text-slate-950 bg-amber-300 border-2 border-amber-400 shadow-lg font-sans">
               {targetLabelText}
@@ -328,13 +297,13 @@ export const Keyboard: React.FC<KeyboardProps> = ({
         <span
           className={`font-mono-key ${
             key.subLabel
-              ? unitSize >= 50
-                ? 'mt-1 text-xs font-black'
-                : 'mt-1 text-[10px] sm:text-xs'
-              : unitSize >= 50
-              ? 'text-xs sm:text-sm font-black'
-              : 'text-[10px] sm:text-xs'
-          } ${isTarget ? 'font-black scale-110 drop-shadow-md text-white' : ''}`}
+              ? keyHeight >= 40
+                ? 'mt-0.5 text-xs font-black'
+                : 'mt-0.5 text-[10px] font-bold'
+              : keyHeight >= 40
+              ? 'text-sm sm:text-base font-black tracking-tight'
+              : 'text-xs sm:text-sm font-black'
+          } ${isTarget ? 'font-black scale-115 drop-shadow-md text-white' : ''}`}
         >
           {key.label}
         </span>
@@ -367,178 +336,70 @@ export const Keyboard: React.FC<KeyboardProps> = ({
       <div
         className={`w-full relative p-2 rounded-2xl shadow-lg transition-all duration-300 ${activeTheme.outerFrameClass}`}
       >
-        {/* Top Header of Keyboard with Brand, Theme Switcher and 3 LED Indicators */}
-        <div className={`flex items-center justify-between px-2.5 py-1 mb-1 rounded-xl text-xs transition-colors ${activeTheme.headerBarClass}`}>
-          <div className="flex items-center gap-2 flex-wrap">
-            <span className="text-base select-none">{activeTheme.emoji}</span>
-            <span className="font-black uppercase tracking-wider text-[11px]">
-              {activeTheme.name}
-            </span>
-            <span className="text-[10px] bg-black/20 text-current px-2 py-0.5 rounded-full font-mono font-bold border border-white/20">
-              {activeTheme.brandTag}
-            </span>
-            {activeTheme.isSystemCreated ? (
-              <span className="text-[10px] bg-purple-600 text-white px-2 py-0.5 rounded-full font-bold shadow-xs">
-                ⭐ Hệ Thống Tự Chế #9
-              </span>
-            ) : (
-              <span className="text-[10px] bg-emerald-600 text-white px-2 py-0.5 rounded-full font-bold shadow-xs">
-                ✓ Bàn Phím Thật Đời Thực (Full Size 108 Phím Chuẩn)
-              </span>
-            )}
-
-            {/* QUICK THEME SWITCHER BUTTON */}
-            {onOpenThemeModal && (
-              <button
-                type="button"
-                onClick={onOpenThemeModal}
-                className="ml-2 px-2.5 py-1 rounded-xl bg-white hover:bg-amber-100 text-slate-800 font-black text-xs transition-all flex items-center gap-1.5 cursor-pointer shadow-sm border border-slate-300 hover:scale-105 active:scale-95"
-                title="Mở kho 9 mẫu bàn phím để học sinh lựa chọn"
-              >
-                <Palette className="w-3.5 h-3.5 text-pink-500" />
-                <span className="text-sky-900">🎨 Đổi Bàn Phím</span>
-                <span className="text-[9px] bg-amber-400 text-slate-950 px-1.5 py-0.2 rounded-full font-black">
-                  9 MẪU
-                </span>
-              </button>
-            )}
-          </div>
-
-          {/* CỤM ĐIỀU CHỈNH KÍCH THƯỚC BÀN PHÍM TỰ ĐỘNG & THEO ĐỘ PHÂN GIẢI */}
-          <div className="flex items-center gap-2 flex-wrap ml-auto mr-2">
-            <div className="flex items-center gap-1 bg-white/95 px-2 py-0.5 rounded-xl border border-black/10 shadow-sm text-[10px]">
-              <span className="font-bold text-slate-500 hidden lg:inline">Kích cỡ:</span>
-              <button
-                type="button"
-                onClick={() => handleChangePreset('auto')}
-                className={`px-2 py-0.5 rounded-lg font-black transition-all cursor-pointer ${
-                  scalePreset === 'auto'
-                    ? 'bg-sky-600 text-white shadow-2xs'
-                    : 'text-slate-600 hover:bg-slate-100'
-                }`}
-                title="Tự động căn chỉnh kích thước vừa vặn màn hình"
-              >
-                🎯 Tự động
-              </button>
-              <button
-                type="button"
-                onClick={() => handleChangePreset('1080p')}
-                className={`px-2 py-0.5 rounded-lg font-black transition-all cursor-pointer ${
-                  scalePreset === '1080p'
-                    ? 'bg-indigo-600 text-white shadow-2xs'
-                    : 'text-slate-600 hover:bg-slate-100'
-                }`}
-                title="Tiêu chuẩn màn hình 1920x1080: Bàn phím phóng to phủ kín không gian"
-              >
-                🖥️ 1920×1080
-              </button>
-              <button
-                type="button"
-                onClick={() => handleChangePreset('768p')}
-                className={`px-2 py-0.5 rounded-lg font-black transition-all cursor-pointer ${
-                  scalePreset === '768p'
-                    ? 'bg-emerald-600 text-white shadow-2xs'
-                    : 'text-slate-600 hover:bg-slate-100'
-                }`}
-                title="Màn hình 1366x768: Vừa vặn phòng máy vi tính trường học"
-              >
-                💻 1366×768
-              </button>
-
-              {/* Nút Phóng to / Thu nhỏ % */}
-              <div className="flex items-center border-l border-slate-200 pl-1 ml-0.5 gap-0.5">
-                <button
-                  type="button"
-                  onClick={() => handleZoom(-5)}
-                  className="px-1.5 py-0.5 hover:bg-slate-100 text-slate-700 font-black rounded cursor-pointer"
-                  title="Thu nhỏ kích thước bàn phím"
-                >
-                  -
-                </button>
-                <span className="font-mono font-bold text-slate-700 text-[10px] min-w-[32px] text-center">
-                  {zoomPercent}%
-                </span>
-                <button
-                  type="button"
-                  onClick={() => handleZoom(5)}
-                  className="px-1.5 py-0.5 hover:bg-slate-100 text-slate-700 font-black rounded cursor-pointer"
-                  title="Phóng to kích thước bàn phím"
-                >
-                  +
-                </button>
-              </div>
-            </div>
-          </div>
-
-          {/* 3 LED Lights (Num Lock, Caps Lock, Scroll Lock) */}
-          <div className="flex items-center gap-3 bg-white/95 px-3 py-1 rounded-full border border-black/10 shadow-sm text-[10px] font-black">
-            <div className="flex items-center gap-1.5">
-              <span
-                className={`w-2 h-2 rounded-full transition-colors ${
-                  numLockActive
-                    ? activeTheme.numLedActive
-                    : 'bg-slate-300'
-                }`}
-              />
-              <span className={numLockActive ? 'text-emerald-700 font-black' : 'text-slate-400'}>NUM</span>
-            </div>
-            <div className="flex items-center gap-1.5">
-              <span
-                className={`w-2 h-2 rounded-full transition-colors ${
-                  capsLockActive
-                    ? activeTheme.capsLedActive
-                    : 'bg-slate-300'
-                }`}
-              />
-              <span className={capsLockActive ? 'text-sky-700 font-black' : 'text-slate-400'}>CAPS</span>
-            </div>
-            <div className="flex items-center gap-1.5">
-              <span
-                className={`w-2 h-2 rounded-full transition-colors ${
-                  scrollLockActive
-                    ? activeTheme.scrollLedActive
-                    : 'bg-slate-300'
-                }`}
-              />
-              <span className={scrollLockActive ? 'text-amber-700 font-black' : 'text-slate-400'}>SCROLL</span>
-            </div>
-          </div>
-        </div>
-
-        {/* BANNER GỢI Ý THÔNG TIN GÕ PHÍM KHI RÊ CHUỘT (HIỂN THỊ KHI RÊ CHUỘT VÀO PHÍM) */}
-        {hoveredKey && (
-          <div className="mb-1.5 p-1.5 px-3 rounded-xl bg-gradient-to-r from-amber-100 via-sky-100 to-indigo-100 border-2 border-amber-400 shadow-md flex items-center justify-between gap-2 flex-wrap text-slate-900 animate-in fade-in duration-100">
-            <div className="flex items-center gap-2 flex-wrap text-xs">
-              <span className="text-base animate-bounce">💡</span>
-              <span className="font-bold text-slate-700">Phím đang trỏ:</span>
-              <span className="font-mono font-black text-xs px-2 py-0.5 rounded-lg bg-white border-2 border-sky-400 text-sky-950 shadow-xs">
-                {hoveredKey.label}
-              </span>
-              <span className="text-slate-400">➜</span>
-              <span className="font-bold text-slate-700">Bàn tay:</span>
-              <span className="font-black text-xs px-2 py-0.5 rounded-lg bg-indigo-600 text-white shadow-xs">
-                🖐️ {FINGER_DATA[hoveredKey.finger].hand === 'left' ? 'BÀN TAY TRÁI' : 'BÀN TAY PHẢI'}
-              </span>
-              <span className="text-slate-400">➜</span>
-              <span className="font-bold text-slate-700">Ngón tay phụ trách:</span>
-              <span
-                className="font-black text-xs px-2.5 py-0.5 rounded-xl text-white shadow-md flex items-center gap-1 ring-1 ring-white"
-                style={{ backgroundColor: FINGER_DATA[hoveredKey.finger].color }}
-              >
-                <span>👉 {FINGER_DATA[hoveredKey.finger].nameVi}</span>
-              </span>
-            </div>
-
-            <div className="text-[10px] font-bold text-slate-700 bg-white/90 px-2.5 py-0.5 rounded-xl border border-amber-300 hidden xl:block">
-              {FINGER_DATA[hoveredKey.finger].descriptionVi}
-            </div>
-          </div>
-        )}
-
         {/* Inner Switch Plate with locked real-world physical proportions - Stretches 100% full width */}
         <div
           className={`w-full relative p-1.5 sm:p-2 rounded-xl flex flex-col gap-1 sm:gap-1.5 transition-all duration-300 ${activeTheme.plateClass}`}
         >
+          {/* ========================================================================= */}
+          {/* BẢNG ĐÈN LED CHỈ BÁO TRẠNG THÁI: NUM LOCK, CAPS LOCK, SCROLL LOCK          */}
+          {/* ========================================================================= */}
+          <div
+            className="flex items-center justify-between mx-auto px-2.5 py-0.5 rounded-lg bg-slate-950/90 border border-slate-700/80 shadow-inner select-none"
+            style={{ width: `${totalKeyboardWidth}px` }}
+          >
+            <div className="flex items-center gap-1.5">
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+              <span className="text-[10px] font-mono font-black text-slate-300 tracking-tight">
+                BÀN PHÍM THẬT FULL SIZE 108 PHÍM
+              </span>
+            </div>
+
+            {/* LED Status Indicators */}
+            <div className="flex items-center gap-2 text-[10px] font-mono">
+              {/* NUM LOCK */}
+              <button
+                type="button"
+                onClick={() => setNumLockActive((prev) => !prev)}
+                className={`flex items-center gap-1 px-2 py-0.5 rounded font-black transition-all cursor-pointer ${
+                  numLockActive
+                    ? 'bg-emerald-950 text-emerald-200 border border-emerald-400/80 shadow-[0_0_8px_rgba(52,211,153,0.35)]'
+                    : 'bg-slate-900 text-slate-500 border border-slate-800 hover:text-slate-400'
+                }`}
+                title="Bấm để bật/tắt Num Lock"
+              >
+                <span className={`w-2 h-2 rounded-full transition-all ${numLockActive ? 'bg-emerald-400 shadow-[0_0_6px_#34d399]' : 'bg-slate-600'}`} />
+                <span>1 NUM LOCK: {numLockActive ? 'BẬT 🟢' : 'TẮT ⚪'}</span>
+              </button>
+
+              {/* CAPS LOCK */}
+              <button
+                type="button"
+                onClick={() => setCapsLockActive((prev) => !prev)}
+                className={`flex items-center gap-1 px-2 py-0.5 rounded font-black transition-all cursor-pointer ${
+                  capsLockActive
+                    ? 'bg-amber-950 text-amber-200 border border-amber-400 shadow-[0_0_10px_rgba(251,191,36,0.5)] ring-1 ring-amber-400 animate-pulse'
+                    : 'bg-slate-900 text-slate-500 border border-slate-800 hover:text-slate-400'
+                }`}
+                title="Bấm để bật/tắt Caps Lock"
+              >
+                <span className={`w-2 h-2 rounded-full transition-all ${capsLockActive ? 'bg-amber-400 shadow-[0_0_8px_#fbbf24]' : 'bg-slate-600'}`} />
+                <span>A CAPS LOCK: {capsLockActive ? 'BẬT (IN HOA) 🟡' : 'TẮT ⚪'}</span>
+              </button>
+
+              {/* SCROLL LOCK */}
+              <div
+                className={`hidden md:flex items-center gap-1 px-2 py-0.5 rounded font-black ${
+                  scrollLockActive
+                    ? 'bg-emerald-950 text-emerald-200 border border-emerald-400/80'
+                    : 'bg-slate-900 text-slate-500 border border-slate-800'
+                }`}
+              >
+                <span className={`w-2 h-2 rounded-full ${scrollLockActive ? 'bg-emerald-400' : 'bg-slate-600'}`} />
+                <span>↓ SCROLL: {scrollLockActive ? 'BẬT' : 'TẮT'}</span>
+              </div>
+            </div>
+          </div>
+
           {/* ========================================================================= */}
           {/* 1. TOP FUNCTION ROW (ESC, F1-F12, PRTSC/SCRLK/PAUSE, 108TH EXTRA KEYS)     */}
           {/* ========================================================================= */}
@@ -611,8 +472,8 @@ export const Keyboard: React.FC<KeyboardProps> = ({
 
               {/* Hands Overlay covering the Main ANSI section perfectly */}
               <HandsOverlay
-                activeFinger={hoveredKey ? hoveredKey.finger : activeFinger}
-                pressedFinger={hoveredKey ? hoveredKey.finger : activeFinger}
+                activeFinger={activeFinger}
+                pressedFinger={activeFinger}
                 opacity={handsOpacity}
                 style={handsStyle}
                 visible={handsOverlayEnabled}

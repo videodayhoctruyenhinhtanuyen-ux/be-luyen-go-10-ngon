@@ -6,9 +6,7 @@ import { buildKeystrokeSteps, KeystrokeStep } from './utils/vietnameseKeystrokes
 import { generateValidTelexSequencesForWord, checkKeyInSmartTelexWord, matchUnikeyInputInWord, isVietnameseAccented, VIETNAMESE_CHAR_DECOMPOSITION } from './utils/vietnameseSmartTelex';
 import { soundEngine } from './utils/audio';
 import { Keyboard } from './components/Keyboard';
-import { FingerGuideBar } from './components/FingerGuideBar';
 import { PracticeArea } from './components/PracticeArea';
-import { MascotBanner } from './components/MascotBanner';
 import { PostureGuideModal } from './components/PostureGuideModal';
 import { VietnameseGuideModal } from './components/VietnameseGuideModal';
 import { MultiGameHub } from './components/MultiGameHub';
@@ -20,6 +18,7 @@ import { TextbookIllustrationCard } from './components/TextbookIllustrationCard'
 import { KeyboardSkinTheme, KEYBOARD_THEMES } from './data/keyboardThemes';
 import { KeyboardThemeModal } from './components/KeyboardThemeModal';
 import { CompletionModal } from './components/CompletionModal';
+import { UnikeyNoticeModal } from './components/UnikeyNoticeModal';
 import {
   fetchLessonsFromSupabase,
   upsertLessonToSupabase,
@@ -48,6 +47,30 @@ import {
   Maximize,
   Minimize
 } from 'lucide-react';
+
+// Hàm sắp xếp tự động các bài học theo đúng tiến trình logic chuẩn (Bài 1, Bài 2, Bài 3, Bài 4...)
+export const sortLessonsLogically = (lessons: Lesson[]): Lesson[] => {
+  return [...lessons].sort((a, b) => {
+    // 1. Phân tích số thứ tự "Bài <X>" từ tiêu đề
+    const matchA = a.title.match(/(?:Bài|bài)\s*(\d+)/i);
+    const matchB = b.title.match(/(?:Bài|bài)\s*(\d+)/i);
+    if (matchA && matchB) {
+      const numA = parseInt(matchA[1], 10);
+      const numB = parseInt(matchB[1], 10);
+      if (numA !== numB) return numA - numB;
+    } else if (matchA) {
+      return -1;
+    } else if (matchB) {
+      return 1;
+    }
+    // 2. So sánh theo cấp độ (level)
+    if (a.level !== undefined && b.level !== undefined && a.level !== b.level) {
+      return a.level - b.level;
+    }
+    // 3. Fallback theo id
+    return a.id.localeCompare(b.id, undefined, { numeric: true });
+  });
+};
 
 export default function App() {
   // Input mode: 'telex' | 'vni' | 'no_accent'
@@ -220,21 +243,27 @@ export default function App() {
     };
   });
 
+  // Lọc và sắp xếp tự động các bài học của khối lớp theo đúng tiến trình chuẩn (Bài 1, Bài 2, Bài 3, Bài 4...)
+  const gradeFilteredLessons = useMemo(() => {
+    const list = allAvailableLessons.filter(
+      (l) => l.gradeLevel === selectedGrade || !l.gradeLevel
+    );
+    return sortLessonsLogically(list);
+  }, [allAvailableLessons, selectedGrade]);
+
   // Curriculum & Current Lesson state - Mặc định bài 3 Mèo Con Đi Học cho Lớp 3
   const [currentLessonIndex, setCurrentLessonIndex] = useState<number>(() => {
-    const idx = LESSONS.filter((l) => l.gradeLevel === 3).findIndex((l) => l.id === 'lesson-3-3');
+    const sorted = sortLessonsLogically(LESSONS.filter((l) => l.gradeLevel === 3));
+    const idx = sorted.findIndex((l) => l.id === 'lesson-3-3');
     return idx >= 0 ? idx : 0;
   });
   const [customLesson, setCustomLesson] = useState<Lesson | null>(null);
 
-  // Derive active lesson
+  // Derive active lesson từ danh sách đã sắp xếp logic
   const activeLesson: Lesson = useMemo(() => {
     if (customLesson) return customLesson;
-    const gradeFiltered = allAvailableLessons.filter(
-      (l) => l.gradeLevel === selectedGrade || !l.gradeLevel
-    );
-    return gradeFiltered[currentLessonIndex] || allAvailableLessons[0];
-  }, [customLesson, allAvailableLessons, selectedGrade, currentLessonIndex]);
+    return gradeFilteredLessons[currentLessonIndex] || gradeFilteredLessons[0] || allAvailableLessons[0];
+  }, [customLesson, gradeFilteredLessons, allAvailableLessons, currentLessonIndex]);
 
   // Check if current lesson is assigned homework for selected grade
   const isCurrentAssignedHomework = useMemo(() => {
@@ -298,6 +327,8 @@ export default function App() {
   });
 
   // Modals state
+  // Mặc định khi vào phần mềm sẽ hiển thị bảng thông báo nhắc nhở tắt Unikey
+  const [isUnikeyNoticeOpen, setIsUnikeyNoticeOpen] = useState<boolean>(true);
   const [isPostureModalOpen, setIsPostureModalOpen] = useState<boolean>(false);
   const [isVietnameseGuideOpen, setIsVietnameseGuideOpen] = useState<boolean>(false);
   const [isGameModalOpen, setIsGameModalOpen] = useState<boolean>(false);
@@ -1265,12 +1296,6 @@ export default function App() {
     });
   };
 
-  const gradeFilteredLessons = useMemo(() => {
-    return allAvailableLessons.filter(
-      (l) => l.gradeLevel === selectedGrade || !l.gradeLevel
-    );
-  }, [allAvailableLessons, selectedGrade]);
-
   const hasPrev = currentLessonIndex > 0;
   const hasNext = currentLessonIndex < gradeFilteredLessons.length - 1;
 
@@ -1375,8 +1400,8 @@ export default function App() {
       <header className="h-11 sm:h-12 min-h-[44px] max-h-[48px] w-full bg-white/95 border-b border-sky-200 z-40 backdrop-blur-md px-2.5 sm:px-4 flex items-center justify-between gap-1.5 shrink-0 select-none shadow-xs">
         {/* CLUSTER 1: LOGO + KHỐI LỚP (LỚP 3 / 4 / 5) */}
         <div className="flex items-center gap-2 shrink-0">
-          <div className="w-8 h-8 rounded-xl bg-gradient-to-tr from-sky-400 via-indigo-500 to-pink-500 p-0.5 shadow-xs border border-white flex items-center justify-center text-lg select-none">
-            ⌨️
+          <div className="w-8 h-8 rounded-full overflow-hidden shadow-xs border-2 border-sky-300 flex items-center justify-center select-none bg-white shrink-0 hover:scale-105 transition-transform">
+            <img src="/logo.svg" alt="Logo Luyện Gõ Bàn Phím 10 Ngón" className="w-full h-full object-contain" />
           </div>
           <div className="flex items-center gap-1.5">
             <h1 className="text-sm font-black text-slate-900 tracking-tight whitespace-nowrap">
@@ -1444,36 +1469,6 @@ export default function App() {
             </button>
           </div>
 
-          {/* Chế độ bộ gõ máy tính: [V] Unikey vs [E] Luyện phím */}
-          {inputMode === 'telex' && (
-            <div className="flex items-center gap-0.5 bg-rose-50 p-0.5 rounded-lg border border-rose-300">
-              <button
-                type="button"
-                onClick={() => handleToggleKeyboardImeMode('unikey_v')}
-                className={`px-1.5 py-0.5 rounded-md text-[11px] font-black transition-all cursor-pointer flex items-center gap-0.5 ${
-                  keyboardImeMode === 'unikey_v'
-                    ? 'bg-rose-500 text-white shadow-2xs'
-                    : 'text-rose-900 hover:text-rose-950'
-                }`}
-                title="Bật Unikey chữ V trên máy tính"
-              >
-                <span>🇻🇳 [V] Unikey</span>
-              </button>
-              <button
-                type="button"
-                onClick={() => handleToggleKeyboardImeMode('telex_e')}
-                className={`px-1.5 py-0.5 rounded-md text-[11px] font-black transition-all cursor-pointer flex items-center gap-0.5 ${
-                  keyboardImeMode === 'telex_e'
-                    ? 'bg-sky-600 text-white shadow-2xs'
-                    : 'text-slate-600 hover:text-slate-900'
-                }`}
-                title="Tắt Unikey hoặc để chữ E để luyện phím"
-              >
-                <span>🔤 [E] Luyện phím</span>
-              </button>
-            </div>
-          )}
-
           {/* Vietnamese Typing Guide Modal Button */}
           <button
             type="button"
@@ -1482,6 +1477,16 @@ export default function App() {
             title="Xem bảng tra cứu gõ dấu Telex & VNI"
           >
             <span>🇻🇳 Gõ Dấu</span>
+          </button>
+
+          {/* Unikey Notice Modal Button */}
+          <button
+            type="button"
+            onClick={() => setIsUnikeyNoticeOpen(true)}
+            className="px-2 py-1 rounded-lg bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-400 hover:to-orange-400 text-white text-xs font-black flex items-center gap-1 transition-all cursor-pointer shadow-2xs"
+            title="Xem bảng thông báo nhắc nhở tắt Unikey khi luyện gõ"
+          >
+            <span>📢 Tắt Unikey</span>
           </button>
         </div>
 
@@ -1703,14 +1708,14 @@ export default function App() {
       {/* ======================================================== */}
       {/* 3. MAIN WORKSPACE: FIT-TO-SCREEN 1366x768 (NO SCROLLING) */}
       {/* ======================================================== */}
-      <main className="flex-1 w-full px-2 sm:px-3 py-1 min-h-0 overflow-hidden">
-        <div className="h-full grid grid-cols-12 gap-2 sm:gap-2.5 items-stretch min-h-0 overflow-hidden">
+      <main className="flex-1 w-full px-2 sm:px-2.5 py-0.5 sm:py-1 min-h-0 overflow-hidden">
+        <div className="h-full grid grid-cols-12 gap-1.5 sm:gap-2 items-stretch min-h-0 overflow-hidden">
           {/* ======================================================== */}
           {/* CỘT TRÁI (LEFT COLUMN): Ô LUYỆN GÕ & BÀN PHÍM 108 PHÍM   */}
           {/* ======================================================== */}
           <div
             className={`
-              ${isRightColumnVisible ? 'col-span-8 xl:col-span-8 2xl:col-span-9' : 'col-span-12'}
+              ${isRightColumnVisible ? 'col-span-9 xl:col-span-9 2xl:col-span-9' : 'col-span-12'}
               h-full flex flex-col justify-between gap-1 min-w-0 min-h-0 overflow-hidden transition-all duration-300
             `}
           >
@@ -1757,27 +1762,7 @@ export default function App() {
               />
             </section>
 
-            {/* 2. Bạn đồng hành 1 dòng sáng tạo */}
-            <section aria-label="Bạn đồng hành và kiểu gõ" className="shrink-0">
-              <MascotBanner
-                mode={inputMode}
-                onModeChange={setInputMode}
-                instructionText={currentStep?.explanationVi || 'Bé hãy bấm phím tiếp theo nhé!'}
-                hasMistake={hasMistake}
-                mistakeChar={mistakeChar}
-                isShiftRequired={isShiftTarget}
-                isEnterRequired={isEnterTarget}
-                targetKeyLabel={targetKeyConfig?.label || ''}
-                onOpenGuide={() => setIsVietnameseGuideOpen(true)}
-              />
-            </section>
-
-            {/* 3. Thanh hướng dẫn ngón tay gõ phím (FingerGuideBar) */}
-            <section aria-label="Hướng dẫn ngón tay gõ phím" className="shrink-0">
-              <FingerGuideBar activeFinger={activeFinger} targetKey={targetKeyConfig} />
-            </section>
-
-            {/* 4. Bàn phím cơ học Full Size 104/108 phím chuẩn 1:1 */}
+            {/* 2. Bàn phím cơ học Full Size 104/108 phím chuẩn 1:1 */}
             <section aria-label="Bàn phím cơ học Full Size 104 phím chuẩn" className="flex-1 min-h-0 flex flex-col justify-center overflow-hidden">
               <Keyboard
                 targetKey={targetKeyConfig}
@@ -1838,7 +1823,7 @@ export default function App() {
           {/* CỘT PHẢI (RIGHT COLUMN): ẢNH SGK, BÀI CÔ GIAO & SGK LIST */}
           {/* ======================================================== */}
           {isRightColumnVisible && (
-            <div className="col-span-4 xl:col-span-4 2xl:col-span-3 h-full flex flex-col gap-1.5 min-w-0 min-h-0 overflow-hidden">
+            <div className="col-span-3 xl:col-span-3 2xl:col-span-3 h-full flex flex-col gap-1 min-w-0 min-h-0 overflow-hidden">
               {/* 1. Khung Ảnh Sách Giáo Khoa Về Bài Gõ */}
               <section aria-label="Ảnh sách giáo khoa về bài gõ" className="w-full shrink-0">
                 <TextbookIllustrationCard
@@ -2108,6 +2093,12 @@ export default function App() {
         gradeAssignments={gradeAssignments}
         onAssignLessonToGrade={handleAssignLessonToGrade}
         initialEditingLesson={editingLessonForModal}
+      />
+
+      {/* BẢNG THÔNG BÁO TỚI BẠN NHỎ: TẮT UNIKEY ĐỂ CÓ TRẢI NGHIỆM TỐT NHẤT */}
+      <UnikeyNoticeModal
+        isOpen={isUnikeyNoticeOpen}
+        onClose={() => setIsUnikeyNoticeOpen(false)}
       />
 
       {/* Vietnamese Rules Guide Modal */}

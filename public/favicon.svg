@@ -1,0 +1,27 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 500 500" width="100%" height="100%">
+  <defs>
+    <linearGradient id="blueSwoosh" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#0284c7" />
+      <stop offset="100%" stop-color="#1e3a8a" />
+    </linearGradient>
+    <linearGradient id="orangeSwoosh" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#fb923c" />
+      <stop offset="100%" stop-color="#ea580c" />
+    </linearGradient>
+  </defs>
+  <circle cx="250" cy="250" r="236" fill="#ffffff" />
+  <circle cx="250" cy="250" r="236" fill="none" stroke="url(#blueSwoosh)" stroke-width="24" />
+  <path d="M 410 110 C 475 180 480 320 420 400 C 360 475 200 480 100 420" fill="none" stroke="url(#orangeSwoosh)" stroke-width="28" stroke-linecap="round" />
+  <!-- Mini Keyboard -->
+  <rect x="100" y="110" width="300" height="130" rx="18" fill="#f8fafc" stroke="#0284c7" stroke-width="12" />
+  <rect x="130" y="135" width="40" height="30" rx="6" fill="#0284c7" />
+  <rect x="180" y="135" width="40" height="30" rx="6" fill="#0284c7" />
+  <rect x="230" y="135" width="40" height="30" rx="6" fill="#f97316" />
+  <rect x="280" y="135" width="40" height="30" rx="6" fill="#ea580c" />
+  <rect x="330" y="135" width="40" height="30" rx="6" fill="#ea580c" />
+  <rect x="170" y="180" width="160" height="35" rx="8" fill="#e2e8f0" stroke="#0284c7" stroke-width="6" />
+  <!-- Text -->
+  <text x="250" y="315" font-family="'Nunito', sans-serif" font-size="64" font-weight="900" fill="#0284c7" text-anchor="middle">LUYỆN GÕ</text>
+  <text x="250" y="385" font-family="'Nunito', sans-serif" font-size="72" font-weight="900" fill="#f97316" text-anchor="middle" font-style="italic">10 NGÓN</text>
+  <text x="250" y="435" font-family="'Nunito', sans-serif" font-size="28" font-weight="900" fill="#0f172a" text-anchor="middle" letter-spacing="4">NHANH &amp; CHÍNH XÁC</text>
+</svg>
