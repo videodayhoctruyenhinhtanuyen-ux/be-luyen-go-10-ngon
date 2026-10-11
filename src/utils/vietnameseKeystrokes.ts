@@ -215,6 +215,67 @@ export function removeVietnameseAccents(str: string): string {
     .replace(/Đ/g, 'D');
 }
 
+/**
+ * Kiểm tra xem một ký tự có phải là chữ in hoa hay không (hỗ trợ đầy đủ tiếng Việt và Latin)
+ */
+export function isUpperCaseChar(char: string): boolean {
+  if (!char || char.length !== 1) return false;
+  return char.toLowerCase() !== char && char.toUpperCase() === char;
+}
+
+/**
+ * Kiểm tra xem một ký tự có phải là chữ thường hay không (hỗ trợ đầy đủ tiếng Việt và Latin)
+ */
+export function isLowerCaseChar(char: string): boolean {
+  if (!char || char.length !== 1) return false;
+  return char.toUpperCase() !== char && char.toLowerCase() === char;
+}
+
+/**
+ * Đánh giá lỗi gõ chữ hoa / chữ thường theo chuẩn sư phạm Tin học Tiểu học:
+ * - Gõ chữ hoa có 2 cách:
+ *   1. Dùng phím Shift kết hợp
+ *   2. Bật phím Caps Lock
+ * - Nếu yêu cầu HOA mà gõ THƯỜNG -> "Bạn đang chọn chế độ gõ chữ thường"
+ * - Nếu yêu cầu THƯỜNG mà gõ HOA (do Caps Lock bật / Shift giữ) -> "Bạn đang chọn chế độ gõ chữ hoa"
+ */
+export function evaluateCaseMistake(
+  expectedKeyChar: string,
+  typedKeyChar: string
+): { isCaseMismatch: boolean; mistakeType: 'need_upper' | 'need_lower' | null; title: string; detail: string } {
+  const expectedIsUpper = isUpperCaseChar(expectedKeyChar);
+  const expectedIsLower = isLowerCaseChar(expectedKeyChar);
+  const typedIsUpper = isUpperCaseChar(typedKeyChar);
+  const typedIsLower = isLowerCaseChar(typedKeyChar);
+
+  // 1. Cần gõ chữ HOA nhưng bé đang gõ chữ thường
+  if (expectedIsUpper && typedIsLower) {
+    return {
+      isCaseMismatch: true,
+      mistakeType: 'need_upper',
+      title: 'Bạn đang chọn chế độ gõ chữ thường',
+      detail: 'Ký tự này cần gõ CHỮ HOA. Hãy gõ chữ hoa bằng 2 cách: 1. Giữ phím Shift kết hợp | 2. Bật phím Caps Lock.',
+    };
+  }
+
+  // 2. Cần gõ chữ THƯỜNG nhưng bé đang gõ chữ hoa (do Caps Lock đang bật hoặc giữ phím Shift)
+  if (expectedIsLower && typedIsUpper) {
+    return {
+      isCaseMismatch: true,
+      mistakeType: 'need_lower',
+      title: 'Bạn đang chọn chế độ gõ chữ hoa',
+      detail: 'Ký tự này cần gõ CHỮ THƯỜNG. Hãy tắt phím Caps Lock hoặc thả phím Shift để gõ chữ thường.',
+    };
+  }
+
+  return {
+    isCaseMismatch: false,
+    mistakeType: null,
+    title: '',
+    detail: '',
+  };
+}
+
 export interface WordTelexResult {
   script: string;
   steps: KeystrokeStep[];
@@ -345,19 +406,19 @@ export function convertWordToTelexSteps(word: string, wordStartIndex: number): W
   let currentSubStep = 0;
 
   // Thêm các phím chữ cái cơ sở và mũ/móc
-  components.forEach((comp, idx) => {
-    const isFirstShift = idx === 0 && comp.isUpper;
+  components.forEach((comp) => {
+    const isLetterUpper = comp.isUpper || isUpperCaseChar(comp.baseChar);
     steps.push({
       keyChar: comp.baseChar,
       code: charToKeyCode(comp.baseChar),
-      isShiftRequired: isFirstShift,
+      isShiftRequired: isLetterUpper,
       targetChar: comp.targetChar,
       charIndex: comp.charIndex,
       subStepIndex: currentSubStep++,
       subStepTotal: totalStepsCount,
       displayHint: `${coreWord} ➜ ${wordScript}`,
-      explanationVi: isFirstShift
-        ? `Giữ phím SHIFT và bấm phím '${comp.baseChar}' để viết hoa!`
+      explanationVi: isLetterUpper
+        ? `Gõ CHỮ HOA '${comp.baseChar}': Có 2 cách: 1. Giữ phím SHIFT kết hợp | 2. Bật phím CAPS LOCK!`
         : `Gõ phím '${comp.baseChar}'`,
     });
 
@@ -560,7 +621,7 @@ export function buildKeystrokeSteps(text: string, mode: TypingInputMode): Keystr
         let isHatHook = false;
 
         if (isFirstAndUpper) {
-          hint = `Giữ phím SHIFT (ngón út) và bấm phím '${subChar.toUpperCase()}' để viết hoa!`;
+          hint = `Gõ CHỮ HOA '${subChar.toUpperCase()}': Có 2 cách: 1. Giữ phím SHIFT kết hợp | 2. Bật phím CAPS LOCK!`;
         } else if (subChar === '1') {
           hint = `Gõ số '1' (ngón út trái) để tạo dấu SẮC (´) cho chữ '${rawChar}'!`;
           isTone = true;
@@ -613,10 +674,10 @@ export function buildKeystrokeSteps(text: string, mode: TypingInputMode): Keystr
       targetC = removeVietnameseAccents(rawChar);
     }
 
-    const isTargetUpper = targetC !== targetC.toLowerCase() && targetC.toUpperCase() === targetC;
+    const isTargetUpper = isUpperCaseChar(targetC);
     let hint = `Bấm phím '${targetC}'`;
     if (isTargetUpper) {
-      hint = `Giữ phím SHIFT bằng ngón út và bấm phím '${targetC}' để viết hoa!`;
+      hint = `Gõ CHỮ HOA '${targetC}': Có 2 cách: 1. Giữ phím SHIFT kết hợp | 2. Bật phím CAPS LOCK!`;
     }
 
     steps.push({

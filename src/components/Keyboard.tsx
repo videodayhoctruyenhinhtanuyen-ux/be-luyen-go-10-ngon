@@ -30,6 +30,8 @@ interface KeyboardProps {
   isCompactHeight?: boolean;
   maxUnitSize?: number;
   suggestedKeyHeight?: number;
+  capsLockOn?: boolean;
+  onToggleCapsLock?: () => void;
 }
 
 export const Keyboard: React.FC<KeyboardProps> = ({
@@ -50,14 +52,18 @@ export const Keyboard: React.FC<KeyboardProps> = ({
   isCompactHeight = false,
   maxUnitSize,
   suggestedKeyHeight,
+  capsLockOn: capsLockOnProp,
+  onToggleCapsLock,
 }) => {
   const activeTheme = theme || DEFAULT_KEYBOARD_THEME;
   const isKeyPressed = (code: string) => pressedKeys.has(code);
 
   // Keyboard LED statuses
-  const [capsLockActive, setCapsLockActive] = useState<boolean>(false);
+  const [internalCapsLockActive, setInternalCapsLockActive] = useState<boolean>(false);
   const [numLockActive, setNumLockActive] = useState<boolean>(true);
   const [scrollLockActive, setScrollLockActive] = useState<boolean>(false);
+
+  const capsLockActive = capsLockOnProp !== undefined ? capsLockOnProp : internalCapsLockActive;
 
   // Container ref to dynamically compute unit size ensuring true 1:1 keycap proportions
   const containerRef = useRef<HTMLDivElement>(null);
@@ -130,7 +136,7 @@ export const Keyboard: React.FC<KeyboardProps> = ({
   useEffect(() => {
     const handleKeyToggle = (e: KeyboardEvent) => {
       if (e.getModifierState) {
-        setCapsLockActive(e.getModifierState('CapsLock'));
+        setInternalCapsLockActive(e.getModifierState('CapsLock'));
         setNumLockActive(e.getModifierState('NumLock'));
         setScrollLockActive(e.getModifierState('ScrollLock'));
       }
@@ -183,6 +189,14 @@ export const Keyboard: React.FC<KeyboardProps> = ({
       isTarget = true;
       targetLabelText = 'GIỮ SHIFT ⇧';
       targetBgColor = '#ec4899'; // Pink
+    } else if (isShiftTarget && key.code === 'CapsLock') {
+      isTarget = true;
+      targetLabelText = 'HOẶC CAPS ⇪';
+      targetBgColor = '#8b5cf6'; // Violet
+    } else if (!isShiftTarget && capsLockActive && key.code === 'CapsLock') {
+      isTarget = true;
+      targetLabelText = 'TẮT CAPS ⇪';
+      targetBgColor = '#f43f5e'; // Rose
     }
 
     const isWrong = wrongKeyCode === key.code;
@@ -238,7 +252,8 @@ export const Keyboard: React.FC<KeyboardProps> = ({
         type="button"
         onClick={() => {
           if (key.code === 'CapsLock') {
-            setCapsLockActive((prev) => !prev);
+            setInternalCapsLockActive((prev) => !prev);
+            onToggleCapsLock?.();
           } else if (key.code === 'NumLock') {
             setNumLockActive((prev) => !prev);
           }
@@ -397,7 +412,10 @@ export const Keyboard: React.FC<KeyboardProps> = ({
               {/* CAPS LOCK */}
               <button
                 type="button"
-                onClick={() => setCapsLockActive((prev) => !prev)}
+                onClick={() => {
+                  setInternalCapsLockActive((prev: boolean) => !prev);
+                  onToggleCapsLock?.();
+                }}
                 className={`flex items-center gap-1 px-2 py-0.5 rounded font-black transition-all cursor-pointer ${
                   capsLockActive
                     ? 'bg-amber-950 text-amber-200 border border-amber-400 shadow-[0_0_10px_rgba(251,191,36,0.5)] ring-1 ring-amber-400 animate-pulse'

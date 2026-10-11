@@ -371,22 +371,32 @@ export const VietnameseGuideModal: React.FC<VietnameseGuideModalProps> = ({
             </div>
           </div>
 
-          {/* Special Function Keys Card (Shift, Enter, Backspace) */}
+          {/* Special Function Keys Card (Shift, Caps Lock, Enter, Backspace) */}
           <div className="p-4 rounded-2xl bg-gradient-to-r from-pink-50 via-amber-50 to-emerald-50 border-2 border-amber-300">
             <h4 className="text-xs sm:text-sm font-black text-amber-900 mb-2 flex items-center gap-2">
-              <span>🌟</span> 3 PHÍM ĐẶC BIỆT KHI LUYỆN GÕ BÀI VĂN &amp; BÀI THƠ:
+              <span>🌟</span> QUY TẮC GÕ CHỮ HOA &amp; CÁC PHÍM CHỨC NĂNG (CHUẨN SGK TIN HỌC):
             </h4>
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5 text-xs">
-              <div className="p-3 bg-white rounded-2xl border border-pink-200 shadow-sm">
-                <strong className="text-pink-600 block text-sm font-black mb-1">⇧ Phím SHIFT</strong>
-                <span>Giữ bằng ngón út và bấm chữ cái để <strong>viết hoa</strong> chữ cái đầu câu hoặc tên riêng.</span>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2.5 text-xs">
+              <div className="p-3 bg-white rounded-2xl border-2 border-pink-300 shadow-sm">
+                <div className="flex items-center gap-1 mb-1">
+                  <span className="w-2 h-2 rounded-full bg-pink-500" />
+                  <strong className="text-pink-600 block text-xs sm:text-sm font-black">1. Phím SHIFT (Cách 1)</strong>
+                </div>
+                <span>Giữ bằng ngón út và bấm chữ cái để <strong>gõ chữ hoa</strong> đầu câu hoặc tên riêng.</span>
+              </div>
+              <div className="p-3 bg-white rounded-2xl border-2 border-purple-300 shadow-sm">
+                <div className="flex items-center gap-1 mb-1">
+                  <span className="w-2 h-2 rounded-full bg-purple-500" />
+                  <strong className="text-purple-600 block text-xs sm:text-sm font-black">2. Phím CAPS LOCK (Cách 2)</strong>
+                </div>
+                <span>Bật <strong>Caps Lock</strong> (đèn LED sáng) để gõ chuỗi chữ hoa liên tục. Xong nhớ <strong>bấm tắt</strong> để gõ chữ thường.</span>
               </div>
               <div className="p-3 bg-white rounded-2xl border border-amber-200 shadow-sm">
-                <strong className="text-amber-600 block text-sm font-black mb-1">⌫ Phím BACKSPACE</strong>
+                <strong className="text-amber-600 block text-xs sm:text-sm font-black mb-1">⌫ Phím BACKSPACE</strong>
                 <span>Nằm ở góc phải hàng số. Bấm để <strong>xóa chữ gõ sai</strong> và gõ lại cho đúng.</span>
               </div>
               <div className="p-3 bg-white rounded-2xl border border-emerald-200 shadow-sm">
-                <strong className="text-emerald-600 block text-sm font-black mb-1">↵ Phím ENTER</strong>
+                <strong className="text-emerald-600 block text-xs sm:text-sm font-black mb-1">↵ Phím ENTER</strong>
                 <span>Nằm ở hàng cơ sở bên phải. Bấm để <strong>xuống dòng mới</strong> khi hết câu thơ.</span>
               </div>
             </div>

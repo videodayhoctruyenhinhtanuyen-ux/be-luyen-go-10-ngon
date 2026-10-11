@@ -62,6 +62,10 @@ interface PracticeAreaProps {
   sgkBoxHeight?: number;
   inputBoxHeight?: number;
   isCompactHeight?: boolean;
+  caseMistakeType?: 'need_upper' | 'need_lower' | null;
+  caseMistakeMessage?: { title: string; detail: string } | null;
+  isTargetUpper?: boolean;
+  capsLockOn?: boolean;
 }
 
 type TextSize = 'large' | 'huge' | 'normal';
@@ -116,17 +120,21 @@ export const PracticeArea: React.FC<PracticeAreaProps> = ({
   sgkBoxHeight = 126,
   inputBoxHeight = 44,
   isCompactHeight = false,
+  caseMistakeType = null,
+  caseMistakeMessage = null,
+  isTargetUpper = false,
+  capsLockOn: capsLockOnProp,
 }) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const activeCharRef = useRef<HTMLSpanElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const [isInputFocused, setIsInputFocused] = useState<boolean>(true);
-  const [capsLockOn, setCapsLockOn] = useState<boolean>(false);
+  const [internalCapsLockOn, setInternalCapsLockOn] = useState<boolean>(false);
 
   useEffect(() => {
     const handleKeyMod = (e: KeyboardEvent) => {
       if (e.getModifierState) {
-        setCapsLockOn(e.getModifierState('CapsLock'));
+        setInternalCapsLockOn(e.getModifierState('CapsLock'));
       }
     };
     window.addEventListener('keydown', handleKeyMod);
@@ -136,6 +144,8 @@ export const PracticeArea: React.FC<PracticeAreaProps> = ({
       window.removeEventListener('keyup', handleKeyMod);
     };
   }, []);
+
+  const capsLockOn = capsLockOnProp !== undefined ? capsLockOnProp : internalCapsLockOn;
 
   // Pop-up động viên tức thì
   const [encouragementToast, setEncouragementToast] = useState<{
@@ -749,9 +759,18 @@ export const PracticeArea: React.FC<PracticeAreaProps> = ({
               <ShieldCheck className="w-3.5 h-3.5 text-emerald-600" />
               <span>Ô Bé Gõ Phím (Kiểm Soát Nhập Liệu)</span>
               <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse ml-0.5" />
-              {capsLockOn && (
-                <span className="ml-1.5 inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-amber-400 text-slate-950 font-black text-[10px] shadow-xs animate-bounce border border-amber-500">
-                  ⚠️ Caps Lock Đang BẬT (Gõ Chữ HOA)
+              {capsLockOn ? (
+                <span className="ml-1 inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-amber-400 text-slate-950 font-black text-[10px] sm:text-[11px] shadow-xs border border-amber-500 animate-pulse">
+                  ⇪ Caps Lock ĐANG BẬT (Gõ Chữ HOA)
+                </span>
+              ) : (
+                <span className="ml-1 inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-slate-200 text-slate-700 font-bold text-[10px] border border-slate-300">
+                  Caps Lock TẮT (Chữ Thường)
+                </span>
+              )}
+              {isTargetUpper && !hasMistake && (
+                <span className="ml-1 inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-pink-100 text-pink-900 font-black text-[10px] border border-pink-300 animate-pulse">
+                  ⇧ Cần gõ CHỮ HOA
                 </span>
               )}
             </span>
@@ -779,6 +798,36 @@ export const PracticeArea: React.FC<PracticeAreaProps> = ({
               )}
             </div>
           </div>
+
+          {/* BẢNG CẢNH BÁO LỖI PHÂN BIỆT CHỮ HOA / CHỮ THƯỜNG (NỔI BẬT THEO YÊU CẦU SƯ PHẠM) */}
+          {hasMistake && caseMistakeMessage && (
+            <div className="w-full bg-gradient-to-r from-rose-600 via-rose-500 to-amber-600 text-white px-3 py-1.5 rounded-xl shadow-md flex items-center justify-between gap-2 border-2 border-white animate-in slide-in-from-top-1 fade-in duration-200">
+              <div className="flex items-center gap-2 min-w-0">
+                <span className="text-lg shrink-0 animate-bounce">⚠️</span>
+                <div className="flex flex-col leading-tight min-w-0">
+                  <span className="font-black text-xs sm:text-sm tracking-tight text-white drop-shadow-2xs">
+                    {caseMistakeMessage.title}
+                  </span>
+                  <span className="text-[11px] sm:text-xs font-bold text-amber-100">
+                    {caseMistakeMessage.detail}
+                  </span>
+                </div>
+              </div>
+              <div className="shrink-0 flex items-center gap-1">
+                {caseMistakeType === 'need_upper' ? (
+                  <span className="px-2.5 py-0.5 rounded-lg bg-white text-rose-700 font-black text-xs shadow-sm flex items-center gap-1">
+                    <span>⇧ Giữ Shift</span>
+                    <span className="text-slate-400 font-normal">hoặc</span>
+                    <span>⇪ Bật Caps Lock</span>
+                  </span>
+                ) : (
+                  <span className="px-2.5 py-0.5 rounded-lg bg-white text-rose-700 font-black text-xs shadow-sm flex items-center gap-1">
+                    <span>⇪ Tắt phím Caps Lock</span>
+                  </span>
+                )}
+              </div>
+            </div>
+          )}
 
           {/* KHUNG NHẬP VĂN BẢN (ĐỘ CAO VỪA ĐỦ min-h-[40px] sm:min-h-[44px] - CHỈ LƯU GIỮ 1 DÒNG HIỆN THỜI, XÓA TRẮNG KHI ENTER) */}
           <div
@@ -814,8 +863,18 @@ export const PracticeArea: React.FC<PracticeAreaProps> = ({
               <span className="text-slate-950 font-input-box whitespace-pre-wrap select-none truncate flex items-center text-base sm:text-lg md:text-xl">
                 <span className="text-emerald-700 font-black tracking-wide drop-shadow-2xs">{currentLineTypedText}</span>
                 {hasMistake && mistakeChar && (
-                  <span className="bg-rose-500 text-white font-input-box px-2 py-0.5 rounded-lg inline-block animate-pulse mx-1 text-xs sm:text-sm font-black shadow-md border border-white">
-                    {mistakeChar === 'Space' ? '␣ Dấu cách' : mistakeChar === 'Enter' ? '↵ Enter' : mistakeChar}
+                  <span className="bg-rose-500 text-white font-input-box px-2 py-0.5 rounded-lg inline-flex items-center gap-1 animate-pulse mx-1 text-xs sm:text-sm font-black shadow-md border border-white">
+                    <span>{mistakeChar === 'Space' ? '␣ Dấu cách' : mistakeChar === 'Enter' ? '↵ Enter' : mistakeChar}</span>
+                    {caseMistakeType === 'need_upper' && (
+                      <span className="text-[10px] bg-white/25 px-1 py-0.2 rounded font-black text-amber-200">
+                        (Cần HOA ⇧)
+                      </span>
+                    )}
+                    {caseMistakeType === 'need_lower' && (
+                      <span className="text-[10px] bg-white/25 px-1 py-0.2 rounded font-black text-amber-200">
+                        (Cần THƯỜNG)
+                      </span>
+                    )}
                   </span>
                 )}
                 {/* Typing cursor */}

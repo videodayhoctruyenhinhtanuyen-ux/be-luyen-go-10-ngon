@@ -337,6 +337,17 @@ export function checkKeyInSmartTelexWord(
     for (let i = 0; i < potentialKeys.length; i++) {
       const p = potentialKeys[i];
       const s = seq[i];
+      // Kiểm tra nghiêm ngặt chữ hoa / chữ thường
+      const sUpper = s.toLowerCase() !== s && s.toUpperCase() === s;
+      const sLower = s.toUpperCase() !== s && s.toLowerCase() === s;
+      const pUpper = p.toLowerCase() !== p && p.toUpperCase() === p;
+      const pLower = p.toUpperCase() !== p && p.toLowerCase() === p;
+
+      // Nếu yêu cầu chữ hoa mà gõ chữ thường -> KHÔNG KHỚP
+      if (sUpper && pLower) return false;
+      // Nếu yêu cầu chữ thường mà gõ chữ hoa -> KHÔNG KHỚP
+      if (sLower && pUpper) return false;
+
       if (i === 0) {
         if (p !== s && p.toLowerCase() !== s.toLowerCase()) return false;
       } else {
@@ -502,6 +513,14 @@ export function matchUnikeyInputInWord(
 
   // 2. Toàn bộ từ hoặc âm tiết cuối (ví dụ Unikey gửi "trời" hoặc "ời")
   if (lowerInput === cleanTarget || lowerInput === targetWord.toLowerCase()) {
+    const targetIsUpperFirst = targetWord[0] && targetWord[0].toLowerCase() !== targetWord[0];
+    const inputIsUpperFirst = inputKeyOrStr[0] && inputKeyOrStr[0].toLowerCase() !== inputKeyOrStr[0];
+    if (targetIsUpperFirst && !inputIsUpperFirst) {
+      return { isMatch: false, advanceCount: 0, isWordCompleted: false, explanationVi: 'Bạn đang chọn chế độ gõ chữ thường' };
+    }
+    if (!targetIsUpperFirst && inputIsUpperFirst) {
+      return { isMatch: false, advanceCount: 0, isWordCompleted: false, explanationVi: 'Bạn đang chọn chế độ gõ chữ hoa' };
+    }
     return {
       isMatch: true,
       advanceCount: remainingSteps.length,
@@ -527,6 +546,14 @@ export function matchUnikeyInputInWord(
     );
     if (matchStepIdx !== -1) {
       const targetChar = remainingSteps[matchStepIdx].targetChar;
+      const targetIsUpper = targetChar.toLowerCase() !== targetChar && targetChar.toUpperCase() === targetChar;
+      const inputIsUpper = inputKeyOrStr.toLowerCase() !== inputKeyOrStr && inputKeyOrStr.toUpperCase() === inputKeyOrStr;
+      if (targetIsUpper && !inputIsUpper) {
+        return { isMatch: false, advanceCount: 0, isWordCompleted: false };
+      }
+      if (!targetIsUpper && inputIsUpper) {
+        return { isMatch: false, advanceCount: 0, isWordCompleted: false };
+      }
       let lastStepOfThisChar = matchStepIdx;
       while (
         lastStepOfThisChar + 1 < remainingSteps.length &&
@@ -549,7 +576,7 @@ export function matchUnikeyInputInWord(
         isMatch: true,
         advanceCount: advance,
         isWordCompleted: isCompleted,
-        explanationVi: `Đã gõ chữ "${lowerInput}" thành công!`,
+        explanationVi: `Đã gõ chữ "${inputKeyOrStr}" thành công!`,
       };
     }
 
@@ -584,8 +611,8 @@ export function matchUnikeyInputInWord(
     }
   }
 
-  // 4. Khớp tuần tự chuẩn (phím chữ thường hoặc ký tự ASCII)
-  if (lowerInput === expectedLower) {
+  // 4. Khớp tuần tự chuẩn (chính xác phím và chữ hoa / chữ thường)
+  if (inputKeyOrStr === currentStep.keyChar) {
     const isCompleted = remainingSteps.length === 1;
     return {
       isMatch: true,

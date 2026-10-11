@@ -1,8 +1,8 @@
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
-import { Lesson, KeyConfig, FingerId, TypingStats, AppSettings, TypingInputMode, KeyboardImeMode, GradeAssignment, TypedKeyRecord } from './types/typing';
+import { Lesson, KeyConfig, FingerId, TypingStats, AppSettings, TypingInputMode, KeyboardImeMode, GradeAssignment, TypedKeyRecord, CaseMistakeType } from './types/typing';
 import { LESSONS } from './data/lessons';
 import { getKeyForChar } from './data/keyboardLayout';
-import { buildKeystrokeSteps, KeystrokeStep } from './utils/vietnameseKeystrokes';
+import { buildKeystrokeSteps, KeystrokeStep, evaluateCaseMistake, isUpperCaseChar, isLowerCaseChar } from './utils/vietnameseKeystrokes';
 import { generateValidTelexSequencesForWord, checkKeyInSmartTelexWord, matchUnikeyInputInWord, isVietnameseAccented, VIETNAMESE_CHAR_DECOMPOSITION } from './utils/vietnameseSmartTelex';
 import { soundEngine } from './utils/audio';
 import { Keyboard } from './components/Keyboard';
@@ -300,6 +300,27 @@ export default function App() {
   const [mistakeChar, setMistakeChar] = useState<string | null>(null);
   const [mistakeKeyCode, setMistakeKeyCode] = useState<string | null>(null);
 
+  // Phân biệt chế độ gõ chữ hoa / chữ thường
+  const [caseMistakeType, setCaseMistakeType] = useState<CaseMistakeType>(null);
+  const [caseMistakeMessage, setCaseMistakeMessage] = useState<{ title: string; detail: string } | null>(null);
+
+  // Trạng thái Caps Lock (phát hiện từ bàn phím máy tính hoặc bật/tắt qua bàn phím ảo)
+  const [capsLockOn, setCapsLockOn] = useState<boolean>(false);
+
+  useEffect(() => {
+    const handleKeyMod = (e: KeyboardEvent) => {
+      if (e.getModifierState) {
+        setCapsLockOn(e.getModifierState('CapsLock'));
+      }
+    };
+    window.addEventListener('keydown', handleKeyMod);
+    window.addEventListener('keyup', handleKeyMod);
+    return () => {
+      window.removeEventListener('keydown', handleKeyMod);
+      window.removeEventListener('keyup', handleKeyMod);
+    };
+  }, []);
+
   // Pressed physical keys on keyboard (for 3D press effect)
   const [pressedKeys, setPressedKeys] = useState<Set<string>>(new Set());
 
@@ -493,6 +514,8 @@ export default function App() {
     setHasMistake(false);
     setMistakeChar(null);
     setMistakeKeyCode(null);
+    setCaseMistakeType(null);
+    setCaseMistakeMessage(null);
     setRecentTypedKeys([]);
     setWordTypedKeys([]);
     setStats({
@@ -670,9 +693,15 @@ export default function App() {
   // Current active step
   const currentStep: KeystrokeStep | undefined = keystrokeSteps[stepIndex];
 
+  // Kiểm tra xem ký tự mục tiêu có phải là chữ HOA hay không
+  const isTargetUpper = useMemo(() => {
+    if (!currentStep) return false;
+    return isUpperCaseChar(currentStep.keyChar);
+  }, [currentStep]);
+
   // Derive target key configuration on keyboard
   const isBackspaceTarget = hasMistake;
-  const isShiftTarget = !hasMistake && (currentStep?.isShiftRequired ?? false);
+  const isShiftTarget = !hasMistake && (currentStep?.isShiftRequired || isTargetUpper);
   const isEnterTarget = !hasMistake && currentStep?.keyChar === 'Enter';
 
   // Active Word details for Smart Telex
@@ -855,6 +884,8 @@ export default function App() {
           setHasMistake(false);
           setMistakeChar(null);
           setMistakeKeyCode(null);
+          setCaseMistakeType(null);
+          setCaseMistakeMessage(null);
           setRecentTypedKeys((prev) => [
             ...prev.slice(-14),
             {
@@ -869,20 +900,27 @@ export default function App() {
           return;
         }
 
-        // TỰ ĐỘNG KHÔI PHỤC NẾU HỌC SINH BẤM ĐÚNG PHÍM TIẾP THEO:
-        const lowerKey = keyChar.toLowerCase();
-        const expectedLower = currentStep.keyChar.toLowerCase();
-        let isCorrectNow = lowerKey === expectedLower;
+        // TỰ ĐỘNG KHÔI PHỤC NẾU HỌC SINH BẤM ĐÚNG PHÍM TIẾP THEO (VÀ ĐÚNG CHỮ HOA/THƯỜNG):
+        const caseEvalRecovery = evaluateCaseMistake(currentStep.keyChar, keyChar);
+        let isCorrectNow = false;
 
-        if (!isCorrectNow && currentWordInfo && inputMode === 'telex') {
-          const stepsInCurrentWord = keystrokeSteps.slice(currentWordInfo.wordStepStart, currentWordInfo.wordStepEnd);
-          const stepInWordIdx = Math.max(0, stepIndex - currentWordInfo.wordStepStart);
-          const unikeyCheck = matchUnikeyInputInWord(currentWordInfo.targetWord, stepInWordIdx, keyChar, stepsInCurrentWord, wordTypedKeys);
-          if (unikeyCheck.isMatch) {
+        if (!caseEvalRecovery.isCaseMismatch) {
+          if (currentStep.keyChar === 'Enter') {
+            isCorrectNow = keyChar === 'Enter' || keyCode === 'Enter' || keyCode === 'NumpadEnter';
+          } else if (currentStep.keyChar === ' ') {
+            isCorrectNow = keyChar === ' ' || keyCode === 'Space';
+          } else if (keyChar === currentStep.keyChar) {
             isCorrectNow = true;
-          } else {
-            const smartCheck = checkKeyInSmartTelexWord(currentWordInfo.targetWord, wordTypedKeys, keyChar);
-            if (smartCheck.isValid) isCorrectNow = true;
+          } else if (currentWordInfo && inputMode === 'telex') {
+            const stepsInCurrentWord = keystrokeSteps.slice(currentWordInfo.wordStepStart, currentWordInfo.wordStepEnd);
+            const stepInWordIdx = Math.max(0, stepIndex - currentWordInfo.wordStepStart);
+            const unikeyCheck = matchUnikeyInputInWord(currentWordInfo.targetWord, stepInWordIdx, keyChar, stepsInCurrentWord, wordTypedKeys);
+            if (unikeyCheck.isMatch) {
+              isCorrectNow = true;
+            } else {
+              const smartCheck = checkKeyInSmartTelexWord(currentWordInfo.targetWord, wordTypedKeys, keyChar);
+              if (smartCheck.isValid) isCorrectNow = true;
+            }
           }
         }
 
@@ -891,7 +929,16 @@ export default function App() {
           setHasMistake(false);
           setMistakeChar(null);
           setMistakeKeyCode(null);
+          setCaseMistakeType(null);
+          setCaseMistakeMessage(null);
         } else {
+          // Cập nhật chẩn đoán lỗi nếu bé vẫn gõ sai chữ hoa/thường
+          if (caseEvalRecovery.isCaseMismatch) {
+            setCaseMistakeType(caseEvalRecovery.mistakeType);
+            setCaseMistakeMessage({ title: caseEvalRecovery.title, detail: caseEvalRecovery.detail });
+          }
+          setMistakeChar(keyChar === ' ' ? 'Space' : keyChar);
+          setMistakeKeyCode(keyCode || null);
           setRecentTypedKeys((prev) => [
             ...prev.slice(-14),
             {
@@ -983,82 +1030,85 @@ export default function App() {
           }
         }
       } else {
-        const expectedLower = currentStep.keyChar.toLowerCase();
-
-        // 3. Kiểm tra chuẩn thứ tự tuần tự
-        if (currentStep.isShiftRequired) {
-          isMatch = keyChar === currentStep.keyChar;
+        // 0. KIỂM TRA PHÂN BIỆT CHỮ HOA / CHỮ THƯỜNG
+        const caseEval = evaluateCaseMistake(currentStep.keyChar, keyChar);
+        if (caseEval.isCaseMismatch) {
+          isMatch = false;
         } else {
-          isMatch = lowerKey === expectedLower;
-        }
-
-        // 4. KIỂM TRA BỘ GÕ UNIKEY / EVKEY TRÊN MÁY TÍNH (Khớp ký tự có dấu, âm ghép, hoàn thành từ)
-        if (!isMatch && inputMode === 'telex' && currentWordInfo) {
-          const stepsInCurrentWord = keystrokeSteps.slice(currentWordInfo.wordStepStart, currentWordInfo.wordStepEnd);
-          const stepInWordIdx = Math.max(0, stepIndex - currentWordInfo.wordStepStart);
-          const unikeyCheck = matchUnikeyInputInWord(currentWordInfo.targetWord, stepInWordIdx, keyChar, stepsInCurrentWord, wordTypedKeys);
-          if (unikeyCheck.isMatch) {
+          // 3. Khớp chính xác ký tự (bao gồm chữ hoa và chữ thường)
+          if (keyChar === currentStep.keyChar) {
             isMatch = true;
-            advanceCount = unikeyCheck.advanceCount;
-            if (unikeyCheck.isWordCompleted || stepIndex + advanceCount >= currentWordInfo.wordStepEnd) {
+          }
+
+          // 4. KIỂM TRA BỘ GÕ UNIKEY / EVKEY TRÊN MÁY TÍNH
+          if (!isMatch && inputMode === 'telex' && currentWordInfo) {
+            const stepsInCurrentWord = keystrokeSteps.slice(currentWordInfo.wordStepStart, currentWordInfo.wordStepEnd);
+            const stepInWordIdx = Math.max(0, stepIndex - currentWordInfo.wordStepStart);
+            const unikeyCheck = matchUnikeyInputInWord(currentWordInfo.targetWord, stepInWordIdx, keyChar, stepsInCurrentWord, wordTypedKeys);
+            if (unikeyCheck.isMatch) {
+              isMatch = true;
+              advanceCount = unikeyCheck.advanceCount;
+              if (unikeyCheck.isWordCompleted || stepIndex + advanceCount >= currentWordInfo.wordStepEnd) {
+                setWordTypedKeys([]);
+              } else {
+                setWordTypedKeys((prev) => [...prev, keyChar]);
+              }
+            }
+          }
+
+          // 5. CHẾ ĐỘ GÕ DẤU TỰ DO TELEX (Dấu trước hoặc dấu sau)
+          if (!isMatch && inputMode === 'telex' && currentWordInfo) {
+            const smartCheck = checkKeyInSmartTelexWord(currentWordInfo.targetWord, wordTypedKeys, keyChar);
+            if (smartCheck.isValid) {
+              isMatch = true;
+              const nextKeys = [...wordTypedKeys, keyChar];
+              if (smartCheck.isWordCompleted) {
+                advanceCount = Math.max(1, currentWordInfo.wordStepEnd - stepIndex);
+                setWordTypedKeys([]);
+              } else {
+                setWordTypedKeys(nextKeys);
+                advanceCount = 1;
+              }
+            }
+          } else if (isMatch && currentWordInfo) {
+            // Trùng khớp tuần tự
+            const smartCheck = checkKeyInSmartTelexWord(currentWordInfo.targetWord, wordTypedKeys, keyChar);
+            if (smartCheck.isWordCompleted || stepIndex + 1 >= currentWordInfo.wordStepEnd) {
               setWordTypedKeys([]);
             } else {
               setWordTypedKeys((prev) => [...prev, keyChar]);
             }
           }
-        }
 
-        // 5. CHẾ ĐỘ GÕ DẤU TỰ DO TELEX (Dấu trước hoặc dấu sau)
-        if (!isMatch && inputMode === 'telex' && currentWordInfo) {
-          const smartCheck = checkKeyInSmartTelexWord(currentWordInfo.targetWord, wordTypedKeys, keyChar);
-          if (smartCheck.isValid) {
-            isMatch = true;
-            const nextKeys = [...wordTypedKeys, keyChar];
-            if (smartCheck.isWordCompleted) {
-              advanceCount = Math.max(1, currentWordInfo.wordStepEnd - stepIndex);
-              setWordTypedKeys([]);
-            } else {
-              setWordTypedKeys(nextKeys);
-              advanceCount = 1;
-            }
-          }
-        } else if (isMatch && currentWordInfo) {
-          // Trùng khớp tuần tự
-          const smartCheck = checkKeyInSmartTelexWord(currentWordInfo.targetWord, wordTypedKeys, keyChar);
-          if (smartCheck.isWordCompleted || stepIndex + 1 >= currentWordInfo.wordStepEnd) {
-            setWordTypedKeys([]);
-          } else {
-            setWordTypedKeys((prev) => [...prev, keyChar]);
-          }
-        }
-
-        // 6. HỖ TRỢ BỔ SUNG CÁC BIẾN THỂ PHÂN RÃ KÝ TỰ CÓ DẤU
-        if (!isMatch && inputMode === 'telex') {
-          const decomp = VIETNAMESE_CHAR_DECOMPOSITION[lowerKey];
-          if (decomp) {
-            if (decomp.hatHook && (expectedLower === decomp.hatHook || decomp.base === expectedLower)) {
-              isMatch = true;
-              advanceCount = expectedLower === decomp.base ? 2 : 1;
-              if (currentWordInfo) {
-                setWordTypedKeys((prev) => [...prev, decomp.hatHook!]);
-              }
-            } else if (decomp.tone && (expectedLower === decomp.tone || currentWordInfo?.targetWord.toLowerCase().includes(lowerKey))) {
-              isMatch = true;
-              advanceCount = currentStep.isToneMarkKey ? 1 : Math.max(1, (currentWordInfo?.wordStepEnd ?? stepIndex + 1) - stepIndex);
-              if (currentWordInfo) {
+          // 6. HỖ TRỢ BỔ SUNG CÁC BIẾN THỂ PHÂN RÃ KÝ TỰ CÓ DẤU
+          if (!isMatch && inputMode === 'telex') {
+            const decomp = VIETNAMESE_CHAR_DECOMPOSITION[lowerKey];
+            if (decomp) {
+              const expectedLower = currentStep.keyChar.toLowerCase();
+              if (decomp.hatHook && (expectedLower === decomp.hatHook || decomp.base === expectedLower)) {
+                isMatch = true;
+                advanceCount = expectedLower === decomp.base ? 2 : 1;
+                if (currentWordInfo) {
+                  setWordTypedKeys((prev) => [...prev, decomp.hatHook!]);
+                }
+              } else if (decomp.tone && (expectedLower === decomp.tone || currentWordInfo?.targetWord.toLowerCase().includes(lowerKey))) {
+                isMatch = true;
+                advanceCount = currentStep.isToneMarkKey ? 1 : Math.max(1, (currentWordInfo?.wordStepEnd ?? stepIndex + 1) - stepIndex);
+                if (currentWordInfo) {
+                  setWordTypedKeys([]);
+                }
+              } else if (keyChar === currentStep.targetChar) {
+                isMatch = true;
+                let nextIdx = stepIndex + 1;
+                while (
+                  nextIdx < keystrokeSteps.length &&
+                  keystrokeSteps[nextIdx].charIndex === currentStep.charIndex
+                ) {
+                  nextIdx++;
+                }
+                advanceCount = Math.max(1, nextIdx - stepIndex);
                 setWordTypedKeys([]);
               }
-            } else if (lowerKey === currentStep.targetChar.toLowerCase()) {
-              isMatch = true;
-              let nextIdx = stepIndex + 1;
-              while (
-                nextIdx < keystrokeSteps.length &&
-                keystrokeSteps[nextIdx].charIndex === currentStep.charIndex
-              ) {
-                nextIdx++;
-              }
-              advanceCount = Math.max(1, nextIdx - stepIndex);
-              setWordTypedKeys([]);
             }
           }
         }
@@ -1119,6 +1169,12 @@ export default function App() {
       });
 
       if (isMatch) {
+        setHasMistake(false);
+        setMistakeChar(null);
+        setMistakeKeyCode(null);
+        setCaseMistakeType(null);
+        setCaseMistakeMessage(null);
+
         if (settings.soundEnabled) {
           if (settings.soundType === 'bubble') {
             soundEngine.playBubblePop();
@@ -1160,6 +1216,14 @@ export default function App() {
         setHasMistake(true);
         setMistakeChar(keyChar === ' ' ? 'Space' : keyChar);
         setMistakeKeyCode(keyCode || null);
+        const evalCase = evaluateCaseMistake(currentStep.keyChar, keyChar);
+        if (evalCase.isCaseMismatch) {
+          setCaseMistakeType(evalCase.mistakeType);
+          setCaseMistakeMessage({ title: evalCase.title, detail: evalCase.detail });
+        } else {
+          setCaseMistakeType(null);
+          setCaseMistakeMessage(null);
+        }
         if (settings.soundEnabled) soundEngine.playErrorBoop();
       }
     },
@@ -1296,6 +1360,8 @@ export default function App() {
     setHasMistake(false);
     setMistakeChar(null);
     setMistakeKeyCode(null);
+    setCaseMistakeType(null);
+    setCaseMistakeMessage(null);
     setRecentTypedKeys([]);
     setWordTypedKeys([]);
     setStats({
@@ -1330,6 +1396,11 @@ export default function App() {
   };
 
   const handleKeyClick = (key: KeyConfig) => {
+    if (key.code === 'CapsLock') {
+      setCapsLockOn((prev) => !prev);
+      return;
+    }
+
     if (hasMistake) {
       if (key.code === 'Backspace') {
         handleInputEvent('Backspace', 'Backspace');
@@ -1344,7 +1415,8 @@ export default function App() {
     } else if (key.code === 'Space') {
       handleInputEvent(' ', 'Space');
     } else if (key.char) {
-      handleInputEvent(isShiftTarget ? key.char.toUpperCase() : key.char, key.code);
+      const sendUpper = capsLockOn || isShiftTarget;
+      handleInputEvent(sendUpper ? key.char.toUpperCase() : key.char.toLowerCase(), key.code);
     }
   };
 
@@ -1831,6 +1903,10 @@ export default function App() {
                 sgkBoxHeight={smartViewport.sgkBoxHeight}
                 inputBoxHeight={smartViewport.inputBoxHeight}
                 isCompactHeight={smartViewport.isCompactHeight}
+                caseMistakeType={caseMistakeType}
+                caseMistakeMessage={caseMistakeMessage}
+                isTargetUpper={isTargetUpper}
+                capsLockOn={capsLockOn}
               />
             </section>
 
@@ -1853,6 +1929,8 @@ export default function App() {
                 isCompactHeight={smartViewport.isCompactHeight}
                 maxUnitSize={smartViewport.keyboardMaxUnitSize}
                 suggestedKeyHeight={smartViewport.keyboardKeyHeight}
+                capsLockOn={capsLockOn}
+                onToggleCapsLock={() => setCapsLockOn((prev) => !prev)}
               />
             </section>
 

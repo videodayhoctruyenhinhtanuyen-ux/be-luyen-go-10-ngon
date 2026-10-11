@@ -229,11 +229,20 @@ export interface AppSettings {
   highlightMatchingFinger: boolean;
 }
 
-export interface TypedKeyRecord {
+export type TypedKeyRecord = {
   id: string;
   keyLabel: string;
   isCorrect: boolean;
   timestamp: number;
   expectedKey?: string;
   isBackspace?: boolean;
+};
+
+// Loại lỗi chữ hoa / chữ thường
+export type CaseMistakeType = 'need_upper' | 'need_lower' | null;
+
+export interface CaseMistakeInfo {
+  type: CaseMistakeType;
+  title: string;
+  detail: string;
 }
