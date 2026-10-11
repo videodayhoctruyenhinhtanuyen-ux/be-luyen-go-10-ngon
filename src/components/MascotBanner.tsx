@@ -69,38 +69,34 @@ export const MascotBanner: React.FC<MascotBannerProps> = ({
   );
 
   return (
-    <div className="w-full bg-gradient-to-r from-amber-50/95 via-sky-50/90 to-white border-2 border-sky-200 hover:border-sky-300 rounded-xl px-2.5 sm:px-3 py-1.5 shadow-2xs flex items-center justify-between gap-2.5 transition-all select-none overflow-hidden">
+    <div className="w-full bg-gradient-to-r from-amber-50/95 via-sky-50/90 to-white border border-sky-200 rounded-lg px-2.5 py-1 shadow-2xs flex items-center justify-between gap-2 transition-all select-none overflow-hidden h-7 sm:h-8">
       {/* 1. Mascot Avatar + Brand Tag (Compact inline) */}
-      <div className="flex items-center gap-2 shrink-0">
-        <div className="w-7 h-7 rounded-lg bg-gradient-to-tr from-amber-400 to-orange-400 p-0.5 shadow-xs border border-white flex items-center justify-center text-base shrink-0 select-none animate-bounce">
+      <div className="flex items-center gap-1.5 shrink-0">
+        <div className="w-5 h-5 rounded-md bg-gradient-to-tr from-amber-400 to-orange-400 p-0.5 shadow-2xs border border-white flex items-center justify-center text-xs shrink-0 select-none">
           {hasMistake ? '🦉' : isEnterRequired ? '🎉' : isShiftRequired ? '⭐' : '🤖'}
         </div>
         <div className="flex items-center gap-1">
-          <span className="font-black text-xs text-slate-900 shrink-0">Bạn Đồng Hành</span>
-          <span className="text-[9px] bg-emerald-500 text-white font-bold px-1.5 py-0.2 rounded-full hidden sm:inline shrink-0">
-            Nhắc Nhở
-          </span>
+          <span className="font-black text-[11px] text-slate-900 shrink-0">Đồng Hành:</span>
         </div>
       </div>
 
       {/* 2. Speech Bubble: Strictly single line, text never wraps or drops down */}
       <div
-        className="flex-1 min-w-0 bg-white/90 border border-sky-200/90 rounded-lg px-2.5 py-1 shadow-2xs text-xs overflow-hidden flex items-center"
+        className="flex-1 min-w-0 bg-white/90 border border-sky-200/90 rounded-md px-2 py-0.5 shadow-2xs text-xs overflow-hidden flex items-center h-5 sm:h-6"
         title={typeof instructionText === 'string' ? instructionText : undefined}
       >
         <div className="truncate w-full">{mascotSpeech}</div>
       </div>
 
       {/* 3. Typing Mode Switcher & Guide Link (Compact horizontal group) */}
-      <div className="flex items-center gap-1.5 shrink-0">
-        <div className="flex items-center gap-0.5 bg-slate-100 p-0.5 rounded-lg border border-slate-200 text-xs">
-          <span className="text-[10px] text-slate-400 font-bold px-1 hidden md:inline">Kiểu:</span>
+      <div className="flex items-center gap-1 shrink-0">
+        <div className="flex items-center gap-0.5 bg-slate-100 p-0.5 rounded-md border border-slate-200 text-xs">
           <button
             type="button"
             onClick={() => onModeChange('telex')}
-            className={`px-2 py-0.5 rounded-md font-black text-[10px] transition-all cursor-pointer ${
+            className={`px-1.5 py-0.2 rounded font-black text-[9px] transition-all cursor-pointer ${
               mode === 'telex'
-                ? 'bg-sky-500 text-white shadow-xs'
+                ? 'bg-sky-500 text-white shadow-2xs'
                 : 'text-slate-600 hover:text-slate-900'
             }`}
             title="Kiểu gõ TELEX chuẩn SGK"
@@ -110,26 +106,14 @@ export const MascotBanner: React.FC<MascotBannerProps> = ({
           <button
             type="button"
             onClick={() => onModeChange('vni')}
-            className={`px-2 py-0.5 rounded-md font-black text-[10px] transition-all cursor-pointer ${
+            className={`px-1.5 py-0.2 rounded font-black text-[9px] transition-all cursor-pointer ${
               mode === 'vni'
-                ? 'bg-emerald-500 text-white shadow-xs'
+                ? 'bg-emerald-500 text-white shadow-2xs'
                 : 'text-slate-600 hover:text-slate-900'
             }`}
             title="Kiểu gõ VNI"
           >
             VNI
-          </button>
-          <button
-            type="button"
-            onClick={() => onModeChange('no_accent')}
-            className={`px-1.5 py-0.5 rounded-md font-black text-[10px] transition-all cursor-pointer hidden sm:inline ${
-              mode === 'no_accent'
-                ? 'bg-amber-500 text-slate-950 shadow-xs'
-                : 'text-slate-600 hover:text-slate-900'
-            }`}
-            title="Không Dấu"
-          >
-            Không Dấu
           </button>
         </div>
 
@@ -137,11 +121,10 @@ export const MascotBanner: React.FC<MascotBannerProps> = ({
           <button
             type="button"
             onClick={onOpenGuide}
-            className="px-2 py-1 rounded-lg text-[10px] font-bold bg-amber-100 hover:bg-amber-200 text-amber-900 border border-amber-300 transition-colors flex items-center gap-1 cursor-pointer shrink-0"
-            title="Xem bảng quy tắc gõ tiếng Việt Telex & VNI"
+            className="px-1.5 py-0.5 rounded text-[9px] font-bold bg-amber-100 hover:bg-amber-200 text-amber-900 border border-amber-300 transition-colors flex items-center gap-0.5 cursor-pointer shrink-0"
+            title="Xem bảng tra cứu gõ dấu"
           >
-            <HelpCircle className="w-3 h-3 text-amber-600" />
-            <span className="hidden sm:inline">Quy tắc</span>
+            <span>Tra dấu</span>
           </button>
         )}
       </div>

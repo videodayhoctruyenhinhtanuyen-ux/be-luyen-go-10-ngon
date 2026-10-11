@@ -43,52 +43,52 @@ export const TextbookIllustrationCard: React.FC<TextbookIllustrationCardProps> =
   return (
     <div className="w-full flex flex-col items-center">
       {/* TIÊU ĐỀ ĐỎ NỔI BẬT ĐÚNG NHƯ TRONG BẢN THIẾT KẾ MẪU */}
-      <div className="mb-2 text-center">
-        <h3 className="text-rose-600 font-black text-sm sm:text-base tracking-wide flex items-center justify-center gap-1.5 drop-shadow-2xs">
-          <span>Ảnh sách giáo khoa về bài gõ</span>
+      <div className="mb-1 text-center">
+        <h3 className="text-rose-600 font-black text-xs sm:text-sm tracking-wide flex items-center justify-center gap-1.5 drop-shadow-2xs">
+          <span>📖 Ảnh sách giáo khoa về bài gõ</span>
         </h3>
       </div>
 
-      {/* KHUNG VIỀN MÀU XANH LÁ CÂY BO CONG TRÒN DÀY (BORDER-4 BORDER-EMERALD-500 ROUNDED-3XL) */}
-      <div className="w-full max-w-[420px] rounded-[32px] border-4 border-emerald-500 bg-white p-2.5 sm:p-3 shadow-xl hover:border-emerald-600 transition-all duration-200 flex flex-col items-center relative group">
+      {/* KHUNG VIỀN MÀU XANH LÁ CÂY BO CONG TRÒN DÀY (BORDER-3 BORDER-EMERALD-500 ROUNDED-2XL) */}
+      <div className="w-full max-w-[420px] rounded-2xl border-3 border-emerald-500 bg-white p-2 shadow-md hover:border-emerald-600 transition-all duration-200 flex flex-col items-center relative group">
         {/* VÙNG CHỨA ẢNH */}
         <div
           onClick={() => setIsZoomed(true)}
-          className="relative w-full rounded-2xl overflow-hidden bg-gradient-to-b from-sky-50 to-emerald-50 flex items-center justify-center cursor-pointer select-none"
+          className="relative w-full rounded-xl overflow-hidden bg-gradient-to-b from-sky-50 to-emerald-50 flex items-center justify-center cursor-pointer select-none"
           title="Bấm để phóng to xem rõ tranh sách giáo khoa"
         >
           <img
             src={currentImgSrc}
             alt={`Ảnh sách giáo khoa về bài gõ: ${lesson.title}`}
             onError={handleImageError}
-            className="w-full max-h-[135px] sm:max-h-[150px] xl:max-h-[165px] object-contain rounded-xl transition-transform duration-300 group-hover:scale-102"
+            className="w-full max-h-[105px] sm:max-h-[115px] xl:max-h-[120px] object-contain rounded-lg transition-transform duration-300 group-hover:scale-102"
             loading="eager"
           />
 
           {/* NÚT PHÓNG TO XEM TOÀN MÀN HÌNH NỔI TRÊN GÓC */}
-          <div className="absolute bottom-2.5 right-2.5 bg-slate-950/80 hover:bg-slate-950 text-white text-[11px] font-black px-2.5 py-1 rounded-xl shadow-lg border border-white/20 flex items-center gap-1.5 transition-all opacity-90 group-hover:opacity-100">
-            <Maximize2 className="w-3.5 h-3.5 text-amber-300" />
+          <div className="absolute bottom-1.5 right-1.5 bg-slate-950/80 hover:bg-slate-950 text-white text-[10px] font-black px-2 py-0.5 rounded-lg shadow-md border border-white/20 flex items-center gap-1 transition-all opacity-90 group-hover:opacity-100">
+            <Maximize2 className="w-3 h-3 text-amber-300" />
             <span>Phóng to</span>
           </div>
 
-          <div className="absolute top-2.5 left-2.5 bg-emerald-600/90 text-white text-[10px] font-black px-2 py-0.5 rounded-full shadow-md flex items-center gap-1">
-            <Sparkles className="w-3 h-3 text-amber-300" />
+          <div className="absolute top-1.5 left-1.5 bg-emerald-600/90 text-white text-[9px] font-black px-1.5 py-0.2 rounded-full shadow-xs flex items-center gap-1">
+            <Sparkles className="w-2.5 h-2.5 text-amber-300" />
             <span>SGK Tiếng Việt</span>
           </div>
         </div>
 
         {/* THANH ĐIỀU HƯỚNG NHỎ BÊN DƯỚI KHUNG TRANH */}
-        <div className="w-full mt-2 pt-2 border-t border-emerald-100 flex items-center justify-between gap-2 text-xs">
+        <div className="w-full mt-1.5 pt-1 border-t border-emerald-100 flex items-center justify-between gap-1.5 text-xs">
           <span className="font-bold text-slate-700 truncate text-[11px]" title={lesson.title}>
-            📖 {lesson.title}
+            {lesson.title}
           </span>
 
-          <div className="flex items-center gap-1.5 shrink-0">
+          <div className="flex items-center gap-1 shrink-0">
             {onOpenTeacherModal && (
               <button
                 type="button"
                 onClick={onOpenTeacherModal}
-                className="text-[10px] bg-emerald-50 hover:bg-emerald-100 text-emerald-800 font-bold px-2 py-0.5 rounded-lg border border-emerald-200 transition-colors flex items-center gap-1"
+                className="text-[10px] bg-emerald-50 hover:bg-emerald-100 text-emerald-800 font-bold px-1.5 py-0.5 rounded-md border border-emerald-200 transition-colors flex items-center gap-0.5"
                 title="Cô giáo tải ảnh SGK bài khác lên"
               >
                 <Upload className="w-2.5 h-2.5 text-emerald-600" />
@@ -99,7 +99,7 @@ export const TextbookIllustrationCard: React.FC<TextbookIllustrationCardProps> =
             <button
               type="button"
               onClick={() => setIsZoomed(true)}
-              className="text-[10px] bg-amber-100 hover:bg-amber-200 text-amber-900 font-bold px-2 py-0.5 rounded-lg transition-colors"
+              className="text-[10px] bg-amber-100 hover:bg-amber-200 text-amber-900 font-bold px-2 py-0.5 rounded-md transition-colors"
             >
               Xem to
             </button>

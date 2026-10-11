@@ -1359,48 +1359,39 @@ export default function App() {
 
   return (
     <div
-      className={`min-h-screen ${
-        isFullscreenAdaptive ? 'h-screen overflow-hidden' : 'xl:h-screen xl:overflow-hidden'
-      } bg-gradient-to-b from-sky-100 via-sky-50 to-amber-50 text-slate-800 flex flex-col justify-between selection:bg-amber-300 selection:text-slate-900 font-sans`}
+      className="h-screen max-h-screen w-screen overflow-hidden bg-gradient-to-b from-sky-100 via-sky-50 to-amber-50 text-slate-800 flex flex-col justify-between selection:bg-amber-300 selection:text-slate-900 font-sans"
     >
       {/* Toast thông báo khi tự động điều chỉnh hiển thị phủ kín màn hình tương thích độ phân giải */}
       {screenFitToast && (
-        <div className="fixed top-14 left-1/2 -translate-x-1/2 z-50 bg-slate-950/95 text-white px-5 py-2.5 rounded-2xl shadow-2xl border-2 border-indigo-400 backdrop-blur-md flex items-center gap-2.5 animate-in fade-in slide-in-from-top-4 duration-200">
-          <span className="text-xl">🖥️</span>
+        <div className="fixed top-12 left-1/2 -translate-x-1/2 z-50 bg-slate-950/95 text-white px-4 py-1.5 rounded-xl shadow-2xl border border-indigo-400 backdrop-blur-md flex items-center gap-2 animate-in fade-in slide-in-from-top-4 duration-200">
+          <span className="text-base">🖥️</span>
           <span className="text-xs font-black text-indigo-200">{screenFitToast}</span>
         </div>
       )}
 
       {/* ======================================================== */}
-      {/* 1. TOP HEADER (COMPACT, RICH, ZERO WASTED SPACE)        */}
+      {/* 1. TOP HEADER (COMPACT SINGLE-ROW, FIT-TO-SCREEN 1366px) */}
       {/* ======================================================== */}
-      <header className="w-full bg-white/95 border-b-2 border-sky-200 sticky top-0 z-40 backdrop-blur-md px-2 sm:px-4 py-1.5 shadow-sm">
-        <div className="w-full px-2 sm:px-4 xl:px-6 flex items-center justify-between gap-2.5 flex-wrap">
-          {/* Logo & Playful Title */}
-          <div className="flex items-center gap-2.5">
-            <div className="w-10 h-10 rounded-2xl bg-gradient-to-tr from-sky-400 via-indigo-500 to-pink-500 p-0.5 shadow border-2 border-white flex items-center justify-center text-xl select-none animate-bounce">
-              ⌨️
-            </div>
-            <div>
-              <div className="flex items-center gap-1.5">
-                <h1 className="text-base sm:text-lg font-black text-slate-900 tracking-tight">
-                  Bé Luyện Gõ 10 Ngón
-                </h1>
-                <span className="text-[10px] bg-gradient-to-r from-amber-400 to-orange-400 text-slate-950 font-black px-2 py-0.2 rounded-full shadow border border-amber-300">
-                  Tiểu Học
-                </span>
-              </div>
-              <p className="text-[11px] text-sky-800 hidden md:block font-bold">
-                Bàn phím Full Size 104 phím • Phân hệ Lớp 3, 4, 5 • Cô giáo giao bài tập
-              </p>
-            </div>
+      <header className="h-11 sm:h-12 min-h-[44px] max-h-[48px] w-full bg-white/95 border-b border-sky-200 z-40 backdrop-blur-md px-2.5 sm:px-4 flex items-center justify-between gap-1.5 shrink-0 select-none shadow-xs">
+        {/* CLUSTER 1: LOGO + KHỐI LỚP (LỚP 3 / 4 / 5) */}
+        <div className="flex items-center gap-2 shrink-0">
+          <div className="w-8 h-8 rounded-xl bg-gradient-to-tr from-sky-400 via-indigo-500 to-pink-500 p-0.5 shadow-xs border border-white flex items-center justify-center text-lg select-none">
+            ⌨️
+          </div>
+          <div className="flex items-center gap-1.5">
+            <h1 className="text-sm font-black text-slate-900 tracking-tight whitespace-nowrap">
+              Bé Luyện Gõ 10 Ngón
+            </h1>
+            <span className="text-[10px] bg-gradient-to-r from-amber-400 to-orange-400 text-slate-950 font-black px-1.5 py-0.2 rounded-full shadow-2xs border border-amber-300 hidden md:inline">
+              Tiểu Học
+            </span>
           </div>
 
-          {/* GRADE SELECTOR BUTTONS (LỚP 3 / LỚP 4 / LỚP 5) */}
-          <div className="flex items-center gap-1 p-1 bg-sky-100/80 rounded-2xl border border-sky-300 shadow-inner">
-            <span className="text-[11px] font-black text-sky-900 px-2 flex items-center gap-1">
-              <GraduationCap className="w-3.5 h-3.5 text-sky-700" />
-              <span>Khối Lớp:</span>
+          {/* GRADE SELECTOR TABS (LỚP 3 / LỚP 4 / LỚP 5) */}
+          <div className="flex items-center gap-0.5 p-0.5 bg-sky-100/90 rounded-xl border border-sky-300 shadow-inner ml-1">
+            <span className="text-[10px] font-black text-sky-900 px-1.5 hidden lg:flex items-center gap-1">
+              <GraduationCap className="w-3 h-3 text-sky-700" />
+              <span>Khối:</span>
             </span>
 
             {[3, 4, 5].map((grade) => (
@@ -1408,372 +1399,323 @@ export default function App() {
                 key={`top-grade-${grade}`}
                 type="button"
                 onClick={() => handleSelectGrade(grade)}
-                className={`px-3 py-1.5 rounded-xl font-black text-xs transition-all cursor-pointer flex items-center gap-1 ${
+                className={`px-2.5 py-1 rounded-lg font-black text-xs transition-all cursor-pointer flex items-center gap-1 ${
                   selectedGrade === grade
-                    ? 'bg-sky-600 text-white shadow-md scale-105 ring-2 ring-sky-300'
-                    : 'bg-white text-slate-700 hover:bg-sky-50 hover:text-sky-900 border border-slate-200'
+                    ? 'bg-sky-600 text-white shadow-xs scale-102 ring-1 ring-sky-300'
+                    : 'text-slate-700 hover:bg-white hover:text-sky-900'
                 }`}
               >
                 <span>Lớp {grade}</span>
                 {gradeAssignments[grade] && (
-                  <span className="w-2 h-2 rounded-full bg-rose-500 animate-ping" title="Có bài tập cô giáo giao" />
+                  <span className="w-1.5 h-1.5 rounded-full bg-rose-500 animate-ping" title="Có bài tập cô giáo giao" />
                 )}
               </button>
             ))}
           </div>
+        </div>
 
-          {/* Action Navigation Buttons */}
-          <div className="flex items-center gap-1.5 sm:gap-2">
-            {/* Vietnamese Mode Selector (Telex / VNI) */}
-            <div className="flex items-center gap-1 bg-amber-50 p-1 rounded-xl border border-amber-300">
+        {/* CLUSTER 2: CHẾ ĐỘ TELEX/VNI & UNIKEY */}
+        <div className="flex items-center gap-1 shrink-0">
+          {/* Vietnamese Mode Selector (Telex / VNI) */}
+          <div className="flex items-center gap-0.5 bg-amber-50 p-0.5 rounded-lg border border-amber-300">
+            <button
+              type="button"
+              onClick={() => setInputMode('telex')}
+              className={`px-2 py-0.5 rounded-md text-xs font-black transition-all cursor-pointer ${
+                inputMode === 'telex'
+                  ? 'bg-amber-500 text-slate-950 shadow-2xs'
+                  : 'text-slate-600 hover:text-slate-900'
+              }`}
+              title="Kiểu gõ Telex"
+            >
+              TELEX
+            </button>
+            <button
+              type="button"
+              onClick={() => setInputMode('vni')}
+              className={`px-2 py-0.5 rounded-md text-xs font-black transition-all cursor-pointer ${
+                inputMode === 'vni'
+                  ? 'bg-emerald-500 text-white shadow-2xs'
+                  : 'text-slate-600 hover:text-slate-900'
+              }`}
+              title="Kiểu gõ VNI"
+            >
+              VNI
+            </button>
+          </div>
+
+          {/* Chế độ bộ gõ máy tính: [V] Unikey vs [E] Luyện phím */}
+          {inputMode === 'telex' && (
+            <div className="flex items-center gap-0.5 bg-rose-50 p-0.5 rounded-lg border border-rose-300">
               <button
                 type="button"
-                onClick={() => setInputMode('telex')}
-                className={`px-2 py-1 rounded-lg text-xs font-black transition-all cursor-pointer ${
-                  inputMode === 'telex'
-                    ? 'bg-amber-500 text-slate-950 shadow'
-                    : 'text-slate-600 hover:text-slate-900'
+                onClick={() => handleToggleKeyboardImeMode('unikey_v')}
+                className={`px-1.5 py-0.5 rounded-md text-[11px] font-black transition-all cursor-pointer flex items-center gap-0.5 ${
+                  keyboardImeMode === 'unikey_v'
+                    ? 'bg-rose-500 text-white shadow-2xs'
+                    : 'text-rose-900 hover:text-rose-950'
                 }`}
-                title="Kiểu gõ Telex"
+                title="Bật Unikey chữ V trên máy tính"
               >
-                TELEX
+                <span>🇻🇳 [V] Unikey</span>
               </button>
               <button
                 type="button"
-                onClick={() => setInputMode('vni')}
-                className={`px-2 py-1 rounded-lg text-xs font-black transition-all cursor-pointer ${
-                  inputMode === 'vni'
-                    ? 'bg-emerald-500 text-white shadow'
+                onClick={() => handleToggleKeyboardImeMode('telex_e')}
+                className={`px-1.5 py-0.5 rounded-md text-[11px] font-black transition-all cursor-pointer flex items-center gap-0.5 ${
+                  keyboardImeMode === 'telex_e'
+                    ? 'bg-sky-600 text-white shadow-2xs'
                     : 'text-slate-600 hover:text-slate-900'
                 }`}
-                title="Kiểu gõ VNI"
+                title="Tắt Unikey hoặc để chữ E để luyện phím"
               >
-                VNI
+                <span>🔤 [E] Luyện phím</span>
               </button>
             </div>
+          )}
 
-            {/* Chế độ bộ gõ trên máy tính: [V] Unikey vs [E] Luyện phím */}
-            {inputMode === 'telex' && (
-              <div className="flex items-center gap-1 bg-rose-50 p-1 rounded-xl border border-rose-300 shadow-2xs">
+          {/* Vietnamese Typing Guide Modal Button */}
+          <button
+            type="button"
+            onClick={() => setIsVietnameseGuideOpen(true)}
+            className="px-2 py-1 rounded-lg bg-amber-100 hover:bg-amber-200 text-amber-900 text-xs font-black flex items-center gap-1 transition-all cursor-pointer border border-amber-300 shadow-2xs"
+            title="Xem bảng tra cứu gõ dấu Telex & VNI"
+          >
+            <span>🇻🇳 Gõ Dấu</span>
+          </button>
+        </div>
+
+        {/* CLUSTER 3: CÔNG CỤ GIÁO VIÊN, BÀN PHÍM, GAME & PHỦ KÍN MÀN HÌNH */}
+        <div className="flex items-center gap-1 sm:gap-1.5 shrink-0">
+          {/* TEACHER PORTAL TRIGGER */}
+          <button
+            type="button"
+            onClick={() => setIsTeacherModalOpen(true)}
+            className="px-2.5 py-1 rounded-lg bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white text-xs font-black flex items-center gap-1 transition-all cursor-pointer shadow-sm active:scale-95"
+            title="Đăng nhập quản trị giáo viên: Giao bài tập & Đăng ảnh SGK"
+          >
+            <UserCheck className="w-3.5 h-3.5" />
+            <span className="hidden sm:inline">Góc Giáo Viên</span>
+            <span className="sm:hidden">Cô Giáo</span>
+            {isSupabaseOnline && (
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-300 animate-pulse" title="Supabase Online" />
+            )}
+          </button>
+
+          {/* 9 KEYBOARDS STORE TRIGGER */}
+          <button
+            type="button"
+            onClick={() => setIsThemeModalOpen(true)}
+            className="px-2.5 py-1 rounded-lg bg-gradient-to-r from-sky-600 via-indigo-600 to-amber-600 hover:from-sky-500 hover:to-amber-500 text-white text-xs font-black flex items-center gap-1 transition-all cursor-pointer shadow-sm active:scale-95"
+            title="Mở kho 9 mẫu bàn phím"
+          >
+            <Palette className="w-3.5 h-3.5" />
+            <span>{currentKeyboardTheme.emoji} Đổi Phím</span>
+          </button>
+
+          {/* 5 Typing Games Hub */}
+          <button
+            type="button"
+            onClick={() => setIsGameModalOpen(true)}
+            className="px-2 py-1 rounded-lg bg-gradient-to-r from-pink-500 via-rose-500 to-amber-500 hover:from-pink-400 hover:to-amber-400 text-white text-xs font-black flex items-center gap-1 transition-all cursor-pointer shadow-sm active:scale-95 animate-pulse"
+            title="Đấu trường 5 trò chơi luyện gõ"
+          >
+            <Gamepad2 className="w-3.5 h-3.5" />
+            <span>🎮 Trò Chơi</span>
+          </button>
+
+          {/* NÚT PHỦ KÍN MÀN HÌNH / 1366x768 */}
+          <button
+            type="button"
+            onClick={handleToggleFullscreenFit}
+            className={`px-2.5 py-1 rounded-lg text-xs font-black flex items-center gap-1 transition-all cursor-pointer shadow-2xs border ${
+              isFullscreenAdaptive
+                ? 'bg-indigo-700 text-white border-indigo-900 shadow-inner'
+                : 'bg-white hover:bg-slate-100 text-indigo-950 border-indigo-200'
+            }`}
+            title="Tự động căn chỉnh toàn bộ giao diện vừa khít 1366x768px"
+          >
+            {isFullscreenAdaptive ? (
+              <Minimize className="w-3 h-3 text-amber-300" />
+            ) : (
+              <Maximize className="w-3 h-3 text-indigo-600" />
+            )}
+            <span>
+              {isFullscreenAdaptive ? 'Thu Nhỏ' : '🖥️ Phủ Kín'}
+            </span>
+          </button>
+
+          {/* TOGGLE ẨN/HIỆN CỘT SGK */}
+          <button
+            type="button"
+            onClick={() => setIsRightColumnVisible((prev) => !prev)}
+            className={`px-2 py-1 rounded-lg text-xs font-black flex items-center gap-1 transition-all cursor-pointer shadow-2xs border ${
+              !isRightColumnVisible
+                ? 'bg-indigo-600 text-white border-indigo-800'
+                : 'bg-white hover:bg-slate-100 text-slate-700 border-slate-200'
+            }`}
+            title={isRightColumnVisible ? 'Tạm ẩn cột SGK' : 'Hiện cột SGK'}
+          >
+            <span>{isRightColumnVisible ? '📖 SGK: Bật' : '📖 Hiện SGK'}</span>
+          </button>
+
+          {/* Sound Toggle */}
+          <button
+            type="button"
+            onClick={() => setSettings((s) => ({ ...s, soundEnabled: !s.soundEnabled }))}
+            className={`p-1.5 rounded-lg transition-colors cursor-pointer border shadow-2xs ${
+              settings.soundEnabled
+                ? 'bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border-emerald-300'
+                : 'bg-rose-50 hover:bg-rose-100 text-rose-700 border-rose-300'
+            }`}
+            title={settings.soundEnabled ? 'Tắt âm thanh' : 'Bật âm thanh'}
+          >
+            {settings.soundEnabled ? <Volume2 className="w-3.5 h-3.5" /> : <VolumeX className="w-3.5 h-3.5" />}
+          </button>
+
+          {/* Settings dropdown */}
+          <div className="relative">
+            <button
+              type="button"
+              onClick={() => setShowSettingsDropdown((prev) => !prev)}
+              className="p-1.5 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 transition-colors cursor-pointer border border-slate-300 shadow-2xs"
+              title="Cài đặt"
+            >
+              <Sliders className="w-3.5 h-3.5" />
+            </button>
+
+            {showSettingsDropdown && (
+              <div className="absolute right-0 mt-2 w-64 bg-white border-2 border-sky-300 rounded-2xl p-3 shadow-2xl z-50 text-slate-800 animate-in fade-in zoom-in-95 duration-150">
+                <h4 className="text-xs font-black text-sky-900 uppercase tracking-wider mb-2">
+                  ⚙️ Cài Đặt Bàn Phím
+                </h4>
+
+                {/* Hands Overlay Toggle */}
+                <div className="mb-2 flex items-center justify-between">
+                  <span className="text-xs text-slate-700 font-bold">Bàn tay phủ phím:</span>
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setSettings((s) => ({ ...s, handsOverlayEnabled: !s.handsOverlayEnabled }))
+                    }
+                    className={`px-2.5 py-0.5 rounded-lg text-xs font-black cursor-pointer transition-colors ${
+                      settings.handsOverlayEnabled ? 'bg-sky-500 text-white' : 'bg-slate-100 text-slate-600'
+                    }`}
+                  >
+                    {settings.handsOverlayEnabled ? 'Bật' : 'Tắt'}
+                  </button>
+                </div>
+
+                {/* Sound Type */}
+                <div className="mb-2">
+                  <span className="block text-xs text-slate-700 font-bold mb-1">Âm thanh:</span>
+                  <div className="grid grid-cols-2 gap-1 p-0.5 bg-slate-100 rounded-lg">
+                    <button
+                      type="button"
+                      onClick={() => setSettings((s) => ({ ...s, soundType: 'mechanical' }))}
+                      className={`px-2 py-0.5 rounded text-xs font-bold transition-colors cursor-pointer ${
+                        settings.soundType === 'mechanical' ? 'bg-sky-500 text-white shadow-xs' : 'text-slate-600'
+                      }`}
+                    >
+                      Phím cơ
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setSettings((s) => ({ ...s, soundType: 'bubble' }))}
+                      className={`px-2 py-0.5 rounded text-xs font-bold transition-colors cursor-pointer ${
+                        settings.soundType === 'bubble' ? 'bg-sky-500 text-white shadow-xs' : 'text-slate-600'
+                      }`}
+                    >
+                      Bong bóng
+                    </button>
+                  </div>
+                </div>
+
                 <button
                   type="button"
-                  onClick={() => handleToggleKeyboardImeMode('unikey_v')}
-                  className={`px-2 py-1 rounded-lg text-xs font-black transition-all cursor-pointer flex items-center gap-1 ${
-                    keyboardImeMode === 'unikey_v'
-                      ? 'bg-rose-500 text-white shadow ring-2 ring-rose-200'
-                      : 'text-rose-900 hover:text-rose-950'
-                  }`}
-                  title="Máy tính đang BẬT Unikey/EVKey chữ V. Gõ chữ Việt tự nhiên, không bị bắt lỗi!"
+                  onClick={() => {
+                    setShowSettingsDropdown(false);
+                    setIsCustomTextModalOpen(true);
+                  }}
+                  className="w-full py-1.5 px-2 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-xs font-black text-white cursor-pointer shadow-xs"
                 >
-                  <span>🇻🇳 [V] Unikey</span>
-                </button>
-                <button
-                  type="button"
-                  onClick={() => handleToggleKeyboardImeMode('telex_e')}
-                  className={`px-2 py-1 rounded-lg text-xs font-black transition-all cursor-pointer flex items-center gap-1 ${
-                    keyboardImeMode === 'telex_e'
-                      ? 'bg-sky-600 text-white shadow ring-2 ring-sky-200'
-                      : 'text-slate-600 hover:text-slate-900'
-                  }`}
-                  title="Máy tính TẮT Unikey hoặc để chữ E. Luyện gõ từng phím quy tắc Telex chuẩn SGK!"
-                >
-                  <span>🔤 [E] Luyện phím</span>
+                  ✍️ Tự Soạn Bài Riêng
                 </button>
               </div>
             )}
-
-            {/* Vietnamese Typing Guide Modal Button */}
-            <button
-              type="button"
-              onClick={() => setIsVietnameseGuideOpen(true)}
-              className="px-2.5 py-1.5 rounded-xl bg-amber-100 hover:bg-amber-200 text-amber-900 text-xs font-black flex items-center gap-1 transition-all cursor-pointer border border-amber-300 shadow-sm"
-              title="Xem bảng tra cứu gõ dấu Telex & VNI"
-            >
-              <span>🇻🇳 Gõ Dấu</span>
-            </button>
-
-            {/* TEACHER PORTAL TRIGGER */}
-            <button
-              type="button"
-              onClick={() => setIsTeacherModalOpen(true)}
-              className="px-3 py-1.5 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white text-xs font-black flex items-center gap-1.5 transition-all cursor-pointer shadow-md shadow-emerald-600/20 border-b-2 border-emerald-800 active:border-b-0 active:translate-y-0.5"
-              title="Đăng nhập quản trị giáo viên: Giao bài tập cho Lớp 3, 4, 5 & Đăng ảnh SGK (Đồng bộ Supabase Cloud Realtime)"
-            >
-              <UserCheck className="w-3.5 h-3.5" />
-              <span>Góc Giáo Viên</span>
-              {isSupabaseOnline && (
-                <span className="w-2 h-2 rounded-full bg-emerald-300 animate-pulse hidden sm:inline-block" title="Đã kết nối Supabase Cloud Realtime" />
-              )}
-            </button>
-
-            {/* 9 KEYBOARDS STORE TRIGGER (8 REAL LIFE + 1 SYSTEM) */}
-            <button
-              type="button"
-              onClick={() => setIsThemeModalOpen(true)}
-              className="px-3 py-1.5 rounded-xl bg-gradient-to-r from-sky-600 via-indigo-600 to-amber-600 hover:from-sky-500 hover:to-amber-500 text-white text-xs font-black flex items-center gap-1.5 transition-all cursor-pointer shadow-md shadow-sky-600/20 border-b-2 border-indigo-800 active:border-b-0 active:translate-y-0.5"
-              title="Mở kho 9 mẫu bàn phím: 8 bàn phím thật đời thực (Dell, Mitsumi, Laptop, v.v.) + 1 bàn phím hệ thống"
-            >
-              <Palette className="w-3.5 h-3.5" />
-              <span>{currentKeyboardTheme.emoji} Đổi Bàn Phím</span>
-              <span className="text-[9px] bg-amber-300 text-slate-950 px-1.5 py-0.2 rounded-full font-black hidden xl:inline">
-                9 MẪU
-              </span>
-            </button>
-
-            {/* GÓC BÊN PHẢI: CHỌN BÀI ĐỂ GÕ */}
-            <button
-              type="button"
-              onClick={() => {
-                setTextbookTab('curriculum');
-                setIsRightPanelOpen(true);
-              }}
-              className="px-3 py-1.5 rounded-xl bg-gradient-to-r from-sky-500 to-indigo-600 hover:from-sky-400 hover:to-indigo-500 text-white text-xs font-black flex items-center gap-1.5 transition-all cursor-pointer shadow-md border-b-2 border-indigo-800 active:border-b-0"
-              title="Góc bên phải: Chọn bài để luyện gõ (SGK Lớp 3, 4, 5)"
-            >
-              <BookOpen className="w-3.5 h-3.5" />
-              <span>📚 Chọn Bài Để Gõ</span>
-            </button>
-
-            {/* GÓC BÊN PHẢI: LUYỆN BÀI CÔ GIAO */}
-            <button
-              type="button"
-              onClick={() => handleSelectAssignedHomework()}
-              className={`px-3 py-1.5 rounded-xl text-xs font-black flex items-center gap-1.5 transition-all cursor-pointer shadow-md border-b-2 active:border-b-0 ${
-                isCurrentAssignedHomework
-                  ? 'bg-gradient-to-r from-amber-500 to-emerald-500 text-slate-950 border-emerald-800 ring-2 ring-emerald-300'
-                  : 'bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white border-emerald-800'
-              }`}
-              title="Góc bên phải: Luyện đúng bài cô giao"
-            >
-              <UserCheck className="w-3.5 h-3.5" />
-              <span>🎯 Luyện Bài Cô Giao</span>
-              {currentGradeHomework && !isCurrentAssignedHomework && (
-                <span className="w-2 h-2 rounded-full bg-amber-300 animate-ping" />
-              )}
-            </button>
-
-            {/* 5 Typing Games Hub */}
-            <button
-              type="button"
-              onClick={() => setIsGameModalOpen(true)}
-              className="px-2.5 py-1.5 rounded-xl bg-gradient-to-r from-pink-500 via-rose-500 to-amber-500 hover:from-pink-400 hover:to-amber-400 text-white text-xs font-black flex items-center gap-1.5 transition-all cursor-pointer shadow-md border-b-2 border-pink-700 active:border-b-0 animate-pulse"
-              title="Đấu trường 5 trò chơi luyện gõ đa hàng phím: Chú khỉ leo núi, Bóng bay, Khu vườn âm nhạc, Kho báu, Giao hàng"
-            >
-              <Gamepad2 className="w-3.5 h-3.5" />
-              <span>🎮 5 Trò Chơi</span>
-            </button>
-
-            {/* NÚT LỆNH PHỦ KÍN MÀN HÌNH: TỰ ĐỘNG ĐIỀU CHỈNH KÍCH THƯỚC & CHẾ ĐỘ HIỂN THỊ TƯƠNG THÍCH ĐỘ PHÂN GIẢI MÁY TÍNH HIỆN TẠI */}
-            <button
-              type="button"
-              onClick={handleToggleFullscreenFit}
-              className={`px-3 py-1.5 rounded-xl text-xs font-black flex items-center gap-1.5 transition-all cursor-pointer shadow-md border-b-2 active:border-b-0 ${
-                isFullscreenAdaptive
-                  ? 'bg-gradient-to-r from-indigo-700 via-purple-700 to-pink-600 text-white border-indigo-950 ring-2 ring-indigo-300 shadow-indigo-600/30'
-                  : 'bg-white hover:bg-slate-100 text-indigo-950 border-indigo-200'
-              }`}
-              title="Khi bấm nút lệnh này là sẽ tự động điều chỉnh kích thước và chế độ hiển thị của toàn bộ trang web để tương thích với độ phân giải của máy tính hiện tại"
-            >
-              {isFullscreenAdaptive ? (
-                <Minimize className="w-3.5 h-3.5 text-amber-300" />
-              ) : (
-                <Maximize className="w-3.5 h-3.5 text-indigo-600" />
-              )}
-              <span>
-                {isFullscreenAdaptive
-                  ? `🖥️ Thoát Phủ Kín (${resolutionInfo.width}x${resolutionInfo.height})`
-                  : '🖥️ Phủ Kín Màn Hình'}
-              </span>
-            </button>
-
-            {/* TOGGLE ẨN/HIỆN CỘT SGK ĐỂ MỞ RỘNG BÀN PHÍM TÙY CHỌN */}
-            <button
-              type="button"
-              onClick={() => setIsRightColumnVisible((prev) => !prev)}
-              className={`px-2.5 py-1.5 rounded-xl text-xs font-black flex items-center gap-1 transition-all cursor-pointer shadow-xs border ${
-                !isRightColumnVisible
-                  ? 'bg-indigo-600 text-white border-indigo-800 shadow-md ring-2 ring-indigo-300'
-                  : 'bg-white hover:bg-slate-100 text-slate-700 border-slate-200'
-              }`}
-              title={
-                isRightColumnVisible
-                  ? 'Tạm ẩn cột sách giáo khoa bên phải để bàn phím mở rộng tối đa'
-                  : 'Hiện lại cột sách giáo khoa và danh sách bài cô giao bên phải'
-              }
-            >
-              <span>{isRightColumnVisible ? '📖 Khung SGK: Bật' : '📖 Hiện Khung SGK'}</span>
-            </button>
-
-            {/* Sound Toggle */}
-            <button
-              type="button"
-              onClick={() => setSettings((s) => ({ ...s, soundEnabled: !s.soundEnabled }))}
-              className={`p-1.5 rounded-xl transition-colors cursor-pointer border shadow-sm ${
-                settings.soundEnabled
-                  ? 'bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border-emerald-300'
-                  : 'bg-rose-50 hover:bg-rose-100 text-rose-700 border-rose-300'
-              }`}
-              title={settings.soundEnabled ? 'Tắt âm thanh' : 'Bật âm thanh'}
-            >
-              {settings.soundEnabled ? <Volume2 className="w-4 h-4" /> : <VolumeX className="w-4 h-4" />}
-            </button>
-
-            {/* Settings dropdown */}
-            <div className="relative">
-              <button
-                type="button"
-                onClick={() => setShowSettingsDropdown((prev) => !prev)}
-                className="p-1.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 transition-colors cursor-pointer border border-slate-300 shadow-sm"
-                title="Cài đặt"
-              >
-                <Sliders className="w-4 h-4" />
-              </button>
-
-              {showSettingsDropdown && (
-                <div className="absolute right-0 mt-2 w-72 bg-white border-2 border-sky-300 rounded-3xl p-4 shadow-2xl z-50 text-slate-800 animate-in fade-in zoom-in-95 duration-150">
-                  <h4 className="text-xs font-black text-sky-900 uppercase tracking-wider mb-3">
-                    ⚙️ Cài Đặt Bàn Phím
-                  </h4>
-
-                  {/* Hands Overlay Toggle */}
-                  <div className="mb-3 flex items-center justify-between">
-                    <span className="text-xs text-slate-700 font-bold">Hiện bàn tay phủ phím:</span>
-                    <button
-                      type="button"
-                      onClick={() =>
-                        setSettings((s) => ({ ...s, handsOverlayEnabled: !s.handsOverlayEnabled }))
-                      }
-                      className={`px-3 py-1 rounded-xl text-xs font-black cursor-pointer transition-colors ${
-                        settings.handsOverlayEnabled ? 'bg-sky-500 text-white' : 'bg-slate-100 text-slate-600'
-                      }`}
-                    >
-                      {settings.handsOverlayEnabled ? 'Bật' : 'Tắt'}
-                    </button>
-                  </div>
-
-                  {/* Sound Type */}
-                  <div className="mb-3">
-                    <span className="block text-xs text-slate-700 font-bold mb-1">Âm thanh phím:</span>
-                    <div className="grid grid-cols-2 gap-1.5 p-1 bg-slate-100 rounded-xl">
-                      <button
-                        type="button"
-                        onClick={() => setSettings((s) => ({ ...s, soundType: 'mechanical' }))}
-                        className={`px-2 py-1 rounded-lg text-xs font-bold transition-colors cursor-pointer ${
-                          settings.soundType === 'mechanical' ? 'bg-sky-500 text-white shadow' : 'text-slate-600'
-                        }`}
-                      >
-                        Phím cơ
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => setSettings((s) => ({ ...s, soundType: 'bubble' }))}
-                        className={`px-2 py-1 rounded-lg text-xs font-bold transition-colors cursor-pointer ${
-                          settings.soundType === 'bubble' ? 'bg-sky-500 text-white shadow' : 'text-slate-600'
-                        }`}
-                      >
-                        Bong bóng
-                      </button>
-                    </div>
-                  </div>
-
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setShowSettingsDropdown(false);
-                      setIsCustomTextModalOpen(true);
-                    }}
-                    className="w-full py-2 px-3 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-xs font-black text-white cursor-pointer shadow"
-                  >
-                    ✍️ Tự Soạn Bài Riêng
-                  </button>
-                </div>
-              )}
-            </div>
           </div>
         </div>
       </header>
 
       {/* ======================================================== */}
-      {/* 2. NOTIFICATION BANNER: BÀI TẬP CÔ GIAO CHO KHỐI LỚP     */}
+      {/* 2. NOTIFICATION BANNER: TINH GỌN 1 DÒNG (HEIGHT ~24px)   */}
       {/* ======================================================== */}
       {currentGradeHomework && assignedLessonsList.length > 0 && (
-        <div className="w-full bg-gradient-to-r from-emerald-600 via-teal-600 to-sky-600 text-white px-2 sm:px-4 py-1.5 shadow-sm border-b border-white/20 select-none">
-          <div className="w-full px-2 sm:px-4 xl:px-6 flex items-center justify-between gap-2.5 flex-wrap text-xs font-bold">
-            <div className="flex items-center gap-2 flex-wrap min-w-0">
-              <span className="w-6 h-6 rounded-full bg-white text-emerald-800 flex items-center justify-center font-black text-xs shadow shrink-0">
-                🔔
+        <div className="h-6 sm:h-7 min-h-[24px] max-h-[28px] w-full bg-gradient-to-r from-emerald-600 via-teal-600 to-sky-600 text-white px-2.5 sm:px-4 flex items-center justify-between text-xs font-bold shrink-0 border-b border-white/20 select-none overflow-hidden">
+          <div className="flex items-center gap-1.5 min-w-0">
+            <span className="shrink-0 text-xs">🔔</span>
+            <span className="shrink-0 text-[11px]">
+              <strong>BÀI CÔ GIAO (LỚP {selectedGrade}):</strong>
+            </span>
+            {currentGradeHomework.teacherNote && (
+              <span className="italic text-emerald-100 hidden md:inline truncate max-w-sm text-[11px]">
+                "{currentGradeHomework.teacherNote}"
               </span>
-              <span className="shrink-0">
-                <strong>BÀI TẬP CÔ GIÁO GIAO (LỚP {selectedGrade} • {assignedLessonsList.length} BÀI):</strong>
-              </span>
-              {currentGradeHomework.teacherNote && (
-                <span className="italic text-emerald-100 hidden lg:inline max-w-md truncate">
-                  "{currentGradeHomework.teacherNote}"
-                </span>
-              )}
-            </div>
+            )}
+          </div>
 
-            {/* Quick buttons for all assigned lessons */}
-            <div className="flex items-center gap-1.5 flex-wrap ml-auto">
-              {assignedLessonsList.map((item, idx) => {
-                const isCurrent = activeLesson.id === item.id;
-                return (
-                  <button
-                    key={`banner-hw-${item.id}`}
-                    type="button"
-                    onClick={() => {
-                      setCustomLesson(item);
-                      handleRestart();
-                    }}
-                    className={`px-2.5 py-1 rounded-xl font-black text-[11px] transition-all cursor-pointer shadow-xs flex items-center gap-1 active:scale-95 ${
-                      isCurrent
-                        ? 'bg-amber-300 text-slate-950 ring-2 ring-white scale-102 shadow-md'
-                        : 'bg-white/90 hover:bg-white text-emerald-950'
-                    }`}
-                    title={`Luyện Bài ${idx + 1}: ${item.title}`}
-                  >
-                    <span>Bài {idx + 1}: {item.title}</span>
-                    {isCurrent && (
-                      <span className="text-[9px] bg-emerald-700 text-white px-1.5 py-0.2 rounded-full">
-                        ⭐ Đang gõ
-                      </span>
-                    )}
-                  </button>
-                );
-              })}
-
-              <button
-                type="button"
-                onClick={() => {
-                  setTextbookTab('homework');
-                  setIsRightPanelOpen(true);
-                }}
-                className="px-2.5 py-1 rounded-xl bg-emerald-900/80 hover:bg-emerald-900 text-white font-black text-[11px] cursor-pointer shadow-xs ml-1"
-                title="Mở danh sách chi tiết bài cô giao"
-              >
-                Chi tiết ➜
-              </button>
-            </div>
+          <div className="flex items-center gap-1 ml-auto shrink-0">
+            {assignedLessonsList.map((item, idx) => {
+              const isCurrent = activeLesson.id === item.id;
+              return (
+                <button
+                  key={`banner-hw-${item.id}`}
+                  type="button"
+                  onClick={() => {
+                    setCustomLesson(item);
+                    handleRestart();
+                  }}
+                  className={`px-2 py-0.2 rounded text-[10px] font-black transition-all cursor-pointer ${
+                    isCurrent
+                      ? 'bg-amber-300 text-slate-950 shadow-xs'
+                      : 'bg-white/80 hover:bg-white text-emerald-950'
+                  }`}
+                  title={`Bài ${idx + 1}: ${item.title}`}
+                >
+                  Bài {idx + 1} {isCurrent && '⭐'}
+                </button>
+              );
+            })}
+            <button
+              type="button"
+              onClick={() => {
+                setTextbookTab('homework');
+                setIsRightPanelOpen(true);
+              }}
+              className="px-1.5 py-0.2 rounded bg-emerald-900/80 hover:bg-emerald-900 text-white text-[10px] font-black cursor-pointer ml-1"
+            >
+              Chi tiết ➜
+            </button>
           </div>
         </div>
       )}
 
       {/* ======================================================== */}
-      {/* 3. MAIN WORKSPACE: BỐ TRÍ TRÀN ĐỦ MÀN HÌNH 1920x1080    */}
+      {/* 3. MAIN WORKSPACE: FIT-TO-SCREEN 1366x768 (NO SCROLLING) */}
       {/* ======================================================== */}
-      <main className="flex-1 w-full px-2 sm:px-3 xl:px-4 py-1.5 min-h-0">
-        <div className="grid grid-cols-1 xl:grid-cols-12 2xl:grid-cols-12 gap-2.5 xl:gap-3 items-start">
+      <main className="flex-1 w-full px-2 sm:px-3 py-1 min-h-0 overflow-hidden">
+        <div className="h-full grid grid-cols-12 gap-2 sm:gap-2.5 items-stretch min-h-0 overflow-hidden">
           {/* ======================================================== */}
-          {/* CỘT TRÁI (LEFT COLUMN): Ô LUYỆN GÕ & BÀN PHÍM PHÓNG TO   */}
+          {/* CỘT TRÁI (LEFT COLUMN): Ô LUYỆN GÕ & BÀN PHÍM 108 PHÍM   */}
           {/* ======================================================== */}
           <div
             className={`
-              ${isRightColumnVisible ? 'xl:col-span-9 2xl:col-span-9' : 'xl:col-span-12 2xl:col-span-12'}
-              flex flex-col gap-2 min-w-0 transition-all duration-300
+              ${isRightColumnVisible ? 'col-span-8 xl:col-span-8 2xl:col-span-9' : 'col-span-12'}
+              h-full flex flex-col justify-between gap-1 min-w-0 min-h-0 overflow-hidden transition-all duration-300
             `}
           >
             {/* 1. Khu vực luyện gõ & ô nhập văn bản (PracticeArea) */}
-            <section aria-label="Khu vực luyện gõ và ô nhập văn bản">
+            <section aria-label="Khu vực luyện gõ và ô nhập văn bản" className="shrink-0">
               <PracticeArea
                 lesson={activeLesson}
                 targetText={targetText}
@@ -1815,8 +1757,8 @@ export default function App() {
               />
             </section>
 
-            {/* 2. Bạn đồng hành 1 dòng sáng tạo: không bao giờ rơi chữ xuống dòng */}
-            <section aria-label="Bạn đồng hành và kiểu gõ">
+            {/* 2. Bạn đồng hành 1 dòng sáng tạo */}
+            <section aria-label="Bạn đồng hành và kiểu gõ" className="shrink-0">
               <MascotBanner
                 mode={inputMode}
                 onModeChange={setInputMode}
@@ -1831,12 +1773,12 @@ export default function App() {
             </section>
 
             {/* 3. Thanh hướng dẫn ngón tay gõ phím (FingerGuideBar) */}
-            <section aria-label="Hướng dẫn ngón tay gõ phím">
+            <section aria-label="Hướng dẫn ngón tay gõ phím" className="shrink-0">
               <FingerGuideBar activeFinger={activeFinger} targetKey={targetKeyConfig} />
             </section>
 
-            {/* 4. Bàn phím cơ học Full Size 104 phím tỷ lệ thật 1:1 chuẩn thực tế */}
-            <section aria-label="Bàn phím cơ học Full Size 104 phím chuẩn">
+            {/* 4. Bàn phím cơ học Full Size 104/108 phím chuẩn 1:1 */}
+            <section aria-label="Bàn phím cơ học Full Size 104 phím chuẩn" className="flex-1 min-h-0 flex flex-col justify-center overflow-hidden">
               <Keyboard
                 targetKey={targetKeyConfig}
                 activeFinger={activeFinger}
@@ -1855,12 +1797,12 @@ export default function App() {
             </section>
 
             {/* 5. Mẹo nhỏ cho bé (Footer) - Tinh gọn 1 dòng */}
-            <footer className="flex items-center justify-between gap-2 text-[11px] text-slate-700 bg-amber-50/90 py-1 px-3 rounded-xl border border-amber-200 shadow-2xs select-none">
+            <footer className="h-5 min-h-[20px] flex items-center justify-between gap-2 text-[10px] sm:text-[11px] text-slate-700 bg-amber-50/90 py-0.5 px-2.5 rounded-lg border border-amber-200 shadow-2xs select-none shrink-0">
               <div className="flex items-center gap-1.5 truncate">
                 <span className="text-amber-800 font-black shrink-0">💡 Mẹo nhỏ:</span>
                 <span className="truncate">
                   Đặt 2 ngón trỏ lên phím có gờ <strong className="text-sky-700 font-black">F</strong> và{' '}
-                  <strong className="text-sky-700 font-black">J</strong> để xuất phát chuẩn 10 ngón mà không cần cúi đầu nhìn phím!
+                  <strong className="text-sky-700 font-black">J</strong> để xuất phát chuẩn 10 ngón mà không cần nhìn phím!
                 </span>
               </div>
 
@@ -1893,227 +1835,169 @@ export default function App() {
           </div>
 
           {/* ======================================================== */}
-          {/* CỘT PHẢI (RIGHT COLUMN): ẢNH SGK, BÀI CÔ GIAO & TIỆN ÍCH */}
+          {/* CỘT PHẢI (RIGHT COLUMN): ẢNH SGK, BÀI CÔ GIAO & SGK LIST */}
           {/* ======================================================== */}
           {isRightColumnVisible && (
-            <div className="xl:col-span-3 2xl:col-span-3 flex flex-col gap-2.5 min-w-0 xl:max-h-[calc(100vh-90px)] xl:overflow-y-auto custom-scrollbar pr-1">
+            <div className="col-span-4 xl:col-span-4 2xl:col-span-3 h-full flex flex-col gap-1.5 min-w-0 min-h-0 overflow-hidden">
               {/* 1. Khung Ảnh Sách Giáo Khoa Về Bài Gõ */}
-              <section aria-label="Ảnh sách giáo khoa về bài gõ" className="w-full">
-              <TextbookIllustrationCard
-                lesson={activeLesson}
-                onOpenTeacherModal={() => {
-                  setEditingLessonForModal(activeLesson);
-                  setIsTeacherModalOpen(true);
-                }}
-                onOpenCurriculumModal={() => {
-                  setTextbookTab('curriculum');
-                  setIsRightPanelOpen(true);
-                }}
-              />
-            </section>
+              <section aria-label="Ảnh sách giáo khoa về bài gõ" className="w-full shrink-0">
+                <TextbookIllustrationCard
+                  lesson={activeLesson}
+                  onOpenTeacherModal={() => {
+                    setEditingLessonForModal(activeLesson);
+                    setIsTeacherModalOpen(true);
+                  }}
+                  onOpenCurriculumModal={() => {
+                    setTextbookTab('curriculum');
+                    setIsRightPanelOpen(true);
+                  }}
+                />
+              </section>
 
-            {/* 2. Thẻ Bài Tập Cô Giáo Giao (Teacher Assignment Card) */}
-            {currentGradeHomework && assignedLessonsList.length > 0 && (
-              <section aria-label="Bài tập cô giáo giao cho khối lớp" className="w-full bg-gradient-to-br from-emerald-500 via-teal-600 to-sky-600 text-white p-3 rounded-2xl shadow-md border-2 border-emerald-400">
-                <div className="flex items-center justify-between gap-2 mb-1.5">
-                  <div className="flex items-center gap-2">
-                    <span className="w-7 h-7 rounded-xl bg-white text-emerald-700 flex items-center justify-center font-black text-sm shadow">
-                      👩‍🏫
-                    </span>
-                    <div>
-                      <h4 className="font-black text-xs uppercase tracking-wider text-emerald-100">
+              {/* 2. Thẻ Bài Tập Cô Giáo Giao (Teacher Assignment Card) */}
+              {currentGradeHomework && assignedLessonsList.length > 0 && (
+                <section aria-label="Bài tập cô giáo giao cho khối lớp" className="w-full bg-gradient-to-br from-emerald-600 to-teal-700 text-white p-2 rounded-xl shadow-xs border border-emerald-400 shrink-0">
+                  <div className="flex items-center justify-between gap-1.5 mb-1">
+                    <div className="flex items-center gap-1.5 min-w-0">
+                      <span className="w-5 h-5 rounded-md bg-white text-emerald-800 flex items-center justify-center font-black text-xs shadow-2xs shrink-0">
+                        👩‍🏫
+                      </span>
+                      <h4 className="font-black text-xs text-white truncate">
                         Bài Cô Giao • Lớp {selectedGrade} ({assignedLessonsList.length} bài)
                       </h4>
-                      <p className="text-[11px] text-white/90 font-bold">
-                        {currentGradeHomework.teacherName || 'Cô giáo'}
-                      </p>
                     </div>
+                    {isCurrentAssignedHomework ? (
+                      <span className="text-[9px] bg-amber-300 text-slate-950 font-black px-1.5 py-0.2 rounded-full shrink-0 animate-pulse">
+                        ⭐ Đang Luyện
+                      </span>
+                    ) : (
+                      <span className="text-[9px] bg-rose-500 text-white font-black px-1.5 py-0.2 rounded-full shrink-0">
+                        Mới
+                      </span>
+                    )}
                   </div>
-                  {isCurrentAssignedHomework ? (
-                    <span className="text-[10px] bg-amber-300 text-slate-950 font-black px-2 py-0.5 rounded-full shadow animate-pulse">
-                      ⭐ Đang Luyện
-                    </span>
-                  ) : (
-                    <span className="text-[10px] bg-rose-500 text-white font-black px-2 py-0.5 rounded-full shadow animate-bounce">
-                      🔔 Bài Mới
-                    </span>
+
+                  {currentGradeHomework.teacherNote && (
+                    <p className="text-[11px] text-emerald-100 italic truncate mb-1">
+                      "{currentGradeHomework.teacherNote}"
+                    </p>
                   )}
+
+                  {/* Danh sách các bài tập cô giao */}
+                  <div className="flex flex-col gap-1">
+                    {assignedLessonsList.map((item, idx) => {
+                      const isCurrent = activeLesson.id === item.id;
+                      return (
+                        <button
+                          key={`side-hw-${item.id}`}
+                          type="button"
+                          onClick={() => {
+                            setCustomLesson(item);
+                            handleRestart();
+                          }}
+                          className={`w-full text-left px-2 py-1 rounded-lg text-xs font-bold transition-all cursor-pointer flex items-center justify-between gap-1 ${
+                            isCurrent
+                              ? 'bg-amber-300 text-slate-950 shadow-xs font-black'
+                              : 'bg-white/20 hover:bg-white/30 text-white'
+                          }`}
+                        >
+                          <span className="truncate">
+                            {idx + 1}. {item.title}
+                          </span>
+                          {isCurrent ? (
+                            <span className="text-[9px] bg-emerald-700 text-white px-1 rounded shrink-0">
+                              Đang gõ
+                            </span>
+                          ) : (
+                            <span className="text-[9px] opacity-80 shrink-0">Gõ ➜</span>
+                          )}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </section>
+              )}
+
+              {/* 3. Danh Sách Bài Học SGK Khối Lớp Nhanh (Curriculum Quick Switcher) */}
+              <section aria-label="Danh sách bài học SGK nhanh" className="flex-1 min-h-0 w-full bg-white border border-sky-200 rounded-xl p-2 shadow-xs flex flex-col overflow-hidden">
+                <div className="flex items-center justify-between pb-1 mb-1 border-b border-sky-100 shrink-0">
+                  <div className="flex items-center gap-1.5">
+                    <BookOpen className="w-3.5 h-3.5 text-sky-600" />
+                    <span className="font-black text-xs text-slate-900 uppercase">
+                      Bài Học SGK Lớp {selectedGrade}
+                    </span>
+                    <span className="text-[9px] bg-sky-100 text-sky-800 font-bold px-1 py-0.2 rounded">
+                      {gradeFilteredLessons.length} bài
+                    </span>
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setTextbookTab('curriculum');
+                      setIsRightPanelOpen(true);
+                    }}
+                    className="text-[10px] font-bold text-sky-700 hover:text-sky-900 hover:underline cursor-pointer"
+                  >
+                    Tất cả ➜
+                  </button>
                 </div>
 
-                <div className="bg-white/10 backdrop-blur-xs p-2 rounded-xl border border-white/20 mb-2 text-xs">
-                  <p className="font-bold text-white line-clamp-2">
-                    "{currentGradeHomework.teacherNote || 'Hãy hoàn thành các bài luyện gõ này nhé các con!'}"
-                  </p>
-                </div>
+                {/* Quick lessons list with internal scroll */}
+                <div className="flex-1 min-h-0 overflow-y-auto pr-1 custom-scrollbar flex flex-col gap-1">
+                  {gradeFilteredLessons.map((l, idx) => {
+                    const isCurrent = activeLesson.id === l.id;
+                    const isAssigned = gradeAssignments[selectedGrade]?.lessonId === l.id;
+                    const completed = completedLessons[l.id];
 
-                {/* Danh sách các bài tập cô giao */}
-                <div className="flex flex-col gap-1 mb-2">
-                  {assignedLessonsList.map((item, idx) => {
-                    const isCurrent = activeLesson.id === item.id;
                     return (
                       <button
-                        key={`side-hw-${item.id}`}
+                        key={l.id}
                         type="button"
                         onClick={() => {
-                          setCustomLesson(item);
+                          setCustomLesson(l);
+                          setCurrentLessonIndex(idx);
                           handleRestart();
                         }}
-                        className={`w-full text-left px-2 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center justify-between gap-1.5 ${
+                        className={`w-full text-left p-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer flex items-center justify-between gap-1.5 border ${
                           isCurrent
-                            ? 'bg-amber-300 text-slate-950 shadow-sm font-black'
-                            : 'bg-white/20 hover:bg-white/30 text-white'
+                            ? 'bg-gradient-to-r from-sky-500 to-indigo-600 text-white border-indigo-700 shadow-xs'
+                            : 'bg-slate-50 hover:bg-sky-50 text-slate-800 border-slate-200'
                         }`}
                       >
-                        <span className="truncate">
-                          {idx + 1}. {item.title}
-                        </span>
-                        {isCurrent ? (
-                          <span className="text-[10px] bg-emerald-700 text-white px-1.5 rounded shrink-0">
-                            Đang gõ
+                        <div className="flex items-center gap-1.5 min-w-0">
+                          <span className={`w-4 h-4 rounded flex items-center justify-center text-[9px] font-black shrink-0 ${
+                            isCurrent ? 'bg-white/20 text-white' : 'bg-slate-200 text-slate-700'
+                          }`}>
+                            {idx + 1}
                           </span>
-                        ) : (
-                          <span className="text-[10px] opacity-80 shrink-0">Luyện ➜</span>
-                        )}
+                          <div className="truncate">
+                            <p className="truncate font-black text-[11px] leading-tight">{l.title}</p>
+                            <p className={`text-[9px] truncate ${isCurrent ? 'text-sky-100' : 'text-slate-500'}`}>
+                              {l.targetWpm} WPM
+                            </p>
+                          </div>
+                        </div>
+
+                        <div className="flex items-center gap-1 shrink-0">
+                          {isAssigned && (
+                            <span className="text-[8px] bg-rose-500 text-white px-1 py-0.2 rounded font-black">
+                              Cô Giao
+                            </span>
+                          )}
+                          {completed ? (
+                            <span className="text-amber-400 text-[10px] font-black">
+                              {'★'.repeat(completed.stars)}
+                            </span>
+                          ) : null}
+                        </div>
                       </button>
                     );
                   })}
                 </div>
-
-                <button
-                  type="button"
-                  onClick={() => {
-                    setTextbookTab('homework');
-                    setIsRightPanelOpen(true);
-                  }}
-                  className="w-full py-1.5 px-3 rounded-xl bg-white hover:bg-amber-100 text-emerald-950 font-black text-xs transition-all shadow-md cursor-pointer flex items-center justify-center gap-1.5 active:scale-95"
-                >
-                  <UserCheck className="w-3.5 h-3.5 text-emerald-700" />
-                  <span>Xem Chi Tiết Bài Cô Giao ➜</span>
-                </button>
               </section>
-            )}
-
-            {/* 3. Danh Sách Bài Học SGK Khối Lớp Nhanh (Curriculum Quick Switcher) */}
-            <section aria-label="Danh sách bài học SGK nhanh" className="w-full bg-white border-2 border-sky-200 rounded-2xl p-3 shadow-md flex flex-col">
-              <div className="flex items-center justify-between pb-2 mb-2 border-b border-sky-100">
-                <div className="flex items-center gap-1.5">
-                  <BookOpen className="w-4 h-4 text-sky-600" />
-                  <span className="font-black text-xs text-slate-900 uppercase">
-                    Bài Học SGK Lớp {selectedGrade}
-                  </span>
-                  <span className="text-[10px] bg-sky-100 text-sky-800 font-bold px-1.5 py-0.2 rounded-md">
-                    {gradeFilteredLessons.length} bài
-                  </span>
-                </div>
-
-                <button
-                  type="button"
-                  onClick={() => {
-                    setTextbookTab('curriculum');
-                    setIsRightPanelOpen(true);
-                  }}
-                  className="text-[11px] font-bold text-sky-700 hover:text-sky-900 hover:underline cursor-pointer flex items-center gap-0.5"
-                >
-                  <span>Xem tất cả</span>
-                  <span>➜</span>
-                </button>
-              </div>
-
-              {/* Quick lessons list with scroll */}
-              <div className="flex flex-col gap-1.5 max-h-[190px] overflow-y-auto pr-1 custom-scrollbar">
-                {gradeFilteredLessons.map((l, idx) => {
-                  const isCurrent = activeLesson.id === l.id;
-                  const isAssigned = gradeAssignments[selectedGrade]?.lessonId === l.id;
-                  const completed = completedLessons[l.id];
-
-                  return (
-                    <button
-                      key={l.id}
-                      type="button"
-                      onClick={() => {
-                        setCustomLesson(l);
-                        setCurrentLessonIndex(idx);
-                        handleRestart();
-                      }}
-                      className={`w-full text-left p-2 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center justify-between gap-2 border ${
-                        isCurrent
-                          ? 'bg-gradient-to-r from-sky-500 to-indigo-600 text-white border-indigo-700 shadow-sm ring-1 ring-sky-300'
-                          : 'bg-slate-50 hover:bg-sky-50 text-slate-800 border-slate-200 hover:border-sky-300'
-                      }`}
-                    >
-                      <div className="flex items-center gap-2 min-w-0">
-                        <span className={`w-5 h-5 rounded-md flex items-center justify-center text-[10px] font-black shrink-0 ${
-                          isCurrent ? 'bg-white/20 text-white' : 'bg-slate-200 text-slate-700'
-                        }`}>
-                          {idx + 1}
-                        </span>
-                        <div className="truncate">
-                          <p className="truncate font-black text-xs leading-tight">{l.title}</p>
-                          <p className={`text-[10px] truncate ${isCurrent ? 'text-sky-100' : 'text-slate-500'}`}>
-                            {l.categoryTitleVi} • Mục tiêu: {l.targetWpm} WPM
-                          </p>
-                        </div>
-                      </div>
-
-                      <div className="flex items-center gap-1 shrink-0">
-                        {isAssigned && (
-                          <span className="text-[9px] bg-rose-500 text-white px-1.5 py-0.2 rounded-full font-black">
-                            Cô Giao
-                          </span>
-                        )}
-                        {completed ? (
-                          <span className="text-amber-400 text-xs font-black">
-                            {'★'.repeat(completed.stars)}
-                          </span>
-                        ) : null}
-                      </div>
-                    </button>
-                  );
-                })}
-              </div>
-            </section>
-
-
-            {/* 5. Tiện ích học sinh nhanh */}
-            <section aria-label="Tiện ích hỗ trợ học sinh" className="grid grid-cols-2 gap-2 text-xs">
-              <button
-                type="button"
-                onClick={() => setIsVietnameseGuideOpen(true)}
-                className="p-2 rounded-xl bg-gradient-to-r from-amber-100 to-amber-50 hover:bg-amber-100 text-amber-900 border border-amber-300 font-black shadow-xs flex items-center justify-center gap-1.5 cursor-pointer transition-all hover:scale-102"
-              >
-                <span>🇻🇳</span>
-                <span>Bảng Gõ Dấu</span>
-              </button>
-
-              <button
-                type="button"
-                onClick={() => setIsPostureModalOpen(true)}
-                className="p-2 rounded-xl bg-gradient-to-r from-sky-100 to-sky-50 hover:bg-sky-100 text-sky-900 border border-sky-300 font-black shadow-xs flex items-center justify-center gap-1.5 cursor-pointer transition-all hover:scale-102"
-              >
-                <span>🧘</span>
-                <span>Tư Thế Chuẩn</span>
-              </button>
-
-              <button
-                type="button"
-                onClick={() => setIsGameModalOpen(true)}
-                className="p-2 rounded-xl bg-gradient-to-r from-pink-100 to-rose-50 hover:bg-pink-100 text-pink-900 border border-pink-300 font-black shadow-xs flex items-center justify-center gap-1.5 cursor-pointer transition-all hover:scale-102"
-              >
-                <span>🎮</span>
-                <span>Trò Chơi Bóng</span>
-              </button>
-
-              <button
-                type="button"
-                onClick={() => setIsThemeModalOpen(true)}
-                className="p-2 rounded-xl bg-gradient-to-r from-indigo-100 to-purple-50 hover:bg-indigo-100 text-indigo-900 border border-indigo-300 font-black shadow-xs flex items-center justify-center gap-1.5 cursor-pointer transition-all hover:scale-102"
-              >
-                <span>🎨</span>
-                <span>Đổi Bàn Phím</span>
-              </button>
-            </section>
-          </div>
-        )}
+            </div>
+          )}
         </div>
       </main>
 
@@ -2150,9 +2034,9 @@ export default function App() {
       />
 
       {/* ======================================================== */}
-      {/* THANH TRUY CẬP NHANH GÓC PHẢI MÀN HÌNH (FLOATING DOCK)   */}
+      {/* THANH TRUY CẬP NHANH GÓC PHẢI MÀN HÌNH (KHI ẨN CỘT SGK)  */}
       {/* ======================================================== */}
-      {!isRightPanelOpen && (
+      {!isRightColumnVisible && !isRightPanelOpen && (
         <aside
           aria-label="Thanh truy cập nhanh góc phải màn hình"
           className="fixed right-0 top-1/3 -translate-y-1/2 z-40 flex flex-col items-end gap-1.5 pr-0 pointer-events-auto shadow-2xl"

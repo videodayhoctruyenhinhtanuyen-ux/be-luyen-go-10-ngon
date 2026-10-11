@@ -90,47 +90,41 @@ export const Keyboard: React.FC<KeyboardProps> = ({
       const width = containerRef.current.clientWidth;
       if (width <= 0) return;
 
-      // Outer frame has padding (~20px total) and inner plate has padding (~20px total) = 40px
-      const availableWidth = Math.max(300, width - 40);
-      // Total keyboard width is:
-      // mainSectionWidth (15U + 14*gap) + sectionGap (0.35U) + navSectionWidth (3U + 2*gap) + sectionGap (0.35U) + numpadSectionWidth (4U + 3*gap)
-      // = 22.7 * unitSize + 19 * gap = 22.7 * unitSize + 76px
+      // Outer frame and plate padding (~28px total)
+      const availableWidth = Math.max(300, width - 28);
+      // Total keyboard width is: 22.7 * unitSize + 76px
       const fitUnitByWidth = Math.floor((availableWidth - 76) / 22.7);
 
       // Measure available height in viewport
-      const vh = window.innerHeight || 900;
+      const vh = window.innerHeight || 768;
       const rect = containerRef.current.getBoundingClientRect();
-      const topOffset = rect.top > 0 ? rect.top : 400;
-      // Reserve 40px for footer + bottom safety padding
-      const maxKeyboardAvailableHeight = Math.max(220, vh - topOffset - 40);
+      const topOffset = rect.top > 0 ? rect.top : 360;
+      // Reserve 24px for footer + bottom safety padding
+      const maxKeyboardAvailableHeight = Math.max(160, vh - topOffset - 24);
 
-      // Keyboard key rows height:
-      // Function row: 0.78 * unitSize
-      // 5 Main rows: 5.0 * unitSize
-      // Total key rows: 5.78 * unitSize
-      // Top header bar (~36px), inner plate padding top/bottom (20px), gaps between rows (24px) = ~80px
-      const fitUnitByHeight = Math.floor((maxKeyboardAvailableHeight - 80) / 5.78);
+      // Keyboard key rows height: 5.78 * unitSize + header (26px) + plate/frame padding & gaps (24px) = ~50px
+      const fitUnitByHeight = Math.floor((maxKeyboardAvailableHeight - 50) / 5.78);
 
       let baseUnit = fitUnitByWidth;
       if (scalePreset === '1080p') {
-        // Full HD 1920x1080: Ưu tiên vừa khít chiều ngang container để hiển thị toàn bộ 108 phím lớn và rõ
-        baseUnit = Math.max(34, Math.min(58, fitUnitByWidth));
+        // Full HD 1920x1080
+        baseUnit = Math.max(34, Math.min(54, fitUnitByWidth));
       } else if (scalePreset === '768p') {
-        // Màn hình phổ thông 1366x768 của phòng máy
-        baseUnit = Math.max(28, Math.min(42, fitUnitByWidth));
+        // Màn hình 1366x768 của phòng máy: Đảm bảo vừa khít trong màn hình 768px không cuộn dọc
+        const heightTarget = fitUnitByHeight > 0 ? fitUnitByHeight : 30;
+        baseUnit = Math.max(25, Math.min(32, heightTarget, fitUnitByWidth));
       } else {
-        // Tự động (Auto): Tự động co giãn để VỪA KHÍT TOÀN DIỆN cả chiều ngang (full size 108 phím) lẫn chiều dọc
+        // Tự động (Auto): Tự động co giãn để VỪA KHÍT cả chiều ngang lẫn chiều dọc (No Vertical Scroll)
         if (fitUnitByHeight > 0 && fitUnitByHeight < fitUnitByWidth) {
-          // Nếu chiều dọc bị giới hạn, chọn mức cân bằng nhưng không nhỏ hơn mức tối thiểu để đọc rõ chữ
-          baseUnit = Math.max(30, Math.min(fitUnitByWidth, fitUnitByHeight));
+          baseUnit = Math.max(25, fitUnitByHeight);
         } else {
-          baseUnit = Math.max(32, Math.min(60, fitUnitByWidth));
+          baseUnit = Math.max(26, Math.min(48, fitUnitByWidth));
         }
       }
 
       // Apply zoom percentage multiplier
       const finalUnit = Math.round(baseUnit * (zoomPercent / 100));
-      setUnitSize(Math.max(26, Math.min(74, finalUnit)));
+      setUnitSize(Math.max(24, Math.min(68, finalUnit)));
     };
 
     calculateSize();
@@ -371,10 +365,10 @@ export const Keyboard: React.FC<KeyboardProps> = ({
     <div ref={containerRef} className="w-full mx-auto overflow-x-auto pb-1 custom-scrollbar">
       {/* Keyboard Outer 3D Playful Frame - Spans 100% full width to eliminate blank gaps */}
       <div
-        className={`w-full relative p-2.5 sm:p-3 rounded-3xl shadow-xl transition-all duration-300 ${activeTheme.outerFrameClass}`}
+        className={`w-full relative p-2 rounded-2xl shadow-lg transition-all duration-300 ${activeTheme.outerFrameClass}`}
       >
         {/* Top Header of Keyboard with Brand, Theme Switcher and 3 LED Indicators */}
-        <div className={`flex items-center justify-between px-3 py-1.5 mb-1.5 rounded-2xl text-xs transition-colors ${activeTheme.headerBarClass}`}>
+        <div className={`flex items-center justify-between px-2.5 py-1 mb-1 rounded-xl text-xs transition-colors ${activeTheme.headerBarClass}`}>
           <div className="flex items-center gap-2 flex-wrap">
             <span className="text-base select-none">{activeTheme.emoji}</span>
             <span className="font-black uppercase tracking-wider text-[11px]">
@@ -543,7 +537,7 @@ export const Keyboard: React.FC<KeyboardProps> = ({
 
         {/* Inner Switch Plate with locked real-world physical proportions - Stretches 100% full width */}
         <div
-          className={`w-full relative p-2.5 rounded-2xl flex flex-col gap-2 transition-all duration-300 ${activeTheme.plateClass}`}
+          className={`w-full relative p-1.5 sm:p-2 rounded-xl flex flex-col gap-1 sm:gap-1.5 transition-all duration-300 ${activeTheme.plateClass}`}
         >
           {/* ========================================================================= */}
           {/* 1. TOP FUNCTION ROW (ESC, F1-F12, PRTSC/SCRLK/PAUSE, 108TH EXTRA KEYS)     */}
