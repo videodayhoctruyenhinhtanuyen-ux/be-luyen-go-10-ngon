@@ -89,7 +89,7 @@ export const CustomTextModal: React.FC<CustomTextModalProps> = ({
               rows={4}
               value={text}
               onChange={(e) => setText(e.target.value)}
-              className="w-full p-3.5 rounded-xl bg-slate-50 border-2 border-slate-200 text-slate-900 text-sm focus:outline-none focus:border-amber-500 focus:bg-white font-mono leading-relaxed resize-none"
+              className="w-full p-3.5 rounded-xl bg-slate-50 border-2 border-slate-200 text-slate-900 text-sm focus:outline-none focus:border-amber-500 focus:bg-white font-sgk-text font-semibold leading-relaxed tracking-wide resize-none"
               placeholder="Nhập các từ, câu văn hoặc đoạn thơ bé cần luyện tập..."
             />
             <p className="text-[11px] text-slate-500 mt-1">

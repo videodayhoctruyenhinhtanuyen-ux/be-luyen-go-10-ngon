@@ -19,6 +19,9 @@ import { KeyboardSkinTheme, KEYBOARD_THEMES } from './data/keyboardThemes';
 import { KeyboardThemeModal } from './components/KeyboardThemeModal';
 import { CompletionModal } from './components/CompletionModal';
 import { UnikeyNoticeModal } from './components/UnikeyNoticeModal';
+import { AuthorCard } from './components/AuthorCard';
+import { AuthorDonateModal } from './components/AuthorDonateModal';
+import { ErrorBoundary } from './components/ErrorBoundary';
 import {
   fetchLessonsFromSupabase,
   upsertLessonToSupabase,
@@ -337,6 +340,7 @@ export default function App() {
   const [isTeacherModalOpen, setIsTeacherModalOpen] = useState<boolean>(false);
   const [showSettingsDropdown, setShowSettingsDropdown] = useState<boolean>(false);
   const [isThemeModalOpen, setIsThemeModalOpen] = useState<boolean>(false);
+  const [isAuthorDonateModalOpen, setIsAuthorDonateModalOpen] = useState<boolean>(false);
   const [textbookTab, setTextbookTab] = useState<TextbookTab>('curriculum');
   const [isRightPanelOpen, setIsRightPanelOpen] = useState<boolean>(false);
   // Full-width keyboard toggle: cho phép ẩn cột bên phải để bàn phím mở rộng phủ kín 100% màn hình 1920x1080
@@ -1175,6 +1179,8 @@ export default function App() {
   // Global Keyboard event listener
   useEffect(() => {
     if (
+      isUnikeyNoticeOpen ||
+      isAuthorDonateModalOpen ||
       isCustomTextModalOpen ||
       isTeacherModalOpen ||
       isGameModalOpen ||
@@ -1244,6 +1250,8 @@ export default function App() {
     };
   }, [
     handleInputEvent,
+    isUnikeyNoticeOpen,
+    isAuthorDonateModalOpen,
     isCustomTextModalOpen,
     isTeacherModalOpen,
     isGameModalOpen,
@@ -1815,6 +1823,16 @@ export default function App() {
                 >
                   👩‍🏫 Cô giáo giao bài
                 </button>
+                <span>•</span>
+                <button
+                  type="button"
+                  onClick={() => setIsAuthorDonateModalOpen(true)}
+                  className="text-amber-950 hover:text-black font-black flex items-center gap-1 cursor-pointer bg-gradient-to-r from-amber-200 to-orange-200 hover:from-amber-300 hover:to-orange-300 px-1.5 py-0.2 rounded-md border border-amber-300 transition-all shadow-2xs shrink-0"
+                  title="Thông tin tác giả Nguyễn Thanh Liêm - Trường TH số 1 Tân Uyên | STK BIDV: 0977058363 | Donate cà phê"
+                >
+                  <span>👨‍🏫 Tác giả: Nguyễn Thanh Liêm</span>
+                  <span className="bg-amber-600 text-white text-[9px] px-1 rounded-sm">☕ Donate BIDV</span>
+                </button>
               </div>
             </footer>
           </div>
@@ -1956,9 +1974,9 @@ export default function App() {
                           }`}>
                             {idx + 1}
                           </span>
-                          <div className="truncate">
-                            <p className="truncate font-black text-[11px] leading-tight">{l.title}</p>
-                            <p className={`text-[9px] truncate ${isCurrent ? 'text-sky-100' : 'text-slate-500'}`}>
+                          <div className="truncate min-w-0">
+                            <p className="truncate font-extrabold text-xs leading-snug tracking-wide">{l.title}</p>
+                            <p className={`text-[10px] font-bold truncate ${isCurrent ? 'text-sky-100' : 'text-slate-500'}`}>
                               {l.targetWpm} WPM
                             </p>
                           </div>
@@ -1981,6 +1999,9 @@ export default function App() {
                   })}
                 </div>
               </section>
+
+              {/* 4. THÔNG TIN TÁC GIẢ & DONATE CÀ PHÊ (PHÍA DƯỚI CÙNG GÓC BÊN PHẢI MÀN HÌNH GIAO DIỆN) */}
+              <AuthorCard onOpenDonateModal={() => setIsAuthorDonateModalOpen(true)} />
             </div>
           )}
         </div>
@@ -2078,27 +2099,35 @@ export default function App() {
       {/* 5. MODALS                                                */}
       {/* ======================================================== */}
       {/* Teacher Portal Modal */}
-      <TeacherLessonModal
-        isOpen={isTeacherModalOpen}
-        onClose={() => {
-          setIsTeacherModalOpen(false);
-          setEditingLessonForModal(null);
-        }}
-        onSaveLesson={handleSaveTeacherLesson}
-        allLessons={allAvailableLessons}
-        teacherLessons={teacherLessons}
-        onDeleteLesson={handleDeleteTeacherLesson}
-        onResetSystemLesson={handleResetSystemLesson}
-        onSelectLesson={(lesson) => setCustomLesson(lesson)}
-        gradeAssignments={gradeAssignments}
-        onAssignLessonToGrade={handleAssignLessonToGrade}
-        initialEditingLesson={editingLessonForModal}
-      />
+      <ErrorBoundary fallbackTitle="Đã ngăn chặn lỗi trắng màn hình khi mở Cổng Quản Trị Giáo Viên">
+        <TeacherLessonModal
+          isOpen={isTeacherModalOpen}
+          onClose={() => {
+            setIsTeacherModalOpen(false);
+            setEditingLessonForModal(null);
+          }}
+          onSaveLesson={handleSaveTeacherLesson}
+          allLessons={allAvailableLessons}
+          teacherLessons={teacherLessons}
+          onDeleteLesson={handleDeleteTeacherLesson}
+          onResetSystemLesson={handleResetSystemLesson}
+          onSelectLesson={(lesson) => setCustomLesson(lesson)}
+          gradeAssignments={gradeAssignments}
+          onAssignLessonToGrade={handleAssignLessonToGrade}
+          initialEditingLesson={editingLessonForModal}
+        />
+      </ErrorBoundary>
 
       {/* BẢNG THÔNG BÁO TỚI BẠN NHỎ: TẮT UNIKEY ĐỂ CÓ TRẢI NGHIỆM TỐT NHẤT */}
       <UnikeyNoticeModal
         isOpen={isUnikeyNoticeOpen}
         onClose={() => setIsUnikeyNoticeOpen(false)}
+      />
+
+      {/* THÔNG TIN TÁC GIẢ & DONATE CÀ PHÊ: Nguyễn Thanh Liêm - Tiểu học số 1 Tân Uyên */}
+      <AuthorDonateModal
+        isOpen={isAuthorDonateModalOpen}
+        onClose={() => setIsAuthorDonateModalOpen(false)}
       />
 
       {/* Vietnamese Rules Guide Modal */}

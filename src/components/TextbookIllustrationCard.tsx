@@ -79,7 +79,7 @@ export const TextbookIllustrationCard: React.FC<TextbookIllustrationCardProps> =
 
         {/* THANH ĐIỀU HƯỚNG NHỎ BÊN DƯỚI KHUNG TRANH */}
         <div className="w-full mt-1.5 pt-1 border-t border-emerald-100 flex items-center justify-between gap-1.5 text-xs">
-          <span className="font-bold text-slate-700 truncate text-[11px]" title={lesson.title}>
+          <span className="font-extrabold text-slate-800 truncate text-xs tracking-wide" title={lesson.title}>
             {lesson.title}
           </span>
 

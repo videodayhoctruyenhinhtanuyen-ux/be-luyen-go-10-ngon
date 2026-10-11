@@ -382,10 +382,10 @@ export const PracticeArea: React.FC<PracticeAreaProps> = ({
 
   const fontSizeClass =
     textSize === 'huge'
-      ? 'text-lg sm:text-xl md:text-2xl'
+      ? 'text-xl sm:text-2xl md:text-[25px]'
       : textSize === 'normal'
-      ? 'text-sm sm:text-base'
-      : 'text-base sm:text-lg';
+      ? 'text-sm sm:text-[15px]'
+      : 'text-base sm:text-lg md:text-[19px]';
 
   return (
     <div className="w-full bg-white border border-sky-300 rounded-xl p-2 sm:p-2.5 shadow-sm relative overflow-hidden text-slate-800 flex flex-col gap-1.5">
@@ -619,7 +619,7 @@ export const PracticeArea: React.FC<PracticeAreaProps> = ({
           <div
             ref={containerRef}
             onClick={handleFocusInput}
-            className={`w-full bg-slate-50/90 border border-indigo-200 hover:border-indigo-300 rounded-lg p-1.5 font-mono ${fontSizeClass} leading-snug select-none cursor-text shadow-2xs h-[124px] min-h-[124px] max-h-[124px] overflow-y-auto custom-scrollbar flex flex-col gap-1 transition-all`}
+            className={`w-full bg-slate-50/90 border border-indigo-200 hover:border-indigo-300 rounded-lg p-2 font-sgk-text ${fontSizeClass} select-none cursor-text shadow-2xs h-[126px] min-h-[126px] max-h-[126px] overflow-y-auto custom-scrollbar flex flex-col gap-1.5 transition-all`}
           >
             {tokenLines.map((lineTokens, lineIdx) => {
               const isChunkHighlighted =
@@ -630,17 +630,17 @@ export const PracticeArea: React.FC<PracticeAreaProps> = ({
               return (
                 <div
                   key={`line-${lineIdx}`}
-                  className={`w-full flex flex-wrap items-center gap-x-0 transition-all px-1.5 py-0.5 rounded-md min-h-[26px] ${
+                  className={`w-full flex flex-wrap items-center gap-x-0 transition-all px-2 py-0.5 rounded-md min-h-[28px] ${
                     isCurrentActiveLine
-                      ? 'bg-sky-100/90 ring-1 ring-sky-400 shadow-2xs'
+                      ? 'bg-sky-100/90 ring-1.5 ring-sky-400 shadow-2xs'
                       : isChunkHighlighted
                       ? 'opacity-100'
-                      : 'opacity-60'
+                      : 'opacity-65'
                   }`}
                 >
                   {/* Số thứ tự dòng nhỏ bên lề trái */}
-                  <span className={`text-[10px] select-none mr-2 w-4 text-right shrink-0 ${
-                    isCurrentActiveLine ? 'text-sky-800 font-black scale-110' : 'text-slate-400 font-bold'
+                  <span className={`text-[11px] select-none mr-2.5 w-4 text-right shrink-0 ${
+                    isCurrentActiveLine ? 'text-sky-900 font-black scale-110' : 'text-slate-400 font-bold'
                   }`}>
                     {lineIdx + 1}
                   </span>
@@ -654,7 +654,7 @@ export const PracticeArea: React.FC<PracticeAreaProps> = ({
                         <span
                           key={token.id}
                           ref={isTargetEnter ? activeCharRef : undefined}
-                          className={`ml-1.5 inline-flex items-center gap-0.5 text-[10px] px-1.5 py-0.2 rounded font-mono font-black transition-all ${
+                          className={`ml-1.5 inline-flex items-center gap-0.5 text-[10px] px-1.5 py-0.2 rounded font-black transition-all ${
                             isTargetEnter
                               ? 'bg-amber-300 text-amber-950 border border-amber-400 animate-pulse ring-2 ring-amber-300 scale-105'
                               : isCompletedEnter
@@ -677,9 +677,9 @@ export const PracticeArea: React.FC<PracticeAreaProps> = ({
                         <span
                           key={token.id}
                           ref={isTargetSpace ? activeCharRef : undefined}
-                          className={`whitespace-pre font-mono ${
+                          className={`whitespace-pre ${
                             isTargetSpace
-                              ? 'text-sky-600 underline underline-offset-4 decoration-3 decoration-sky-600 font-black bg-sky-200/80 rounded px-0.5'
+                              ? 'text-sky-600 underline underline-offset-4 decoration-3 decoration-sky-600 font-black bg-sky-200/80 rounded px-1'
                               : isCompletedSpace
                               ? 'text-emerald-600 font-bold'
                               : 'text-slate-800'
@@ -699,12 +699,12 @@ export const PracticeArea: React.FC<PracticeAreaProps> = ({
                       <span
                         key={token.id}
                         ref={isWordActive ? activeCharRef : undefined}
-                        className={`font-mono transition-all duration-100 inline-block px-1 py-0.5 rounded-md ${
+                        className={`transition-all duration-100 inline-block px-1.5 py-0.5 rounded-md font-sgk-active ${
                           isWordCompleted
-                            ? 'text-emerald-700 font-bold bg-emerald-50/60'
+                            ? 'text-emerald-800 font-bold bg-emerald-50/70'
                             : isWordActive
-                            ? 'text-sky-950 bg-sky-100 ring-2 ring-sky-400 font-black shadow-xs scale-102'
-                            : 'text-slate-800 font-medium'
+                            ? 'text-sky-950 bg-sky-100 ring-2 ring-sky-400 font-extrabold shadow-xs scale-102'
+                            : 'text-slate-800 font-semibold'
                         }`}
                       >
                         {token.chars.map((ci) => {
@@ -714,10 +714,10 @@ export const PracticeArea: React.FC<PracticeAreaProps> = ({
                             <span
                               key={`c-${ci.index}`}
                               className={`
-                                ${isCharDone ? 'text-emerald-700 font-bold' : ''}
+                                ${isCharDone ? 'text-emerald-800 font-bold' : ''}
                                 ${
                                   isCharActive
-                                    ? 'underline underline-offset-4 decoration-3 decoration-sky-600 font-black text-sky-950 bg-sky-200/90 rounded-xs'
+                                    ? 'underline underline-offset-4 decoration-3 decoration-sky-600 font-black text-sky-950 bg-sky-200/95 rounded-xs'
                                     : ''
                                 }
                               `}
@@ -773,11 +773,11 @@ export const PracticeArea: React.FC<PracticeAreaProps> = ({
             </div>
           </div>
 
-          {/* KHUNG NHẬP VĂN BẢN (ĐỘ CAO VỪA ĐỦ min-h-[38px] sm:min-h-[42px] - CHỈ LƯU GIỮ 1 DÒNG HIỆN THỜI, XÓA TRẮNG KHI ENTER) */}
+          {/* KHUNG NHẬP VĂN BẢN (ĐỘ CAO VỪA ĐỦ min-h-[40px] sm:min-h-[44px] - CHỈ LƯU GIỮ 1 DÒNG HIỆN THỜI, XÓA TRẮNG KHI ENTER) */}
           <div
             onClick={handleFocusInput}
             className={`
-              w-full bg-white rounded-xl px-3 py-1 font-mono text-sm sm:text-base font-bold leading-normal cursor-text relative shadow-sm transition-all flex items-center select-none min-h-[38px] sm:min-h-[42px]
+              w-full bg-white rounded-xl px-3.5 py-1 font-input-box text-base sm:text-lg font-bold leading-normal cursor-text relative shadow-sm transition-all flex items-center select-none min-h-[40px] sm:min-h-[44px]
               ${
                 hasMistake
                   ? 'border-2 border-rose-500 ring-2 ring-rose-100 bg-rose-50/20'
@@ -798,15 +798,15 @@ export const PracticeArea: React.FC<PracticeAreaProps> = ({
             </div>
 
             {currentLineTypedText.length === 0 && !hasMistake ? (
-              <span className="text-slate-400 font-mono text-xs sm:text-sm md:text-base select-none truncate italic flex items-center gap-1.5">
+              <span className="text-slate-400 font-input-box text-xs sm:text-sm md:text-base select-none truncate italic flex items-center gap-1.5">
                 <span className="inline-block w-2 h-2 rounded-full bg-sky-400 animate-ping" />
                 <span>Dòng {currentLineInfo.lineNumber}: Nhập từng từ vào đây... (Gõ hết câu bấm phím <strong>Enter ↵</strong> để sang dòng mới)</span>
               </span>
             ) : (
-              <span className="text-slate-950 font-mono whitespace-pre-wrap select-none truncate flex items-center text-base sm:text-lg md:text-xl">
+              <span className="text-slate-950 font-input-box whitespace-pre-wrap select-none truncate flex items-center text-base sm:text-lg md:text-xl">
                 <span className="text-emerald-700 font-black tracking-wide drop-shadow-2xs">{currentLineTypedText}</span>
                 {hasMistake && mistakeChar && (
-                  <span className="bg-rose-500 text-white font-mono px-2 py-0.5 rounded-lg inline-block animate-pulse mx-1 text-xs sm:text-sm font-black shadow-md border border-white">
+                  <span className="bg-rose-500 text-white font-input-box px-2 py-0.5 rounded-lg inline-block animate-pulse mx-1 text-xs sm:text-sm font-black shadow-md border border-white">
                     {mistakeChar === 'Space' ? '␣ Dấu cách' : mistakeChar === 'Enter' ? '↵ Enter' : mistakeChar}
                   </span>
                 )}

@@ -186,6 +186,9 @@ export interface Lesson {
   teacherNote?: string;     // Lời dặn dò của giáo viên
   bookPage?: string;        // Trang sách giáo khoa (VD: 'Trang 28-29')
   isAssignedHomework?: boolean; // Được giáo viên giao bài tập cho khối lớp
+  isPoemOrStory?: boolean;  // Thuộc chuyên đề Luyện gõ thơ & văn SGK
+  genre?: 'poem' | 'prose' | 'exercise'; // Thể loại: Thơ | Văn xuôi | Luyện phím
+  isFreePractice?: boolean; // Mở cho học sinh tự do lựa chọn luyện gõ ngoài giờ
 }
 
 export interface GradeAssignment {

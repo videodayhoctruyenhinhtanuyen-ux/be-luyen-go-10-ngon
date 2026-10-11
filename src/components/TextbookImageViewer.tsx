@@ -651,7 +651,7 @@ export const TextbookImageViewer: React.FC<TextbookImageViewerProps> = ({
                 </div>
 
                 {/* Formatted Text Box like school book */}
-                <div className="p-3 rounded-2xl bg-amber-50/60 border border-amber-200 text-xs sm:text-sm leading-relaxed font-sans text-slate-800 shadow-inner max-h-[220px] overflow-y-auto whitespace-pre-wrap selection:bg-amber-200">
+                <div className="p-3.5 rounded-2xl bg-amber-50/60 border border-amber-200 text-xs sm:text-sm leading-relaxed font-sgk-text font-semibold tracking-wide text-slate-900 shadow-inner max-h-[220px] overflow-y-auto whitespace-pre-wrap selection:bg-amber-200">
                   {lesson?.text}
                 </div>
 

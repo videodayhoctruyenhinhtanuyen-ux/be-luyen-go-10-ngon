@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { Lesson } from '../types/typing';
 import { LESSONS } from '../data/lessons';
-import { X, CheckCircle2, Star, Sparkles, BookOpen, UserCheck, Image as ImageIcon, GraduationCap } from 'lucide-react';
+import { X, CheckCircle2, Star, Sparkles, BookOpen, UserCheck, Image as ImageIcon, GraduationCap, Feather } from 'lucide-react';
 
 interface CurriculumModalProps {
   isOpen: boolean;
@@ -26,7 +26,7 @@ export const CurriculumModal: React.FC<CurriculumModalProps> = ({
   onOpenTeacherModal,
   initialGradeFilter,
 }) => {
-  const [filterTab, setFilterTab] = useState<'all' | '3' | '4' | '5' | 'teacher'>(
+  const [filterTab, setFilterTab] = useState<'all' | '3' | '4' | '5' | 'poems' | 'teacher'>(
     initialGradeFilter ? String(initialGradeFilter) as any : 'all'
   );
 
@@ -36,11 +36,13 @@ export const CurriculumModal: React.FC<CurriculumModalProps> = ({
 
   // Filter lessons based on active tab
   const filteredLessons = effectiveLessons.filter((l) => {
+    if (!l) return false;
     if (filterTab === 'all') return true;
-    if (filterTab === 'teacher') return l.id.startsWith('teacher-') || l.authorTeacher;
-    if (filterTab === '3') return l.gradeLevel === 3 || (!l.gradeLevel && l.level <= 6);
-    if (filterTab === '4') return l.gradeLevel === 4 || (!l.gradeLevel && l.level > 6 && l.level <= 10);
-    if (filterTab === '5') return l.gradeLevel === 5 || (!l.gradeLevel && l.level > 10);
+    if (filterTab === 'teacher') return l.id?.startsWith('teacher-') || !!l.authorTeacher;
+    if (filterTab === 'poems') return !!l.isPoemOrStory || l.category === 'poems_stories';
+    if (filterTab === '3') return l.gradeLevel === 3 || (!l.gradeLevel && (l.level || 0) <= 6);
+    if (filterTab === '4') return l.gradeLevel === 4 || (!l.gradeLevel && (l.level || 0) > 6 && (l.level || 0) <= 10);
+    if (filterTab === '5') return l.gradeLevel === 5 || (!l.gradeLevel && (l.level || 0) > 10);
     return true;
   });
 
@@ -122,6 +124,19 @@ export const CurriculumModal: React.FC<CurriculumModalProps> = ({
           >
             <GraduationCap className="w-3.5 h-3.5" />
             <span>Khối Lớp 5</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setFilterTab('poems')}
+            className={`px-4 py-1.5 rounded-xl text-xs font-black transition-all cursor-pointer flex items-center gap-1 ${
+              filterTab === 'poems'
+                ? 'bg-gradient-to-r from-purple-600 to-indigo-600 text-white shadow ring-2 ring-purple-300'
+                : 'bg-purple-50 text-purple-900 hover:bg-purple-100 border border-purple-200'
+            }`}
+          >
+            <Feather className="w-3.5 h-3.5 text-amber-500" />
+            <span>Thơ &amp; Văn SGK</span>
           </button>
 
           {teacherLessons.length > 0 && (
