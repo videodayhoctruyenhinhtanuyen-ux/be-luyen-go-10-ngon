@@ -51,7 +51,10 @@ export async function fetchLessonsFromSupabase(): Promise<Lesson[] | null> {
       return null;
     }
 
-    if (data && data.length > 0) {
+    if (data) {
+      if (data.length === 0) {
+        return [];
+      }
       return data.map((item: any) => ({
         id: item.id,
         level: item.level || 1,
@@ -72,7 +75,7 @@ export async function fetchLessonsFromSupabase(): Promise<Lesson[] | null> {
         bookPage: item.book_page || undefined,
       }));
     }
-    return null;
+    return [];
   } catch (err: any) {
     console.warn('Không thể kết nối Supabase lessons:', err.message);
     return null;
@@ -187,7 +190,10 @@ export async function fetchAssignmentsFromSupabase(): Promise<Record<number, Gra
       return null;
     }
 
-    if (data && data.length > 0) {
+    if (data) {
+      if (data.length === 0) {
+        return {};
+      }
       const result: Record<number, GradeAssignment> = {};
       data.forEach((row: any) => {
         result[row.grade_level] = {
@@ -201,7 +207,7 @@ export async function fetchAssignmentsFromSupabase(): Promise<Record<number, Gra
       });
       return result;
     }
-    return null;
+    return {};
   } catch (err: any) {
     console.warn('Không thể kết nối Supabase grade_assignments:', err.message);
     return null;
@@ -241,7 +247,91 @@ export async function saveAssignmentToSupabase(assignment: GradeAssignment): Pro
 }
 
 // ----------------------------------------------------------------------------
-// 3. ĐĂNG KÝ THỜI GIAN THỰC (REALTIME SUBSCRIPTION)
+// 3. LƯU TRỮ VÀ TẢI ẢNH SÁCH GIÁO KHOA LÊN SUPABASE (STORAGE BUCKET & DATA URL)
+// ----------------------------------------------------------------------------
+
+export const SUPABASE_STORAGE_BUCKET = 'textbook-images';
+
+/**
+ * Tải ảnh lên Supabase Storage bucket 'textbook-images'
+ * Nếu bucket đã được tạo trên Supabase, trả về URL công khai
+ * Nếu bucket chưa tạo hoặc chưa cấu hình quyền, tự động lưu chuỗi nén an toàn
+ */
+export async function uploadImageToSupabaseStorage(
+  fileOrBase64: File | Blob | string,
+  fileNamePrefix: string = 'textbook'
+): Promise<{ url: string; isStorageBucket: boolean }> {
+  try {
+    let fileBlob: Blob;
+    let mimeType = 'image/jpeg';
+
+    if (typeof fileOrBase64 === 'string') {
+      // Nếu là URL bên ngoài (http...) hoặc đường dẫn tĩnh (/images/...) thì giữ nguyên
+      if (
+        fileOrBase64.startsWith('http://') ||
+        fileOrBase64.startsWith('https://') ||
+        fileOrBase64.startsWith('/images/')
+      ) {
+        return { url: fileOrBase64, isStorageBucket: false };
+      }
+
+      // Xử lý chuỗi DataURL Base64
+      const match = fileOrBase64.match(/^data:(image\/[a-zA-Z+]+);base64,(.+)$/);
+      if (match) {
+        mimeType = match[1];
+        const binaryStr = atob(match[2]);
+        const len = binaryStr.length;
+        const bytes = new Uint8Array(len);
+        for (let i = 0; i < len; i++) {
+          bytes[i] = binaryStr.charCodeAt(i);
+        }
+        fileBlob = new Blob([bytes], { type: mimeType });
+      } else {
+        return { url: fileOrBase64, isStorageBucket: false };
+      }
+    } else {
+      fileBlob = fileOrBase64;
+      mimeType = fileOrBase64.type || 'image/jpeg';
+    }
+
+    const ext = mimeType.includes('png')
+      ? 'png'
+      : mimeType.includes('webp')
+      ? 'webp'
+      : 'jpg';
+    const cleanPrefix = fileNamePrefix.replace(/[^a-zA-Z0-9_-]/g, '_');
+    const filePath = `${cleanPrefix}-${Date.now()}.${ext}`;
+
+    // Thử đẩy lên Supabase Storage bucket
+    const { data, error } = await supabase.storage
+      .from(SUPABASE_STORAGE_BUCKET)
+      .upload(filePath, fileBlob, {
+        contentType: mimeType,
+        upsert: true,
+      });
+
+    if (!error && data) {
+      const { data: publicUrlData } = supabase.storage
+        .from(SUPABASE_STORAGE_BUCKET)
+        .getPublicUrl(filePath);
+
+      if (publicUrlData && publicUrlData.publicUrl) {
+        return { url: publicUrlData.publicUrl, isStorageBucket: true };
+      }
+    } else if (error) {
+      console.info('Supabase Storage bucket notice (using data URL):', error.message);
+    }
+  } catch (err: any) {
+    console.warn('Lỗi khi tải ảnh lên Supabase Storage:', err?.message);
+  }
+
+  // Fallback: Nếu chưa tạo bucket trên Supabase Storage thì lưu trực tiếp dạng Base64
+  const fallbackUrl = typeof fileOrBase64 === 'string' ? fileOrBase64 : '';
+  return { url: fallbackUrl, isStorageBucket: false };
+}
+
+// ----------------------------------------------------------------------------
+// 4. ĐĂNG KÝ THỜI GIAN THỰC (REALTIME SUBSCRIPTION)
 // ----------------------------------------------------------------------------
 
 /**

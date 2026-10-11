@@ -108,9 +108,13 @@ export default function App() {
           return;
         }
 
-        // Nếu bảng Supabase chưa có bài học -> Đẩy danh sách mặc định LESSONS lên Supabase
+        // Nếu bảng Supabase đã kết nối nhưng chưa có bài học -> Tự động đẩy danh sách mặc định LESSONS lên Supabase
         if (supabaseLessons && supabaseLessons.length === 0) {
           await bulkUpsertLessonsToSupabase(LESSONS);
+          setAllLessons(LESSONS);
+          localStorage.setItem('typing_kids_all_lessons', JSON.stringify(LESSONS));
+          setIsSupabaseOnline(true);
+          return;
         }
 
         // 2. Fallback sang server route nếu Supabase chưa có bảng

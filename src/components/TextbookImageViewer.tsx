@@ -1,5 +1,6 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { Lesson, GradeAssignment } from '../types/typing';
+import { DEFAULT_BOOK_COVER, STATIC_DEFAULT_COVER, createFallbackCoverSvg } from '../utils/imageUtils';
 import {
   Maximize2,
   Image as ImageIcon,
@@ -87,7 +88,29 @@ export const TextbookImageViewer: React.FC<TextbookImageViewerProps> = ({
     }
   };
 
-  const effectiveImageUrl = imageUrl || lesson?.imageUrl;
+  const rawImageUrl = imageUrl || lesson?.imageUrl;
+  const getInitialImage = () => {
+    if (rawImageUrl && rawImageUrl.trim() && !rawImageUrl.startsWith('/src/')) {
+      return rawImageUrl;
+    }
+    return STATIC_DEFAULT_COVER || DEFAULT_BOOK_COVER;
+  };
+
+  const [activeImageSrc, setActiveImageSrc] = useState<string>(getInitialImage());
+
+  useEffect(() => {
+    setActiveImageSrc(getInitialImage());
+  }, [rawImageUrl, lesson?.id]);
+
+  const handleImageError = () => {
+    if (activeImageSrc !== STATIC_DEFAULT_COVER && activeImageSrc !== DEFAULT_BOOK_COVER) {
+      setActiveImageSrc(DEFAULT_BOOK_COVER || STATIC_DEFAULT_COVER);
+    } else {
+      setActiveImageSrc(createFallbackCoverSvg(lessonTitle, lesson?.gradeLevel || selectedGrade));
+    }
+  };
+
+  const effectiveImageUrl = activeImageSrc;
   const effectiveTeacherNote = teacherNote || lesson?.teacherNote;
   const effectiveTeacherName = teacherName || lesson?.authorTeacher;
   const effectiveGradeLevel = gradeLevel || lesson?.gradeLevel || selectedGrade;
@@ -262,6 +285,7 @@ export const TextbookImageViewer: React.FC<TextbookImageViewerProps> = ({
                     <img
                       src={effectiveImageUrl}
                       alt={lessonTitle}
+                      onError={handleImageError}
                       className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
                       referrerPolicy="no-referrer"
                     />
@@ -689,6 +713,7 @@ export const TextbookImageViewer: React.FC<TextbookImageViewerProps> = ({
               <img
                 src={effectiveImageUrl}
                 alt={lessonTitle}
+                onError={handleImageError}
                 className="max-w-full max-h-[75vh] object-contain rounded-xl shadow"
                 referrerPolicy="no-referrer"
               />

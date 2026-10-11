@@ -21,6 +21,8 @@ import {
   RotateCcw,
 } from 'lucide-react';
 import { Lesson, GradeAssignment } from '../types/typing';
+import { compressImageFile } from '../utils/imageUtils';
+import { uploadImageToSupabaseStorage, bulkUpsertLessonsToSupabase } from '../lib/supabase';
 
 interface TeacherLessonModalProps {
   isOpen: boolean;
@@ -82,6 +84,9 @@ export const TeacherLessonModal: React.FC<TeacherLessonModalProps> = ({
   const [imageUrl, setImageUrl] = useState('');
   const [targetWpm, setTargetWpm] = useState<number>(18);
   const [saveSuccessMsg, setSaveSuccessMsg] = useState<string>('');
+  const [isCompressingImage, setIsCompressingImage] = useState<boolean>(false);
+  const [isSyncingAllToSupabase, setIsSyncingAllToSupabase] = useState<boolean>(false);
+  const [syncAllMsg, setSyncAllMsg] = useState<string>('');
 
   // AI OCR Analysis states
   const [isAnalyzingImage, setIsAnalyzingImage] = useState<boolean>(false);
@@ -165,19 +170,31 @@ export const TeacherLessonModal: React.FC<TeacherLessonModalProps> = ({
     setActiveTab('editor');
   };
 
-  // Handle image upload from computer (FileReader)
-  const handleImageFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  // Handle image upload from computer (FileReader with Auto Compression)
+  const handleImageFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
-      const reader = new FileReader();
-      reader.onload = () => {
-        if (typeof reader.result === 'string') {
-          setImageUrl(reader.result);
-          setOcrSuccessMsg('');
-          setOcrErrorMsg('');
-        }
-      };
-      reader.readAsDataURL(file);
+      setIsCompressingImage(true);
+      try {
+        // Tự động nén và tối ưu hóa ảnh trước khi lưu trữ
+        const compressedBase64 = await compressImageFile(file, 1000, 1000, 0.82);
+        setImageUrl(compressedBase64);
+        setOcrSuccessMsg('✅ Đã nén và tối ưu hóa ảnh sách giáo khoa thành công! Sẵn sàng phân tích AI hoặc lưu trữ.');
+        setOcrErrorMsg('');
+      } catch (err: any) {
+        console.warn('Lỗi nén ảnh, sử dụng FileReader thông thường:', err);
+        const reader = new FileReader();
+        reader.onload = () => {
+          if (typeof reader.result === 'string') {
+            setImageUrl(reader.result);
+            setOcrSuccessMsg('');
+            setOcrErrorMsg('');
+          }
+        };
+        reader.readAsDataURL(file);
+      } finally {
+        setIsCompressingImage(false);
+      }
     }
   };
 
@@ -234,8 +251,8 @@ export const TeacherLessonModal: React.FC<TeacherLessonModalProps> = ({
     }
   };
 
-  // Submit lesson saving
-  const handleSaveLessonSubmit = (e: React.FormEvent) => {
+  // Submit lesson saving (Tự động tải lên Supabase Storage bucket và lưu vào cơ sở dữ liệu)
+  const handleSaveLessonSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!title.trim()) {
       alert('Vui lòng nhập tên bài học!');
@@ -248,6 +265,20 @@ export const TeacherLessonModal: React.FC<TeacherLessonModalProps> = ({
 
     const lessonId = editingLessonId || `teacher-${Date.now()}`;
     const cleanText = text.trim();
+
+    let finalImageUrl = imageUrl.trim() || undefined;
+
+    // Nếu ảnh là dạng Base64 do giáo viên tải lên, thử lưu vào Supabase Storage bucket 'textbook-images'
+    if (finalImageUrl && finalImageUrl.startsWith('data:image/')) {
+      try {
+        const uploadResult = await uploadImageToSupabaseStorage(finalImageUrl, title.trim());
+        if (uploadResult?.url) {
+          finalImageUrl = uploadResult.url;
+        }
+      } catch (err) {
+        console.warn('Lưu ảnh vào bucket không thành công, tiếp tục lưu base64:', err);
+      }
+    }
 
     const updatedLesson: Lesson = {
       id: lessonId,
@@ -262,7 +293,7 @@ export const TeacherLessonModal: React.FC<TeacherLessonModalProps> = ({
       targetWpm: Number(targetWpm) || 18,
       targetAccuracy: 90,
       badgeName: 'Học Trò Xuất Sắc',
-      imageUrl: imageUrl.trim() || undefined,
+      imageUrl: finalImageUrl,
       gradeLevel: Number(gradeLevel),
       authorTeacher: teacherName.trim(),
       teacherNote: teacherNote.trim(),
@@ -270,13 +301,34 @@ export const TeacherLessonModal: React.FC<TeacherLessonModalProps> = ({
 
     onSaveLesson(updatedLesson);
     setLastSavedLesson(updatedLesson);
-    setSaveSuccessMsg(`🎉 Đã lưu bài "${updatedLesson.title}" trực tuyến thành công! Hệ thống máy chủ đã cập nhật bài học.`);
+    setSaveSuccessMsg(`🎉 Đã lưu bài "${updatedLesson.title}" và hình ảnh sách giáo khoa trực tuyến lên Supabase thành công!`);
     setEditingLessonId(updatedLesson.id);
 
     // Tự động tắt thông báo sau 4 giây
     setTimeout(() => {
       setSaveSuccessMsg('');
-    }, 4000);
+    }, 4500);
+  };
+
+  // Đồng bộ toàn bộ bài học & ảnh mẫu lên Supabase
+  const handleSyncAllToSupabase = async () => {
+    try {
+      setIsSyncingAllToSupabase(true);
+      setSyncAllMsg('');
+      const success = await bulkUpsertLessonsToSupabase(effectiveLessons);
+      if (success) {
+        setSyncAllMsg(`🎉 Đã đồng bộ thành công ${effectiveLessons.length} bài học và hình ảnh sách giáo khoa lên Supabase Cloud!`);
+      } else {
+        setSyncAllMsg('⚠️ Có lỗi khi đồng bộ lên Supabase. Vui lòng kiểm tra quyền bảng lessons.');
+      }
+    } catch (err: any) {
+      setSyncAllMsg(`❌ Lỗi đồng bộ: ${err?.message || 'Không thể kết nối Supabase'}`);
+    } finally {
+      setIsSyncingAllToSupabase(false);
+      setTimeout(() => {
+        setSyncAllMsg('');
+      }, 5000);
+    }
   };
 
   // Khi đổi khối lớp ở tab Giao bài: nạp các bài đã giao trước đó (nếu có)
@@ -507,16 +559,45 @@ export const TeacherLessonModal: React.FC<TeacherLessonModalProps> = ({
               </div>
 
               {activeTab === 'manage' && (
-                <button
-                  type="button"
-                  onClick={handleStartCreateNew}
-                  className="px-3 py-1.5 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 font-black text-xs flex items-center gap-1 shadow-sm cursor-pointer ml-auto"
-                >
-                  <Plus className="w-3.5 h-3.5" />
-                  <span>+ Soạn Bài Mới</span>
-                </button>
+                <div className="flex items-center gap-2 ml-auto">
+                  <button
+                    type="button"
+                    onClick={handleSyncAllToSupabase}
+                    disabled={isSyncingAllToSupabase}
+                    className="px-3 py-1.5 rounded-xl bg-emerald-700 hover:bg-emerald-600 disabled:opacity-50 text-white font-black text-xs flex items-center gap-1.5 shadow-sm cursor-pointer border border-emerald-500"
+                    title="Lưu trữ toàn bộ danh sách bài học và hình ảnh SGK lên Supabase Cloud để học sinh trên toàn hệ thống truy cập đồng bộ"
+                  >
+                    {isSyncingAllToSupabase ? (
+                      <>
+                        <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                        <span>Đang đồng bộ...</span>
+                      </>
+                    ) : (
+                      <>
+                        <Upload className="w-3.5 h-3.5" />
+                        <span>☁️ Đồng Bộ Lên Supabase</span>
+                      </>
+                    )}
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={handleStartCreateNew}
+                    className="px-3 py-1.5 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 font-black text-xs flex items-center gap-1 shadow-sm cursor-pointer"
+                  >
+                    <Plus className="w-3.5 h-3.5" />
+                    <span>+ Soạn Bài Mới</span>
+                  </button>
+                </div>
               )}
             </div>
+
+            {/* Sync All notification banner */}
+            {syncAllMsg && (
+              <div className="mx-4 mt-2 p-2.5 rounded-2xl bg-emerald-50 border-2 border-emerald-400 text-emerald-950 text-xs font-bold flex items-center gap-2 animate-in fade-in">
+                <span>{syncAllMsg}</span>
+              </div>
+            )}
 
             {/* TAB CONTENTS */}
             <div className="flex-1 overflow-y-auto p-4 custom-scrollbar">
@@ -839,12 +920,26 @@ export const TeacherLessonModal: React.FC<TeacherLessonModalProps> = ({
                     <div className="grid grid-cols-1 sm:grid-cols-12 gap-3 items-center">
                       <div className="sm:col-span-8 flex flex-col gap-2">
                         <div className="flex items-center gap-2">
-                          <label className="flex-1 py-2 px-3 rounded-xl bg-white hover:bg-sky-50 border-2 border-dashed border-sky-400 text-sky-800 text-xs font-bold flex items-center justify-center gap-2 cursor-pointer shadow-2xs transition-colors">
-                            <Upload className="w-4 h-4 text-sky-600" />
-                            <span>Tải ảnh từ máy tính / điện thoại...</span>
+                          <label className={`flex-1 py-2 px-3 rounded-xl border-2 border-dashed text-xs font-bold flex items-center justify-center gap-2 cursor-pointer shadow-2xs transition-colors ${
+                            isCompressingImage
+                              ? 'bg-amber-50 border-amber-400 text-amber-800'
+                              : 'bg-white hover:bg-sky-50 border-sky-400 text-sky-800'
+                          }`}>
+                            {isCompressingImage ? (
+                              <>
+                                <Loader2 className="w-4 h-4 text-amber-600 animate-spin" />
+                                <span>Đang nén &amp; tối ưu hóa ảnh...</span>
+                              </>
+                            ) : (
+                              <>
+                                <Upload className="w-4 h-4 text-sky-600" />
+                                <span>Tải ảnh từ máy tính / điện thoại...</span>
+                              </>
+                            )}
                             <input
                               type="file"
                               accept="image/*"
+                              disabled={isCompressingImage}
                               onChange={handleImageFileChange}
                               className="sr-only"
                             />

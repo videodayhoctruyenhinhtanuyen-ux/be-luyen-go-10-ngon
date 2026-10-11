@@ -75,9 +75,61 @@ WITH CHECK (true);
 
 -- 6. KÍCH HOẠT TÍNH NĂNG THỜI GIAN THỰC (REALTIME REPLICATION)
 -- Cho phép Supabase tự động bắn sự kiện cập nhật tức thời khi giáo viên lưu bài hoặc giao bài
-ALTER PUBLICATION supabase_realtime ADD TABLE public.lessons;
-ALTER PUBLICATION supabase_realtime ADD TABLE public.grade_assignments;
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_publication_tables 
+    WHERE pubname = 'supabase_realtime' AND tablename = 'lessons'
+  ) THEN
+    ALTER PUBLICATION supabase_realtime ADD TABLE public.lessons;
+  END IF;
+
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_publication_tables 
+    WHERE pubname = 'supabase_realtime' AND tablename = 'grade_assignments'
+  ) THEN
+    ALTER PUBLICATION supabase_realtime ADD TABLE public.grade_assignments;
+  END IF;
+END $$;
 
 -- ============================================================================
--- HOÀN TẤT CẤU HÌNH CƠ SỞ DỮ LIỆU SUPABASE!
+-- 7. TẠO THƯ MỤC LƯU TRỮ HÌNH ẢNH SÁCH GIÁO KHOA TRÊN SUPABASE STORAGE
+-- (Dùng để lưu ảnh bìa SGK, ảnh bài tập và ảnh do giáo viên chụp/tải lên)
+-- ============================================================================
+INSERT INTO storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
+VALUES (
+    'textbook-images',
+    'textbook-images',
+    true,
+    10485760, -- Tối đa 10MB mỗi ảnh
+    ARRAY['image/jpeg', 'image/png', 'image/webp', 'image/gif', 'image/svg+xml']::text[]
+)
+ON CONFLICT (id) DO UPDATE SET public = true;
+
+-- Cho phép mọi người đọc ảnh sách giáo khoa công khai
+DROP POLICY IF EXISTS "Public Read Textbook Images" ON storage.objects;
+CREATE POLICY "Public Read Textbook Images"
+ON storage.objects FOR SELECT
+USING (bucket_id = 'textbook-images');
+
+-- Cho phép tải ảnh mới lên thư mục textbook-images
+DROP POLICY IF EXISTS "Public Insert Textbook Images" ON storage.objects;
+CREATE POLICY "Public Insert Textbook Images"
+ON storage.objects FOR INSERT
+WITH CHECK (bucket_id = 'textbook-images');
+
+-- Cho phép cập nhật ảnh
+DROP POLICY IF EXISTS "Public Update Textbook Images" ON storage.objects;
+CREATE POLICY "Public Update Textbook Images"
+ON storage.objects FOR UPDATE
+USING (bucket_id = 'textbook-images');
+
+-- Cho phép xóa ảnh
+DROP POLICY IF EXISTS "Public Delete Textbook Images" ON storage.objects;
+CREATE POLICY "Public Delete Textbook Images"
+ON storage.objects FOR DELETE
+USING (bucket_id = 'textbook-images');
+
+-- ============================================================================
+-- HOÀN TẤT CẤU HÌNH CƠ SỞ DỮ LIỆU VÀ THƯ MỤC ẢNH SUPABASE!
 -- ============================================================================

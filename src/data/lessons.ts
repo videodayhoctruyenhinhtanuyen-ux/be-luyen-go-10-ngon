@@ -73,7 +73,7 @@ export const LESSONS: Lesson[] = [
     badgeName: 'Nhà Thơ Nhí Lớp 3',
     authorTeacher: 'Cô Mai',
     teacherNote: 'Bài tập về nhà tuần này: Các con Lớp 3 luyện gõ thuộc bài thơ Mèo Con Đi Học nhé!',
-    imageUrl: '/src/assets/images/meo_con_di_hoc_1791667437893.jpg',
+    imageUrl: '/images/meo_con_di_hoc.jpg',
   },
   {
     id: 'lesson-3-4',

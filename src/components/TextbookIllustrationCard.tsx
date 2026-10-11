@@ -1,6 +1,7 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Lesson } from '../types/typing';
-import { Maximize2, X, Sparkles, BookOpen, Upload } from 'lucide-react';
+import { Maximize2, X, Sparkles, BookOpen, Upload, RefreshCw } from 'lucide-react';
+import { DEFAULT_BOOK_COVER, STATIC_DEFAULT_COVER, createFallbackCoverSvg } from '../utils/imageUtils';
 
 interface TextbookIllustrationCardProps {
   lesson: Lesson;
@@ -14,9 +15,30 @@ export const TextbookIllustrationCard: React.FC<TextbookIllustrationCardProps> =
   onOpenCurriculumModal,
 }) => {
   const [isZoomed, setIsZoomed] = useState<boolean>(false);
+  
+  // Xác định nguồn ảnh hợp lệ ban đầu
+  const getInitialImage = () => {
+    if (lesson.imageUrl && lesson.imageUrl.trim() && !lesson.imageUrl.startsWith('/src/')) {
+      return lesson.imageUrl;
+    }
+    return STATIC_DEFAULT_COVER || DEFAULT_BOOK_COVER;
+  };
 
-  // Ảnh hiển thị ưu tiên ảnh của bài học, nếu chưa có thì dùng ảnh mặc định Mèo con đi học
-  const displayImageUrl = lesson.imageUrl || '/src/assets/images/meo_con_di_hoc_1791667437893.jpg';
+  const [currentImgSrc, setCurrentImgSrc] = useState<string>(getInitialImage());
+
+  // Khi bài học thay đổi, cập nhật lại đường dẫn ảnh tương ứng
+  useEffect(() => {
+    setCurrentImgSrc(getInitialImage());
+  }, [lesson.id, lesson.imageUrl]);
+
+  const handleImageError = () => {
+    // Nếu ảnh bị lỗi 404 hoặc mạng chặn (như ảnh Unsplash), tự động chuyển sang ảnh mặc định hoặc SVG minh họa
+    if (currentImgSrc !== STATIC_DEFAULT_COVER && currentImgSrc !== DEFAULT_BOOK_COVER) {
+      setCurrentImgSrc(DEFAULT_BOOK_COVER || STATIC_DEFAULT_COVER);
+    } else {
+      setCurrentImgSrc(createFallbackCoverSvg(lesson.title, lesson.gradeLevel || 3));
+    }
+  };
 
   return (
     <div className="w-full flex flex-col items-center">
@@ -36,8 +58,9 @@ export const TextbookIllustrationCard: React.FC<TextbookIllustrationCardProps> =
           title="Bấm để phóng to xem rõ tranh sách giáo khoa"
         >
           <img
-            src={displayImageUrl}
+            src={currentImgSrc}
             alt={`Ảnh sách giáo khoa về bài gõ: ${lesson.title}`}
+            onError={handleImageError}
             className="w-full max-h-[135px] sm:max-h-[150px] xl:max-h-[165px] object-contain rounded-xl transition-transform duration-300 group-hover:scale-102"
             loading="eager"
           />
@@ -114,8 +137,9 @@ export const TextbookIllustrationCard: React.FC<TextbookIllustrationCardProps> =
 
             <div className="overflow-auto max-h-[80vh] flex items-center justify-center">
               <img
-                src={displayImageUrl}
+                src={currentImgSrc}
                 alt={lesson.title}
+                onError={handleImageError}
                 className="max-h-[76vh] w-auto object-contain rounded-2xl shadow-md"
               />
             </div>
