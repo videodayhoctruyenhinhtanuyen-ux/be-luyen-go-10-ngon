@@ -38,11 +38,15 @@ CREATE TABLE IF NOT EXISTS public.grade_assignments (
     updated_at TIMESTAMPTZ DEFAULT NOW()
 );
 
--- 3. KÍCH HOẠT BẢO MẬT HÀNG (ROW LEVEL SECURITY - RLS)
+-- 3. CẤP QUYỀN TRUY CẬP CHO ROLE ANON VÀ AUTHENTICATED
+GRANT ALL ON TABLE public.lessons TO anon, authenticated, service_role;
+GRANT ALL ON TABLE public.grade_assignments TO anon, authenticated, service_role;
+
+-- 4. KÍCH HOẠT BẢO MẬT HÀNG (ROW LEVEL SECURITY - RLS)
 ALTER TABLE public.lessons ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.grade_assignments ENABLE ROW LEVEL SECURITY;
 
--- 4. TẠO CHÍNH SÁCH CHO PHÉP ĐỌC VÀ GHI DỮ LIỆU CÔNG KHAI (CHO KEY ANON PUBLIC)
+-- 5. TẠO CHÍNH SÁCH CHO PHÉP ĐỌC VÀ GHI DỮ LIỆU CÔNG KHAI (CHO KEY ANON PUBLIC)
 -- Cho phép bất kỳ ai (học sinh, giáo viên) đọc danh sách bài học
 DROP POLICY IF EXISTS "Allow public read lessons" ON public.lessons;
 CREATE POLICY "Allow public read lessons" 
@@ -69,7 +73,7 @@ ON public.grade_assignments FOR ALL
 USING (true)
 WITH CHECK (true);
 
--- 5. KÍCH HOẠT TÍNH NĂNG THỜI GIAN THỰC (REALTIME REPLICATION)
+-- 6. KÍCH HOẠT TÍNH NĂNG THỜI GIAN THỰC (REALTIME REPLICATION)
 -- Cho phép Supabase tự động bắn sự kiện cập nhật tức thời khi giáo viên lưu bài hoặc giao bài
 ALTER PUBLICATION supabase_realtime ADD TABLE public.lessons;
 ALTER PUBLICATION supabase_realtime ADD TABLE public.grade_assignments;

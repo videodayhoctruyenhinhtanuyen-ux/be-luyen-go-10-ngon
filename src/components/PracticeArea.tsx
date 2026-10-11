@@ -600,11 +600,11 @@ export const PracticeArea: React.FC<PracticeAreaProps> = ({
             </span>
           </div>
 
-          {/* KHUNG VĂN BẢN MẪU ĐƯỢC MỞ RỘNG CHIỀU CAO (min-h-[68px] sm:min-h-[76px] max-h-[96px] sm:max-h-[108px]) */}
+          {/* KHUNG VĂN BẢN MẪU TINH GỌN (min-h-[56px] sm:min-h-[64px] max-h-[82px] sm:max-h-[92px]) */}
           <div
             ref={containerRef}
             onClick={handleFocusInput}
-            className={`w-full bg-slate-50/90 border-2 border-indigo-200 hover:border-indigo-300 rounded-xl p-2 sm:p-2.5 font-mono ${fontSizeClass} leading-relaxed select-none cursor-text shadow-sm min-h-[68px] sm:min-h-[76px] max-h-[96px] sm:max-h-[108px] overflow-y-auto custom-scrollbar flex flex-col gap-1 transition-all`}
+            className={`w-full bg-slate-50/90 border-2 border-indigo-200 hover:border-indigo-300 rounded-xl p-1.5 sm:p-2 font-mono ${fontSizeClass} leading-relaxed select-none cursor-text shadow-sm min-h-[54px] sm:min-h-[62px] max-h-[78px] sm:max-h-[88px] overflow-y-auto custom-scrollbar flex flex-col gap-0.5 transition-all`}
           >
             {tokenLines.map((lineTokens, lineIdx) => {
               const isChunkHighlighted =
@@ -781,11 +781,11 @@ export const PracticeArea: React.FC<PracticeAreaProps> = ({
             </div>
           </div>
 
-          {/* KHUNG NHẬP VĂN BẢN (ĐỘ CAO VỪA ĐỦ min-h-[58px] sm:min-h-[66px] - CHỈ LƯU GIỮ 1 DÒNG HIỆN THỜI, XÓA TRẮNG KHI ENTER) */}
+          {/* KHUNG NHẬP VĂN BẢN (ĐỘ CAO VỪA ĐỦ min-h-[48px] sm:min-h-[54px] - CHỈ LƯU GIỮ 1 DÒNG HIỆN THỜI, XÓA TRẮNG KHI ENTER) */}
           <div
             onClick={handleFocusInput}
             className={`
-              w-full bg-white rounded-2xl px-3.5 py-2 sm:py-2.5 font-mono text-base sm:text-lg md:text-xl font-bold leading-normal cursor-text relative shadow-md transition-all flex items-center select-none min-h-[58px] sm:min-h-[66px]
+              w-full bg-white rounded-2xl px-3.5 py-1.5 sm:py-2 font-mono text-sm sm:text-base md:text-lg font-bold leading-normal cursor-text relative shadow-md transition-all flex items-center select-none min-h-[46px] sm:min-h-[52px]
               ${
                 hasMistake
                   ? 'border-3 border-rose-500 ring-4 ring-rose-100 bg-rose-50/20'

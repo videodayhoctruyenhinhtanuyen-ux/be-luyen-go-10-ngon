@@ -90,38 +90,42 @@ export const Keyboard: React.FC<KeyboardProps> = ({
       const width = containerRef.current.clientWidth;
       if (width <= 0) return;
 
-      // Outer frame has padding (~16px) and inner plate has padding (~16px) = 32px
-      const availableWidth = Math.max(300, width - 36);
-      // Total keyboard width is 22 * unitSize + 19 * gap + 2 * (0.35 * unitSize) = 22.7 * unitSize + 76
+      // Outer frame has padding (~20px total) and inner plate has padding (~20px total) = 40px
+      const availableWidth = Math.max(300, width - 40);
+      // Total keyboard width is:
+      // mainSectionWidth (15U + 14*gap) + sectionGap (0.35U) + navSectionWidth (3U + 2*gap) + sectionGap (0.35U) + numpadSectionWidth (4U + 3*gap)
+      // = 22.7 * unitSize + 19 * gap = 22.7 * unitSize + 76px
       const fitUnitByWidth = Math.floor((availableWidth - 76) / 22.7);
 
-      // Measure actual remaining vertical viewport height from top of keyboard container to bottom of viewport
+      // Measure available height in viewport
       const vh = window.innerHeight || 900;
       const rect = containerRef.current.getBoundingClientRect();
-      const topOffset = rect.top > 0 ? rect.top : 440;
-      // Reserve 36px for bottom footer (Mẹo nhỏ cho bé) and bottom container spacing
-      const maxKeyboardAvailableHeight = Math.max(200, vh - topOffset - 36);
+      const topOffset = rect.top > 0 ? rect.top : 400;
+      // Reserve 40px for footer + bottom safety padding
+      const maxKeyboardAvailableHeight = Math.max(220, vh - topOffset - 40);
 
       // Keyboard key rows height:
       // Function row: 0.78 * unitSize
       // 5 Main rows: 5.0 * unitSize
       // Total key rows: 5.78 * unitSize
-      // Internal elements: top toolbar (~32px), inner plate padding top/bottom (16px), row gaps (24px) = ~72px
-      const fitUnitByHeight = Math.floor((maxKeyboardAvailableHeight - 72) / 5.78);
+      // Top header bar (~36px), inner plate padding top/bottom (20px), gaps between rows (24px) = ~80px
+      const fitUnitByHeight = Math.floor((maxKeyboardAvailableHeight - 80) / 5.78);
 
       let baseUnit = fitUnitByWidth;
       if (scalePreset === '1080p') {
-        // Full HD 1920x1080 mode: guarantees 100% fit without vertical overflow and fits width
-        const constrained = fitUnitByHeight > 0 ? Math.min(fitUnitByWidth, fitUnitByHeight) : fitUnitByWidth;
-        baseUnit = Math.max(28, Math.min(62, constrained));
+        // Full HD 1920x1080: Ưu tiên vừa khít chiều ngang container để hiển thị toàn bộ 108 phím lớn và rõ
+        baseUnit = Math.max(34, Math.min(58, fitUnitByWidth));
       } else if (scalePreset === '768p') {
-        // Compact 1366x768 mode
-        const constrained = fitUnitByHeight > 0 ? Math.min(fitUnitByWidth, fitUnitByHeight) : fitUnitByWidth;
-        baseUnit = Math.max(26, Math.min(38, constrained));
+        // Màn hình phổ thông 1366x768 của phòng máy
+        baseUnit = Math.max(28, Math.min(42, fitUnitByWidth));
       } else {
-        // Auto-fit: balance width and height so all 6 rows and spacebar are always in full view
-        const balanced = fitUnitByHeight > 0 ? Math.min(fitUnitByWidth, fitUnitByHeight) : fitUnitByWidth;
-        baseUnit = Math.max(28, Math.min(64, balanced));
+        // Tự động (Auto): Tự động co giãn để VỪA KHÍT TOÀN DIỆN cả chiều ngang (full size 108 phím) lẫn chiều dọc
+        if (fitUnitByHeight > 0 && fitUnitByHeight < fitUnitByWidth) {
+          // Nếu chiều dọc bị giới hạn, chọn mức cân bằng nhưng không nhỏ hơn mức tối thiểu để đọc rõ chữ
+          baseUnit = Math.max(30, Math.min(fitUnitByWidth, fitUnitByHeight));
+        } else {
+          baseUnit = Math.max(32, Math.min(60, fitUnitByWidth));
+        }
       }
 
       // Apply zoom percentage multiplier
