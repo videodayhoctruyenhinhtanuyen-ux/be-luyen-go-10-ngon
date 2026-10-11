@@ -2099,24 +2099,26 @@ export default function App() {
       {/* 5. MODALS                                                */}
       {/* ======================================================== */}
       {/* Teacher Portal Modal */}
-      <ErrorBoundary fallbackTitle="Đã ngăn chặn lỗi trắng màn hình khi mở Cổng Quản Trị Giáo Viên">
-        <TeacherLessonModal
-          isOpen={isTeacherModalOpen}
-          onClose={() => {
-            setIsTeacherModalOpen(false);
-            setEditingLessonForModal(null);
-          }}
-          onSaveLesson={handleSaveTeacherLesson}
-          allLessons={allAvailableLessons}
-          teacherLessons={teacherLessons}
-          onDeleteLesson={handleDeleteTeacherLesson}
-          onResetSystemLesson={handleResetSystemLesson}
-          onSelectLesson={(lesson) => setCustomLesson(lesson)}
-          gradeAssignments={gradeAssignments}
-          onAssignLessonToGrade={handleAssignLessonToGrade}
-          initialEditingLesson={editingLessonForModal}
-        />
-      </ErrorBoundary>
+      {isTeacherModalOpen && (
+        <ErrorBoundary fallbackTitle="Đã ngăn chặn lỗi trắng màn hình khi mở Cổng Quản Trị Giáo Viên">
+          <TeacherLessonModal
+            isOpen={isTeacherModalOpen}
+            onClose={() => {
+              setIsTeacherModalOpen(false);
+              setEditingLessonForModal(null);
+            }}
+            onSaveLesson={handleSaveTeacherLesson}
+            allLessons={allAvailableLessons}
+            teacherLessons={teacherLessons}
+            onDeleteLesson={handleDeleteTeacherLesson}
+            onResetSystemLesson={handleResetSystemLesson}
+            onSelectLesson={(lesson) => setCustomLesson(lesson)}
+            gradeAssignments={gradeAssignments}
+            onAssignLessonToGrade={handleAssignLessonToGrade}
+            initialEditingLesson={editingLessonForModal}
+          />
+        </ErrorBoundary>
+      )}
 
       {/* BẢNG THÔNG BÁO TỚI BẠN NHỎ: TẮT UNIKEY ĐỂ CÓ TRẢI NGHIỆM TỐT NHẤT */}
       <UnikeyNoticeModal

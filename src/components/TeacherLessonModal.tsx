@@ -238,8 +238,6 @@ export const TeacherLessonModal: React.FC<TeacherLessonModalProps> = ({
     }
   }, [initialEditingLesson, isOpen]);
 
-  if (!isOpen) return null;
-
   // Handle Login with username & password (admin / Laichau@2026)
   const handleLogin = (e: React.FormEvent) => {
     e.preventDefault();
@@ -882,6 +880,8 @@ export const TeacherLessonModal: React.FC<TeacherLessonModalProps> = ({
       </div>
     );
   };
+
+  if (!isOpen) return null;
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-1 sm:p-2.5 md:p-3 bg-slate-950/75 backdrop-blur-md animate-in fade-in duration-200">
