@@ -1,0 +1,79 @@
+-- ============================================================================
+-- SUPABASE SQL SCHEMA: HỆ THỐNG LUYỆN GÕ 10 NGÓN TIỂU HỌC 2026
+-- Hãy copy toàn bộ nội dung file này và chạy trong SQL Editor tại:
+-- https://supabase.com/dashboard/project/nslilflaawfbstlosqkf/sql/new
+-- ============================================================================
+
+-- 1. BẢNG BÀI HỌC & CÂU HỎI LUYỆN GÕ (LESSONS)
+CREATE TABLE IF NOT EXISTS public.lessons (
+    id TEXT PRIMARY KEY,
+    title TEXT NOT NULL,
+    text TEXT NOT NULL,
+    grade_level INTEGER DEFAULT 3,
+    level INTEGER DEFAULT 1,
+    category TEXT DEFAULT 'short_sentences',
+    category_title_vi TEXT DEFAULT 'Bài tập tiểu học',
+    subtitle TEXT DEFAULT '',
+    description_vi TEXT DEFAULT '',
+    focus_keys JSONB DEFAULT '[]'::jsonb,
+    target_wpm INTEGER DEFAULT 18,
+    target_accuracy INTEGER DEFAULT 85,
+    badge_name TEXT DEFAULT 'Bé Luyện Gõ Siêu Tốc',
+    author_teacher TEXT,
+    teacher_note TEXT,
+    image_url TEXT,
+    book_page TEXT,
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- 2. BẢNG BÀI TẬP GIÁO VIÊN GIAO CHO CÁC KHỐI LỚP (GRADE ASSIGNMENTS)
+CREATE TABLE IF NOT EXISTS public.grade_assignments (
+    grade_level INTEGER PRIMARY KEY,
+    primary_lesson_id TEXT DEFAULT '',
+    lesson_ids JSONB DEFAULT '[]'::jsonb,
+    teacher_name TEXT DEFAULT 'Cô giáo',
+    teacher_note TEXT DEFAULT '',
+    assigned_at TIMESTAMPTZ DEFAULT NOW(),
+    updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- 3. KÍCH HOẠT BẢO MẬT HÀNG (ROW LEVEL SECURITY - RLS)
+ALTER TABLE public.lessons ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.grade_assignments ENABLE ROW LEVEL SECURITY;
+
+-- 4. TẠO CHÍNH SÁCH CHO PHÉP ĐỌC VÀ GHI DỮ LIỆU CÔNG KHAI (CHO KEY ANON PUBLIC)
+-- Cho phép bất kỳ ai (học sinh, giáo viên) đọc danh sách bài học
+DROP POLICY IF EXISTS "Allow public read lessons" ON public.lessons;
+CREATE POLICY "Allow public read lessons" 
+ON public.lessons FOR SELECT 
+USING (true);
+
+-- Cho phép thêm, sửa, xóa bài học
+DROP POLICY IF EXISTS "Allow public write lessons" ON public.lessons;
+CREATE POLICY "Allow public write lessons" 
+ON public.lessons FOR ALL 
+USING (true)
+WITH CHECK (true);
+
+-- Cho phép đọc bài tập được giao cho khối lớp
+DROP POLICY IF EXISTS "Allow public read assignments" ON public.grade_assignments;
+CREATE POLICY "Allow public read assignments" 
+ON public.grade_assignments FOR SELECT 
+USING (true);
+
+-- Cho phép giáo viên cập nhật bài tập giao cho khối lớp
+DROP POLICY IF EXISTS "Allow public write assignments" ON public.grade_assignments;
+CREATE POLICY "Allow public write assignments" 
+ON public.grade_assignments FOR ALL 
+USING (true)
+WITH CHECK (true);
+
+-- 5. KÍCH HOẠT TÍNH NĂNG THỜI GIAN THỰC (REALTIME REPLICATION)
+-- Cho phép Supabase tự động bắn sự kiện cập nhật tức thời khi giáo viên lưu bài hoặc giao bài
+ALTER PUBLICATION supabase_realtime ADD TABLE public.lessons;
+ALTER PUBLICATION supabase_realtime ADD TABLE public.grade_assignments;
+
+-- ============================================================================
+-- HOÀN TẤT CẤU HÌNH CƠ SỞ DỮ LIỆU SUPABASE!
+-- ============================================================================

@@ -1,0 +1,359 @@
+@import "tailwindcss";
+
+@layer base {
+  body {
+    font-family: 'Nunito', system-ui, -apple-system, sans-serif;
+    user-select: none;
+    -webkit-user-select: none;
+  }
+
+  .font-mono-key {
+    font-family: 'JetBrains Mono', monospace;
+  }
+}
+
+/* Mechanical Keyboard Keycap 3D Shadows & Styles (BRIGHT / TOY THEME) */
+.keycap-grey {
+  background: linear-gradient(180deg, #ffffff 0%, #f1f5f9 70%, #e2e8f0 100%);
+  color: #0f172a;
+  border: 1px solid #cbd5e1;
+  border-top: 2px solid #ffffff;
+  box-shadow: 
+    0 4px 0 #94a3b8,
+    0 6px 6px rgba(0, 0, 0, 0.12),
+    inset 0 1px 0 rgba(255, 255, 255, 1),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.05);
+}
+
+.keycap-grey.key-pressed {
+  transform: translateY(3px) !important;
+  box-shadow: 
+    0 1px 0 #94a3b8,
+    0 2px 3px rgba(0, 0, 0, 0.1),
+    inset 0 1px 2px rgba(0, 0, 0, 0.15) !important;
+}
+
+.keycap-blue {
+  background: linear-gradient(180deg, #38bdf8 0%, #0284c7 75%, #0369a1 100%);
+  color: #ffffff;
+  border: 1px solid #0284c7;
+  border-top: 2px solid #7dd3fc;
+  box-shadow: 
+    0 4px 0 #075985,
+    0 6px 6px rgba(2, 132, 199, 0.3),
+    inset 0 1px 0 rgba(255, 255, 255, 0.6),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.2);
+}
+
+.keycap-blue.key-pressed {
+  transform: translateY(3px) !important;
+  box-shadow: 
+    0 1px 0 #075985,
+    0 2px 3px rgba(0, 0, 0, 0.2),
+    inset 0 1px 2px rgba(0, 0, 0, 0.3) !important;
+}
+
+/* 1. DELL KB216 CLASSIC BLACK OFFICE KEYCAPS (PHÒNG TIN HỌC TIÊU CHUẨN) */
+.keycap-real-dell-alpha {
+  background: linear-gradient(180deg, #334155 0%, #1e293b 70%, #0f172a 100%);
+  color: #f8fafc;
+  border: 1px solid #334155;
+  border-top: 2px solid #475569;
+  box-shadow: 0 4px 0 #020617, 0 6px 8px rgba(0, 0, 0, 0.45), inset 0 1px 0 rgba(255, 255, 255, 0.2);
+}
+.keycap-real-dell-alpha.key-pressed {
+  transform: translateY(3px) !important;
+  box-shadow: 0 1px 0 #020617, 0 2px 3px rgba(0, 0, 0, 0.3), inset 0 1px 2px rgba(0, 0, 0, 0.5) !important;
+}
+.keycap-real-dell-mod {
+  background: linear-gradient(180deg, #1e293b 0%, #0f172a 75%, #020617 100%);
+  color: #e2e8f0;
+  border: 1px solid #1e293b;
+  border-top: 2px solid #334155;
+  box-shadow: 0 4px 0 #000000, 0 6px 8px rgba(0, 0, 0, 0.5), inset 0 1px 0 rgba(255, 255, 255, 0.15);
+}
+.keycap-real-dell-mod.key-pressed {
+  transform: translateY(3px) !important;
+  box-shadow: 0 1px 0 #000000, 0 2px 3px rgba(0, 0, 0, 0.4), inset 0 1px 2px rgba(0, 0, 0, 0.6) !important;
+}
+
+/* 2. MITSUMI CLASSIC RETRO IVORY (BÀN PHÍM TRẮNG NGÀ CỔ ĐIỂN HUYỀN THOẠI) */
+.keycap-real-mitsumi-alpha {
+  background: linear-gradient(180deg, #ffffff 0%, #fdfbf7 60%, #f5f2e8 100%);
+  color: #1c1917;
+  border: 1px solid #e7e2d4;
+  border-top: 2px solid #ffffff;
+  box-shadow: 0 4px 0 #d6ceb8, 0 6px 7px rgba(78, 69, 50, 0.22), inset 0 1px 0 #ffffff;
+}
+.keycap-real-mitsumi-alpha.key-pressed {
+  transform: translateY(3px) !important;
+  box-shadow: 0 1px 0 #d6ceb8, 0 2px 3px rgba(78, 69, 50, 0.2), inset 0 1px 2px rgba(0, 0, 0, 0.15) !important;
+}
+.keycap-real-mitsumi-mod {
+  background: linear-gradient(180deg, #e7e5e4 0%, #d6d3d1 75%, #c7c2be 100%);
+  color: #1c1917;
+  border: 1px solid #a8a29e;
+  border-top: 2px solid #f5f5f4;
+  box-shadow: 0 4px 0 #78716c, 0 6px 7px rgba(87, 83, 78, 0.3), inset 0 1px 0 rgba(255, 255, 255, 0.6);
+}
+.keycap-real-mitsumi-mod.key-pressed {
+  transform: translateY(3px) !important;
+  box-shadow: 0 1px 0 #78716c, 0 2px 3px rgba(87, 83, 78, 0.2), inset 0 1px 2px rgba(0, 0, 0, 0.2) !important;
+}
+
+/* 3. LAPTOP CHICLET SLIM (BÀN PHÍM MÁY TÍNH XÁCH TAY MỎNG PHẲNG) */
+.keycap-real-laptop-alpha {
+  background: linear-gradient(180deg, #334155 0%, #1e293b 85%, #0f172a 100%);
+  color: #f8fafc;
+  border: 1px solid #475569;
+  border-top: 1.5px solid #64748b;
+  box-shadow: 0 2px 0 #020617, 0 3px 5px rgba(0, 0, 0, 0.3), inset 0 1px 0 rgba(255, 255, 255, 0.15);
+  border-radius: 6px !important;
+}
+.keycap-real-laptop-alpha.key-pressed {
+  transform: translateY(1.5px) !important;
+  box-shadow: 0 1px 0 #020617, 0 1px 2px rgba(0, 0, 0, 0.2), inset 0 1px 2px rgba(0, 0, 0, 0.4) !important;
+}
+.keycap-real-laptop-mod {
+  background: linear-gradient(180deg, #1e293b 0%, #0f172a 90%, #020617 100%);
+  color: #e2e8f0;
+  border: 1px solid #334155;
+  border-top: 1.5px solid #475569;
+  box-shadow: 0 2px 0 #000000, 0 3px 5px rgba(0, 0, 0, 0.35), inset 0 1px 0 rgba(255, 255, 255, 0.1);
+  border-radius: 6px !important;
+}
+.keycap-real-laptop-mod.key-pressed {
+  transform: translateY(1.5px) !important;
+  box-shadow: 0 1px 0 #000000, 0 1px 2px rgba(0, 0, 0, 0.3), inset 0 1px 2px rgba(0, 0, 0, 0.5) !important;
+}
+
+/* 4. KEYCHRON C2 TWO-TONE PBT (BÀN PHÍM CƠ VĂN PHÒNG HIỆN ĐẠI 2 TÔNG MÀU) */
+.keycap-real-keychron-alpha {
+  background: linear-gradient(180deg, #ffffff 0%, #f8fafc 65%, #e2e8f0 100%);
+  color: #0f172a;
+  border: 1px solid #cbd5e1;
+  border-top: 2px solid #ffffff;
+  box-shadow: 0 4px 0 #94a3b8, 0 6px 7px rgba(15, 23, 42, 0.18), inset 0 1px 0 #ffffff;
+}
+.keycap-real-keychron-alpha.key-pressed {
+  transform: translateY(3px) !important;
+  box-shadow: 0 1px 0 #94a3b8, 0 2px 3px rgba(15, 23, 42, 0.15), inset 0 1px 2px rgba(0, 0, 0, 0.2) !important;
+}
+.keycap-real-keychron-mod {
+  background: linear-gradient(180deg, #475569 0%, #334155 75%, #1e293b 100%);
+  color: #f8fafc;
+  border: 1px solid #1e293b;
+  border-top: 2px solid #64748b;
+  box-shadow: 0 4px 0 #0f172a, 0 6px 7px rgba(15, 23, 42, 0.35), inset 0 1px 0 rgba(255, 255, 255, 0.25);
+}
+.keycap-real-keychron-mod.key-pressed {
+  transform: translateY(3px) !important;
+  box-shadow: 0 1px 0 #0f172a, 0 2px 3px rgba(15, 23, 42, 0.2), inset 0 1px 2px rgba(0, 0, 0, 0.3) !important;
+}
+
+/* 5. DAREU EK1280 ESPORTS GAMING (BÀN PHÍM CƠ GAMING THỰC TẾ) */
+.keycap-real-gaming-alpha {
+  background: linear-gradient(180deg, #27272a 0%, #18181b 75%, #09090b 100%);
+  color: #ffffff;
+  border: 1px solid #3f3f46;
+  border-top: 2px solid #52525b;
+  box-shadow: 0 4px 0 #000000, 0 6px 8px rgba(220, 38, 38, 0.25), inset 0 1px 0 rgba(255, 255, 255, 0.2);
+}
+.keycap-real-gaming-alpha.key-pressed {
+  transform: translateY(3px) !important;
+  box-shadow: 0 1px 0 #000000, 0 2px 3px rgba(0, 0, 0, 0.3), inset 0 1px 2px rgba(220, 38, 38, 0.3) !important;
+}
+.keycap-real-gaming-mod {
+  background: linear-gradient(180deg, #ef4444 0%, #dc2626 75%, #991b1b 100%);
+  color: #ffffff;
+  border: 1px solid #7f1d1d;
+  border-top: 2px solid #f87171;
+  box-shadow: 0 4px 0 #450a0a, 0 6px 10px rgba(220, 38, 38, 0.45), inset 0 1px 0 rgba(255, 255, 255, 0.5);
+}
+.keycap-real-gaming-mod.key-pressed {
+  transform: translateY(3px) !important;
+  box-shadow: 0 1px 0 #450a0a, 0 2px 3px rgba(220, 38, 38, 0.3), inset 0 1px 2px rgba(0, 0, 0, 0.3) !important;
+}
+
+/* 6. APPLE MAGIC KEYBOARD (BÀN PHÍM NHÔM BẠC PHÍM TRẮNG MAC ĐỜI THỰC) */
+.keycap-real-apple-alpha,
+.keycap-real-apple-mod {
+  background: linear-gradient(180deg, #ffffff 0%, #fdfdfd 70%, #f8fafc 100%);
+  color: #334155;
+  border: 1px solid #e2e8f0;
+  border-top: 1.5px solid #ffffff;
+  box-shadow: 0 2px 0 #cbd5e1, 0 3px 5px rgba(0, 0, 0, 0.08), inset 0 1px 0 #ffffff;
+  border-radius: 6px !important;
+}
+.keycap-real-apple-alpha.key-pressed,
+.keycap-real-apple-mod.key-pressed {
+  transform: translateY(1.5px) !important;
+  box-shadow: 0 1px 0 #cbd5e1, 0 1px 2px rgba(0, 0, 0, 0.08), inset 0 1px 2px rgba(0, 0, 0, 0.08) !important;
+}
+
+/* 7. LOGITECH POP KEYS (BÀN PHÍM NÚT TRÒN MÁY ĐÁNH CHỮ RETRO THỰC TẾ) */
+.keycap-real-round-alpha {
+  background: linear-gradient(180deg, #ffffff 0%, #fffbeb 65%, #fef3c7 100%);
+  color: #78350f;
+  border: 2px solid #d4d4d8;
+  box-shadow: 0 4px 0 #d97706, 0 6px 8px rgba(217, 119, 6, 0.25), inset 0 1px 0 #ffffff;
+  border-radius: 9999px !important;
+}
+.keycap-real-round-alpha.key-pressed {
+  transform: translateY(3px) !important;
+  box-shadow: 0 1px 0 #d97706, 0 2px 3px rgba(217, 119, 6, 0.2), inset 0 1px 2px rgba(0, 0, 0, 0.15) !important;
+}
+.keycap-real-round-mod {
+  background: linear-gradient(180deg, #fbbf24 0%, #f59e0b 75%, #d97706 100%);
+  color: #ffffff;
+  border: 2px solid #d4d4d8;
+  box-shadow: 0 4px 0 #78350f, 0 6px 8px rgba(217, 119, 6, 0.35), inset 0 1px 0 rgba(255, 255, 255, 0.6);
+  border-radius: 9999px !important;
+}
+.keycap-real-round-mod.key-pressed {
+  transform: translateY(3px) !important;
+  box-shadow: 0 1px 0 #78350f, 0 2px 3px rgba(217, 119, 6, 0.2), inset 0 1px 2px rgba(0, 0, 0, 0.2) !important;
+}
+
+/* 8. LOGITECH K120 CLASSIC OFFICE (BÀN PHÍM VĂN PHÒNG QUỐC DÂN) */
+.keycap-real-k120-alpha {
+  background: linear-gradient(180deg, #334155 0%, #1e293b 70%, #0f172a 100%);
+  color: #ffffff;
+  border: 1px solid #334155;
+  border-top: 2px solid #475569;
+  box-shadow: 0 4px 0 #020617, 0 6px 7px rgba(0, 0, 0, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.15);
+}
+.keycap-real-k120-alpha.key-pressed {
+  transform: translateY(3px) !important;
+  box-shadow: 0 1px 0 #020617, 0 2px 3px rgba(0, 0, 0, 0.3), inset 0 1px 2px rgba(0, 0, 0, 0.4) !important;
+}
+.keycap-real-k120-mod {
+  background: linear-gradient(180deg, #1e293b 0%, #0f172a 80%, #020617 100%);
+  color: #cbd5e1;
+  border: 1px solid #1e293b;
+  border-top: 2px solid #334155;
+  box-shadow: 0 4px 0 #000000, 0 6px 7px rgba(0, 0, 0, 0.45), inset 0 1px 0 rgba(255, 255, 255, 0.1);
+}
+.keycap-real-k120-mod.key-pressed {
+  transform: translateY(3px) !important;
+  box-shadow: 0 1px 0 #000000, 0 2px 3px rgba(0, 0, 0, 0.3), inset 0 1px 2px rgba(0, 0, 0, 0.5) !important;
+}
+
+/* 9. BÀN PHÍM SỐ 9: BÀN PHÍM DO HỆ THỐNG TỰ PHÁT SINH & TỰ CHẾ TẠO (10 NGÓN HỌC ĐƯỜNG) */
+.keycap-sys-rainbow-alpha {
+  background: linear-gradient(180deg, #ffffff 0%, #fdf4ff 60%, #fae8ff 100%);
+  color: #581c87;
+  border: 1px solid #f0abfc;
+  border-top: 2px solid #ffffff;
+  box-shadow: 0 4px 0 #c084fc, 0 6px 8px rgba(192, 132, 252, 0.3), inset 0 1px 0 #ffffff;
+}
+.keycap-sys-rainbow-alpha.key-pressed {
+  transform: translateY(3px) !important;
+  box-shadow: 0 1px 0 #c084fc, 0 2px 3px rgba(192, 132, 252, 0.2), inset 0 1px 2px rgba(0, 0, 0, 0.15) !important;
+}
+.keycap-sys-rainbow-mod {
+  background: linear-gradient(180deg, #a855f7 0%, #8b5cf6 75%, #7c3aed 100%);
+  color: #ffffff;
+  border: 1px solid #6d28d9;
+  border-top: 2px solid #c4b5fd;
+  box-shadow: 0 4px 0 #4c1d95, 0 6px 8px rgba(124, 58, 237, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.6);
+}
+.keycap-sys-rainbow-mod.key-pressed {
+  transform: translateY(3px) !important;
+  box-shadow: 0 1px 0 #4c1d95, 0 2px 3px rgba(124, 58, 237, 0.2), inset 0 1px 2px rgba(0, 0, 0, 0.2) !important;
+}
+
+/* 3D POPPED-UP TARGET KEYCAP (NỔI BẬT LÊN & TÔ MÀU RỰC RỠ) */
+@keyframes key-popup-pulse {
+  0%, 100% {
+    transform: translateY(-6px) scale(1.08);
+    box-shadow: 
+      0 10px 0 #d97706,
+      0 14px 16px rgba(217, 119, 6, 0.4),
+      0 0 24px rgba(245, 158, 11, 0.8),
+      inset 0 2px 2px rgba(255, 255, 255, 0.9);
+  }
+  50% {
+    transform: translateY(-8px) scale(1.12);
+    box-shadow: 
+      0 12px 0 #d97706,
+      0 18px 22px rgba(217, 119, 6, 0.5),
+      0 0 35px rgba(245, 158, 11, 1),
+      inset 0 2px 2px rgba(255, 255, 255, 1);
+  }
+}
+
+.key-target-pop {
+  animation: key-popup-pulse 1.3s infinite ease-in-out;
+  position: relative;
+  z-index: 35 !important;
+}
+
+/* WRONG KEY SHAKE ANIMATION */
+@keyframes shake-key {
+  0%, 100% { transform: translateX(0); }
+  20%, 60% { transform: translateX(-5px); }
+  40%, 80% { transform: translateX(5px); }
+}
+
+.key-wrong-shake {
+  animation: shake-key 0.4s ease-in-out;
+  background: linear-gradient(180deg, #f87171 0%, #ef4444 85%, #dc2626 100%) !important;
+  color: #ffffff !important;
+  box-shadow: 
+    0 4px 0 #991b1b,
+    0 0 20px rgba(239, 68, 68, 0.7) !important;
+  position: relative;
+  z-index: 30;
+}
+
+/* Bouncing guide arrow pointing to correct key */
+@keyframes bounce-guide-arrow {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-5px); }
+}
+
+.animate-guide-arrow {
+  animation: bounce-guide-arrow 0.8s ease-in-out infinite;
+}
+
+/* Floating animation for game bubbles */
+@keyframes float-bubble {
+  0% { transform: translateY(0px) rotate(0deg); }
+  50% { transform: translateY(-6px) rotate(3deg); }
+  100% { transform: translateY(0px) rotate(0deg); }
+}
+
+.animate-float-bubble {
+  animation: float-bubble 3s ease-in-out infinite;
+}
+
+/* Custom neat scrollbar */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+::-webkit-scrollbar-track {
+  background: #f1f5f9;
+}
+::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+  border-radius: 4px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #94a3b8;
+}
+
+/* BLINKING TEXT EDITOR CURSOR */
+@keyframes text-editor-blink {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0;
+  }
+}
+
+.animate-editor-cursor {
+  animation: text-editor-blink 0.9s cubic-bezier(1, 0, 0, 1) infinite;
+}

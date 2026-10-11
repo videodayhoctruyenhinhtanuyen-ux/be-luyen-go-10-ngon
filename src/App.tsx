@@ -1,0 +1,2310 @@
+import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
+import { Lesson, KeyConfig, FingerId, TypingStats, AppSettings, TypingInputMode, KeyboardImeMode, GradeAssignment, TypedKeyRecord } from './types/typing';
+import { LESSONS } from './data/lessons';
+import { getKeyForChar } from './data/keyboardLayout';
+import { buildKeystrokeSteps, KeystrokeStep } from './utils/vietnameseKeystrokes';
+import { generateValidTelexSequencesForWord, checkKeyInSmartTelexWord, matchUnikeyInputInWord, isVietnameseAccented, VIETNAMESE_CHAR_DECOMPOSITION } from './utils/vietnameseSmartTelex';
+import { soundEngine } from './utils/audio';
+import { Keyboard } from './components/Keyboard';
+import { FingerGuideBar } from './components/FingerGuideBar';
+import { PracticeArea } from './components/PracticeArea';
+import { MascotBanner } from './components/MascotBanner';
+import { PostureGuideModal } from './components/PostureGuideModal';
+import { VietnameseGuideModal } from './components/VietnameseGuideModal';
+import { MultiGameHub } from './components/MultiGameHub';
+import { CurriculumModal } from './components/CurriculumModal';
+import { CustomTextModal } from './components/CustomTextModal';
+import { TeacherLessonModal } from './components/TeacherLessonModal';
+import { TextbookImageViewer, TextbookTab } from './components/TextbookImageViewer';
+import { TextbookIllustrationCard } from './components/TextbookIllustrationCard';
+import { KeyboardSkinTheme, KEYBOARD_THEMES } from './data/keyboardThemes';
+import { KeyboardThemeModal } from './components/KeyboardThemeModal';
+import { CompletionModal } from './components/CompletionModal';
+import {
+  fetchLessonsFromSupabase,
+  upsertLessonToSupabase,
+  deleteLessonFromSupabase,
+  bulkUpsertLessonsToSupabase,
+  fetchAssignmentsFromSupabase,
+  saveAssignmentToSupabase,
+  subscribeToSupabaseRealtime,
+} from './lib/supabase';
+import confetti from 'canvas-confetti';
+import {
+  BookOpen,
+  Gamepad2,
+  Sliders,
+  HelpCircle,
+  Volume2,
+  VolumeX,
+  Sparkles,
+  UserCheck,
+  GraduationCap,
+  Bell,
+  CheckCircle2,
+  RotateCcw,
+  Palette,
+  Image as ImageIcon,
+  Maximize,
+  Minimize
+} from 'lucide-react';
+
+export default function App() {
+  // Input mode: 'telex' | 'vni' | 'no_accent'
+  const [inputMode, setInputMode] = useState<TypingInputMode>('telex');
+
+  // Chế độ bộ gõ bàn phím trên máy tính:
+  // - 'unikey_v': Máy tính đang bật Unikey / EVKey chữ [V] (Gõ tiếng Việt tự nhiên, không bị bắt lỗi do ghép dấu)
+  // - 'telex_e': Máy tính tắt Unikey hoặc để chế độ [E] (Luyện từng phím Telex quy tắc SGK)
+  const [keyboardImeMode, setKeyboardImeMode] = useState<KeyboardImeMode>(() => {
+    const saved = localStorage.getItem('typing_keyboard_ime_mode');
+    if (saved === 'unikey_v' || saved === 'telex_e') return saved;
+    return 'unikey_v'; // Mặc định tương thích bộ gõ Unikey [V] của máy tính
+  });
+
+  const handleToggleKeyboardImeMode = useCallback((mode?: KeyboardImeMode) => {
+    setKeyboardImeMode((prev) => {
+      const next = mode !== undefined ? mode : prev === 'unikey_v' ? 'telex_e' : 'unikey_v';
+      localStorage.setItem('typing_keyboard_ime_mode', next);
+      return next;
+    });
+  }, []);
+
+  // Active Grade Level chosen by student (3, 4, 5, or 0 = all)
+  const [selectedGrade, setSelectedGrade] = useState<number>(3);
+
+  // All lessons on system (default + teacher-edited), persisted online to server & localStorage
+  const [allLessons, setAllLessons] = useState<Lesson[]>(() => {
+    try {
+      const saved = localStorage.getItem('typing_kids_all_lessons');
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+      }
+    } catch {
+      // fallback
+    }
+    return LESSONS;
+  });
+
+  // Specific lesson to load into teacher modal editor
+  const [editingLessonForModal, setEditingLessonForModal] = useState<Lesson | null>(null);
+
+  // Trạng thái kết nối Supabase Cloud Database Realtime
+  const [isSupabaseOnline, setIsSupabaseOnline] = useState<boolean>(true);
+
+  // Fetch saved lessons from Supabase (với fallback server JSON) & Lắng nghe Realtime
+  useEffect(() => {
+    let unsubscribeRealtime: (() => void) | null = null;
+
+    const syncLessons = async () => {
+      try {
+        // 1. Thử tải trực tiếp từ Supabase Cloud
+        const supabaseLessons = await fetchLessonsFromSupabase();
+        if (supabaseLessons && supabaseLessons.length > 0) {
+          setAllLessons(supabaseLessons);
+          localStorage.setItem('typing_kids_all_lessons', JSON.stringify(supabaseLessons));
+          setIsSupabaseOnline(true);
+          return;
+        }
+
+        // Nếu bảng Supabase chưa có bài học -> Đẩy danh sách mặc định LESSONS lên Supabase
+        if (supabaseLessons && supabaseLessons.length === 0) {
+          await bulkUpsertLessonsToSupabase(LESSONS);
+        }
+
+        // 2. Fallback sang server route nếu Supabase chưa có bảng
+        const res = await fetch('/api/lessons');
+        if (res.ok) {
+          const data = await res.json();
+          if (data.success && Array.isArray(data.lessons) && data.lessons.length > 0) {
+            setAllLessons(data.lessons);
+            localStorage.setItem('typing_kids_all_lessons', JSON.stringify(data.lessons));
+          } else {
+            fetch('/api/lessons', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ lessons: LESSONS }),
+            }).catch(() => {});
+          }
+        }
+      } catch (err) {
+        console.warn('Could not sync online lessons:', err);
+      }
+    };
+
+    const syncAssignments = async () => {
+      try {
+        // 1. Thử tải từ Supabase Cloud
+        const supabaseAssignments = await fetchAssignmentsFromSupabase();
+        if (supabaseAssignments && Object.keys(supabaseAssignments).length > 0) {
+          setGradeAssignments(supabaseAssignments);
+          localStorage.setItem('typing_kids_grade_assignments', JSON.stringify(supabaseAssignments));
+          setIsSupabaseOnline(true);
+          return;
+        }
+
+        // 2. Fallback server
+        const res = await fetch('/api/assignments');
+        if (res.ok) {
+          const data = await res.json();
+          if (data.success && data.assignments && typeof data.assignments === 'object') {
+            setGradeAssignments(data.assignments);
+            localStorage.setItem('typing_kids_grade_assignments', JSON.stringify(data.assignments));
+          }
+        }
+      } catch (err) {
+        console.warn('Could not sync online assignments:', err);
+      }
+    };
+
+    syncLessons();
+    syncAssignments();
+
+    // 3. ĐĂNG KÝ REALTIME: Tự động cập nhật tức thời khi giáo viên lưu/giao bài từ bất kỳ đâu
+    try {
+      unsubscribeRealtime = subscribeToSupabaseRealtime(
+        async () => {
+          const updated = await fetchLessonsFromSupabase();
+          if (updated && updated.length > 0) {
+            setAllLessons(updated);
+            localStorage.setItem('typing_kids_all_lessons', JSON.stringify(updated));
+          }
+        },
+        async () => {
+          const updatedAssignments = await fetchAssignmentsFromSupabase();
+          if (updatedAssignments) {
+            setGradeAssignments(updatedAssignments);
+            localStorage.setItem('typing_kids_grade_assignments', JSON.stringify(updatedAssignments));
+          }
+        }
+      );
+    } catch (err) {
+      console.warn('Không thể khởi tạo Realtime listener:', err);
+    }
+
+    return () => {
+      if (unsubscribeRealtime) unsubscribeRealtime();
+    };
+  }, []);
+
+  const allAvailableLessons = allLessons;
+  const teacherLessons = useMemo(() => {
+    return allLessons.filter((l) => l.id.startsWith('teacher-') || !!l.authorTeacher);
+  }, [allLessons]);
+
+  // Grade Assignments (Bài tập được giáo viên giao cho từng khối lớp - 1 hoặc nhiều bài)
+  const [gradeAssignments, setGradeAssignments] = useState<Record<number, GradeAssignment>>(() => {
+    try {
+      const saved = localStorage.getItem('typing_kids_grade_assignments');
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (parsed && typeof parsed === 'object') return parsed;
+      }
+    } catch {
+      // fallback
+    }
+    return {
+      3: {
+        gradeLevel: 3,
+        lessonId: 'lesson-3-3',
+        lessonIds: ['lesson-3-3', 'lesson-3-1'],
+        assignedAt: new Date().toISOString(),
+        teacherName: 'Cô Mai',
+        teacherNote: 'Bài tập về nhà tuần này: Các con Lớp 3 hoàn thành 2 bài tập này nhé!',
+      },
+    };
+  });
+
+  // Curriculum & Current Lesson state - Mặc định bài 3 Mèo Con Đi Học cho Lớp 3
+  const [currentLessonIndex, setCurrentLessonIndex] = useState<number>(() => {
+    const idx = LESSONS.filter((l) => l.gradeLevel === 3).findIndex((l) => l.id === 'lesson-3-3');
+    return idx >= 0 ? idx : 0;
+  });
+  const [customLesson, setCustomLesson] = useState<Lesson | null>(null);
+
+  // Derive active lesson
+  const activeLesson: Lesson = useMemo(() => {
+    if (customLesson) return customLesson;
+    const gradeFiltered = allAvailableLessons.filter(
+      (l) => l.gradeLevel === selectedGrade || !l.gradeLevel
+    );
+    return gradeFiltered[currentLessonIndex] || allAvailableLessons[0];
+  }, [customLesson, allAvailableLessons, selectedGrade, currentLessonIndex]);
+
+  // Check if current lesson is assigned homework for selected grade
+  const isCurrentAssignedHomework = useMemo(() => {
+    const currentAssign = gradeAssignments[selectedGrade];
+    if (!currentAssign) return false;
+    const ids =
+      currentAssign.lessonIds && currentAssign.lessonIds.length > 0
+        ? currentAssign.lessonIds
+        : currentAssign.lessonId
+        ? [currentAssign.lessonId]
+        : [];
+    return ids.includes(activeLesson.id);
+  }, [gradeAssignments, selectedGrade, activeLesson.id]);
+
+  // Target text and Keystroke steps sequence
+  const targetText = activeLesson.text;
+  const keystrokeSteps: KeystrokeStep[] = useMemo(() => {
+    return buildKeystrokeSteps(targetText, inputMode);
+  }, [targetText, inputMode]);
+
+  // Current step pointer in keystroke sequence
+  const [stepIndex, setStepIndex] = useState<number>(0);
+  const [isCompleted, setIsCompleted] = useState<boolean>(false);
+  const [startTime, setStartTime] = useState<number | null>(null);
+
+  // Mistake & Backspace guidance state
+  const [hasMistake, setHasMistake] = useState<boolean>(false);
+  const [mistakeChar, setMistakeChar] = useState<string | null>(null);
+  const [mistakeKeyCode, setMistakeKeyCode] = useState<string | null>(null);
+
+  // Pressed physical keys on keyboard (for 3D press effect)
+  const [pressedKeys, setPressedKeys] = useState<Set<string>>(new Set());
+
+  // Real-time typed keystrokes history for visualization in input area
+  const [recentTypedKeys, setRecentTypedKeys] = useState<TypedKeyRecord[]>([]);
+
+  // Statistics
+  const [stats, setStats] = useState<TypingStats>({
+    wpm: 0,
+    cpm: 0,
+    accuracy: 100,
+    totalCharacters: 0,
+    correctCharacters: 0,
+    mistakes: 0,
+    timeSpentSeconds: 0,
+    currentStreak: 0,
+    bestStreak: 0,
+    stars: 0,
+  });
+
+  // Persistent completed lessons records
+  const [completedLessons, setCompletedLessons] = useState<
+    Record<string, { stars: number; bestWpm: number }>
+  >(() => {
+    try {
+      const saved = localStorage.getItem('typing_kids_completed_lessons');
+      return saved ? JSON.parse(saved) : {};
+    } catch {
+      return {};
+    }
+  });
+
+  // Modals state
+  const [isPostureModalOpen, setIsPostureModalOpen] = useState<boolean>(false);
+  const [isVietnameseGuideOpen, setIsVietnameseGuideOpen] = useState<boolean>(false);
+  const [isGameModalOpen, setIsGameModalOpen] = useState<boolean>(false);
+  const [isCurriculumModalOpen, setIsCurriculumModalOpen] = useState<boolean>(false);
+  const [isCustomTextModalOpen, setIsCustomTextModalOpen] = useState<boolean>(false);
+  const [isTeacherModalOpen, setIsTeacherModalOpen] = useState<boolean>(false);
+  const [showSettingsDropdown, setShowSettingsDropdown] = useState<boolean>(false);
+  const [isThemeModalOpen, setIsThemeModalOpen] = useState<boolean>(false);
+  const [textbookTab, setTextbookTab] = useState<TextbookTab>('curriculum');
+  const [isRightPanelOpen, setIsRightPanelOpen] = useState<boolean>(false);
+  // Full-width keyboard toggle: cho phép ẩn cột bên phải để bàn phím mở rộng phủ kín 100% màn hình 1920x1080
+  const [isRightColumnVisible, setIsRightColumnVisible] = useState<boolean>(true);
+
+  // Screen Adaptive & Fullscreen Fit Mode (Tự động điều chỉnh kích thước & chế độ hiển thị toàn bộ trang web tương thích độ phân giải)
+  const [isFullscreenAdaptive, setIsFullscreenAdaptive] = useState<boolean>(false);
+  const [resolutionInfo, setResolutionInfo] = useState<{ width: number; height: number }>({
+    width: typeof window !== 'undefined' ? window.screen.width || window.innerWidth : 1920,
+    height: typeof window !== 'undefined' ? window.screen.height || window.innerHeight : 1080,
+  });
+  const [screenFitToast, setScreenFitToast] = useState<string | null>(null);
+
+  // Xử lý nút lệnh phủ kín màn hình: tự động điều chỉnh kích thước và chế độ hiển thị của toàn bộ trang web
+  // để tương thích với độ phân giải của máy tính hiện tại
+  const handleToggleFullscreenFit = async () => {
+    try {
+      const isCurrentlyFullscreen = !!document.fullscreenElement;
+      if (!isCurrentlyFullscreen) {
+        if (document.documentElement.requestFullscreen) {
+          await document.documentElement.requestFullscreen();
+        }
+        setIsFullscreenAdaptive(true);
+        const w = window.screen.width || window.innerWidth;
+        const h = window.screen.height || window.innerHeight;
+        setResolutionInfo({ width: w, height: h });
+        setScreenFitToast(
+          `🖥️ Đã tự động điều chỉnh kích thước & chế độ hiển thị toàn bộ trang web tương thích chuẩn xác với độ phân giải ${w}x${h} của máy tính!`
+        );
+      } else {
+        if (document.exitFullscreen) {
+          await document.exitFullscreen();
+        }
+        setIsFullscreenAdaptive(false);
+        setScreenFitToast(`🖥️ Đã trở về chế độ hiển thị cửa sổ tiêu chuẩn.`);
+      }
+    } catch {
+      // Fallback if browser iframe policy blocks requestFullscreen
+      setIsFullscreenAdaptive((prev) => {
+        const next = !prev;
+        const w = window.innerWidth;
+        const h = window.innerHeight;
+        setResolutionInfo({ width: w, height: h });
+        setScreenFitToast(
+          next
+            ? `🖥️ Đã tự động điều chỉnh kích thước & chế độ hiển thị toàn bộ trang web tương thích chuẩn xác với độ phân giải ${w}x${h} của máy tính!`
+            : `🖥️ Đã trở về chế độ hiển thị cửa sổ tiêu chuẩn.`
+        );
+        return next;
+      });
+    }
+
+    // Kích hoạt tính toán lại kích cỡ bàn phím và giao diện
+    setTimeout(() => {
+      window.dispatchEvent(new Event('resize'));
+    }, 150);
+
+    setTimeout(() => {
+      setScreenFitToast(null);
+    }, 4000);
+  };
+
+  useEffect(() => {
+    const handleFullscreenChange = () => {
+      const isFs = !!document.fullscreenElement;
+      setIsFullscreenAdaptive(isFs);
+      const w = window.screen.width || window.innerWidth;
+      const h = window.screen.height || window.innerHeight;
+      setResolutionInfo({ width: w, height: h });
+      window.dispatchEvent(new Event('resize'));
+    };
+    const handleWindowResize = () => {
+      const w = window.innerWidth;
+      const h = window.innerHeight;
+      setResolutionInfo({ width: window.screen.width || w, height: window.screen.height || h });
+    };
+    document.addEventListener('fullscreenchange', handleFullscreenChange);
+    window.addEventListener('resize', handleWindowResize);
+    return () => {
+      document.removeEventListener('fullscreenchange', handleFullscreenChange);
+      window.removeEventListener('resize', handleWindowResize);
+    };
+  }, []);
+
+  // Chế độ gõ dấu thông minh / tự do (cho phép gõ dấu trước hoặc gõ dấu sau theo kiểu Telex)
+  const [smartTelexFreeMode, setSmartTelexFreeMode] = useState<boolean>(true);
+  const [wordTypedKeys, setWordTypedKeys] = useState<string[]>([]);
+
+  // Keyboard theme skin state (8 themes)
+  const [currentKeyboardTheme, setCurrentKeyboardTheme] = useState<KeyboardSkinTheme>(() => {
+    try {
+      const savedId = localStorage.getItem('typing_kids_keyboard_theme');
+      const found = KEYBOARD_THEMES.find((t) => t.id === savedId);
+      return found || KEYBOARD_THEMES[0];
+    } catch {
+      return KEYBOARD_THEMES[0];
+    }
+  });
+
+  const handleSelectTheme = (theme: KeyboardSkinTheme) => {
+    setCurrentKeyboardTheme(theme);
+    try {
+      localStorage.setItem('typing_kids_keyboard_theme', theme.id);
+    } catch {
+      // Ignore
+    }
+  };
+
+  // Settings
+  const [settings, setSettings] = useState<AppSettings>(() => {
+    try {
+      const saved = localStorage.getItem('typing_kids_settings');
+      if (saved) return JSON.parse(saved);
+    } catch {
+      // Fallback
+    }
+    return {
+      soundEnabled: true,
+      soundType: 'mechanical',
+      soundVolume: 0.7,
+      voicePrompt: false,
+      handsOverlayEnabled: false,
+      handsOpacity: 0.75,
+      handsStyle: 'realistic',
+      showFingerGuideText: true,
+      highlightMatchingFinger: true,
+    };
+  });
+
+  // Audio settings sync
+  useEffect(() => {
+    soundEngine.setMuted(!settings.soundEnabled);
+    soundEngine.setVolume(settings.soundVolume);
+    try {
+      localStorage.setItem('typing_kids_settings', JSON.stringify(settings));
+    } catch {
+      // Ignore
+    }
+  }, [settings]);
+
+  // When lesson, input mode, or grade changes, reset practice state
+  useEffect(() => {
+    setStepIndex(0);
+    setIsCompleted(false);
+    setStartTime(null);
+    setHasMistake(false);
+    setMistakeChar(null);
+    setMistakeKeyCode(null);
+    setRecentTypedKeys([]);
+    setWordTypedKeys([]);
+    setStats({
+      wpm: 0,
+      cpm: 0,
+      accuracy: 100,
+      totalCharacters: 0,
+      correctCharacters: 0,
+      mistakes: 0,
+      timeSpentSeconds: 0,
+      currentStreak: 0,
+      bestStreak: 0,
+      stars: 0,
+    });
+  }, [activeLesson, inputMode]);
+
+  // Teacher Assigns 1 or Multiple Lessons to Grade
+  const handleAssignLessonToGrade = async (
+    grade: number,
+    lessonIdsOrId: string[] | string,
+    teacherName: string,
+    teacherNote: string
+  ) => {
+    const lessonIdsArray: string[] = Array.isArray(lessonIdsOrId)
+      ? lessonIdsOrId
+      : [lessonIdsOrId];
+    const primaryId = lessonIdsArray[0] || '';
+
+    const newAssignment: GradeAssignment = {
+      gradeLevel: grade,
+      lessonId: primaryId,
+      lessonIds: lessonIdsArray,
+      assignedAt: new Date().toISOString(),
+      teacherName,
+      teacherNote,
+    };
+
+    const updated = { ...gradeAssignments, [grade]: newAssignment };
+    setGradeAssignments(updated);
+    try {
+      localStorage.setItem('typing_kids_grade_assignments', JSON.stringify(updated));
+      // 1. Lưu trực tiếp lên Supabase Cloud Database Realtime
+      await saveAssignmentToSupabase(newAssignment);
+      // 2. Fallback server
+      await fetch('/api/assignments', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ assignments: updated }),
+      }).catch(() => {});
+    } catch (err) {
+      console.warn('Lỗi khi lưu giao bài lên server:', err);
+    }
+
+    // If current selected grade is this grade, immediately activate the first assigned lesson
+    if (selectedGrade === grade && primaryId) {
+      const assigned = allAvailableLessons.find((l) => l.id === primaryId);
+      if (assigned) {
+        setCustomLesson(assigned);
+        handleRestart();
+      }
+    }
+  };
+
+  // Student selects Grade (Lớp 3 / 4 / 5)
+  const handleSelectGrade = (grade: number) => {
+    setSelectedGrade(grade);
+    setCurrentLessonIndex(0);
+
+    // If teacher has assigned homework for this grade, automatically load the first one
+    const assigned = gradeAssignments[grade];
+    if (assigned) {
+      const primaryId = assigned.lessonIds?.[0] || assigned.lessonId;
+      const targetLesson = allAvailableLessons.find((l) => l.id === primaryId);
+      if (targetLesson) {
+        setCustomLesson(targetLesson);
+        return;
+      }
+    }
+    setCustomLesson(null);
+  };
+
+  // Save teacher lessons persistently online to server & localStorage
+  const handleSaveTeacherLesson = async (newLesson: Lesson) => {
+    let updatedList: Lesson[];
+    const exists = allLessons.some((l) => l.id === newLesson.id);
+    if (exists) {
+      updatedList = allLessons.map((l) => (l.id === newLesson.id ? newLesson : l));
+    } else {
+      updatedList = [newLesson, ...allLessons];
+    }
+
+    setAllLessons(updatedList);
+    try {
+      localStorage.setItem('typing_kids_all_lessons', JSON.stringify(updatedList));
+    } catch {
+      // Ignore
+    }
+
+    // 1. Lưu trực tiếp lên Supabase Cloud Database Realtime
+    try {
+      await upsertLessonToSupabase(newLesson);
+    } catch (err) {
+      console.warn('Lỗi khi lưu bài học lên Supabase:', err);
+    }
+
+    // 2. Persist server fallback
+    try {
+      await fetch('/api/lessons', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ lessons: updatedList }),
+      });
+    } catch (err) {
+      console.error('Lỗi khi lưu bài học trực tuyến:', err);
+    }
+
+    setCustomLesson(newLesson);
+    handleRestart();
+  };
+
+  const handleDeleteTeacherLesson = async (id: string) => {
+    const updatedList = allLessons.filter((l) => l.id !== id);
+    setAllLessons(updatedList);
+    try {
+      localStorage.setItem('typing_kids_all_lessons', JSON.stringify(updatedList));
+    } catch {
+      // Ignore
+    }
+
+    // 1. Xóa trực tiếp khỏi Supabase Cloud Database
+    try {
+      await deleteLessonFromSupabase(id);
+    } catch (err) {
+      console.warn('Lỗi khi xóa bài học trên Supabase:', err);
+    }
+
+    // 2. Server fallback
+    try {
+      await fetch('/api/lessons', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ lessons: updatedList }),
+      });
+    } catch (err) {
+      console.error('Lỗi khi xóa bài học trực tuyến:', err);
+    }
+    if (customLesson?.id === id) {
+      setCustomLesson(null);
+      handleRestart();
+    }
+  };
+
+  const handleResetSystemLesson = async (id: string) => {
+    const defaultOriginal = LESSONS.find((l) => l.id === id);
+    if (!defaultOriginal) return;
+
+    const updatedList = allLessons.map((l) => (l.id === id ? defaultOriginal : l));
+    setAllLessons(updatedList);
+    try {
+      localStorage.setItem('typing_kids_all_lessons', JSON.stringify(updatedList));
+      await fetch('/api/lessons', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ lessons: updatedList }),
+      });
+    } catch (err) {
+      console.error('Lỗi khi khôi phục bài học trực tuyến:', err);
+    }
+    if (customLesson?.id === id) {
+      setCustomLesson(defaultOriginal);
+      handleRestart();
+    }
+  };
+
+  // Current active step
+  const currentStep: KeystrokeStep | undefined = keystrokeSteps[stepIndex];
+
+  // Derive target key configuration on keyboard
+  const isBackspaceTarget = hasMistake;
+  const isShiftTarget = !hasMistake && (currentStep?.isShiftRequired ?? false);
+  const isEnterTarget = !hasMistake && currentStep?.keyChar === 'Enter';
+
+  // Active Word details for Smart Telex
+  const currentWordInfo = useMemo(() => {
+    if (!currentStep) return null;
+    const charIdx = currentStep.charIndex;
+    if (charIdx >= targetText.length) return null;
+    const ch = targetText[charIdx];
+    if (ch === ' ' || ch === '\n') return null;
+
+    let wordStart = charIdx;
+    while (wordStart > 0 && targetText[wordStart - 1] !== ' ' && targetText[wordStart - 1] !== '\n') {
+      wordStart--;
+    }
+    let wordEnd = charIdx;
+    while (wordEnd < targetText.length && targetText[wordEnd] !== ' ' && targetText[wordEnd] !== '\n') {
+      wordEnd++;
+    }
+    const targetWord = targetText.slice(wordStart, wordEnd);
+
+    let wordStepStart = 0;
+    while (wordStepStart < keystrokeSteps.length && keystrokeSteps[wordStepStart].charIndex < wordStart) {
+      wordStepStart++;
+    }
+    let wordStepEnd = wordStepStart;
+    while (wordStepEnd < keystrokeSteps.length && keystrokeSteps[wordStepEnd].charIndex < wordEnd) {
+      wordStepEnd++;
+    }
+
+    return {
+      targetWord,
+      wordStart,
+      wordEnd,
+      wordStepStart,
+      wordStepEnd,
+    };
+  }, [currentStep, targetText, keystrokeSteps]);
+
+  // Next acceptable keys in Smart Telex Mode
+  const smartTelexNextInfo = useMemo(() => {
+    if (!smartTelexFreeMode || inputMode !== 'telex' || !currentWordInfo) {
+      return null;
+    }
+    return checkKeyInSmartTelexWord(currentWordInfo.targetWord, wordTypedKeys, '');
+  }, [smartTelexFreeMode, inputMode, currentWordInfo, wordTypedKeys]);
+
+  const targetKeyConfig: KeyConfig | undefined = useMemo(() => {
+    if (isBackspaceTarget) {
+      return getKeyForChar('Backspace') || { code: 'Backspace', label: 'Backspace', widthRatio: 2, type: 'modifier', finger: 'right-pinky' };
+    }
+    if (isEnterTarget) {
+      return getKeyForChar('Enter') || { code: 'Enter', label: 'Enter', widthRatio: 2.25, type: 'modifier', finger: 'right-pinky' };
+    }
+    if (!currentStep) return undefined;
+
+    // Trong chế độ gõ tự do: gợi ý phím ưu tiên tiếp theo nếu có
+    if (smartTelexFreeMode && inputMode === 'telex' && smartTelexNextInfo?.recommendedNextKey) {
+      const rec = smartTelexNextInfo.recommendedNextKey;
+      return getKeyForChar(rec) || getKeyForChar(currentStep.keyChar);
+    }
+
+    return getKeyForChar(currentStep.keyChar);
+  }, [isBackspaceTarget, isEnterTarget, currentStep, smartTelexFreeMode, inputMode, smartTelexNextInfo]);
+
+  const activeFinger: FingerId | undefined = targetKeyConfig?.finger;
+
+  // Văn bản học sinh đã nhập theo thời gian thực (được đưa vào ô nhập văn bản)
+  const userTypedText = useMemo(() => {
+    const charIdx = currentStep ? currentStep.charIndex : targetText.length;
+    const correctPortion = targetText.slice(0, charIdx);
+    if (hasMistake && mistakeChar) {
+      const displayM = mistakeChar === 'Space' ? ' ' : mistakeChar;
+      return correctPortion + displayM;
+    }
+    return correctPortion;
+  }, [targetText, currentStep, hasMistake, mistakeChar]);
+
+  // Deduplicate rapid duplicate events (e.g. from keydown + input onChange)
+  const lastKeyProcessedRef = useRef<{ key: string; time: number }>({ key: '', time: 0 });
+  const lastPhysicalKeyHandledRef = useRef<{ key: string; time: number }>({ key: '', time: 0 });
+  const pendingBackspaceTimerRef = useRef<NodeJS.Timeout | null>(null);
+
+  useEffect(() => {
+    return () => {
+      if (pendingBackspaceTimerRef.current) {
+        clearTimeout(pendingBackspaceTimerRef.current);
+      }
+    };
+  }, []);
+
+  // Tự động dọn sạch wordTypedKeys khi bắt đầu một từ mới
+  useEffect(() => {
+    if (!currentWordInfo || stepIndex === currentWordInfo.wordStepStart) {
+      setWordTypedKeys([]);
+    }
+  }, [stepIndex, currentWordInfo]);
+
+  // Process key input
+  const handleInputEvent = useCallback(
+    (keyChar: string, keyCode?: string) => {
+      if (isCompleted || !currentStep) return;
+
+      const now = Date.now();
+
+      // Nếu có phím Backspace đang bị hoãn do nghi vấn là Unikey synthetic Backspace,
+      // mà ngay sau đó có một phím ký tự tới (đặc biệt là ký tự có dấu hoặc phím tiếp theo) -> HỦY BACKSPACE ĐÓ!
+      if (keyChar !== 'Backspace' && keyCode !== 'Backspace') {
+        if (pendingBackspaceTimerRef.current) {
+          clearTimeout(pendingBackspaceTimerRef.current);
+          pendingBackspaceTimerRef.current = null;
+        }
+      }
+
+      // Xử lý chuỗi nhiều ký tự (ví dụ khi dán, gõ bộ gõ Android/iOS hoặc IME gửi toàn từ "trời" hoặc chuỗi "ời")
+      if (keyChar.length > 1 && keyChar !== 'Backspace' && keyChar !== 'Enter') {
+        const lowerStr = keyChar.toLowerCase();
+        if (currentWordInfo) {
+          const stepsInCurrentWord = keystrokeSteps.slice(currentWordInfo.wordStepStart, currentWordInfo.wordStepEnd);
+          const stepInWordIdx = Math.max(0, stepIndex - currentWordInfo.wordStepStart);
+          const unikeyRes = matchUnikeyInputInWord(currentWordInfo.targetWord, stepInWordIdx, keyChar, stepsInCurrentWord, wordTypedKeys);
+          if (unikeyRes.isMatch) {
+            setStepIndex((idx) => idx + unikeyRes.advanceCount);
+            if (unikeyRes.isWordCompleted || stepIndex + unikeyRes.advanceCount >= currentWordInfo.wordStepEnd) {
+              setWordTypedKeys([]);
+            }
+            setHasMistake(false);
+            setMistakeChar(null);
+            setMistakeKeyCode(null);
+            if (settings.soundEnabled) soundEngine.playMechanicalClick();
+            return;
+          }
+        }
+
+        // Nếu chuỗi là các phím Telex liên tiếp
+        for (let i = 0; i < keyChar.length; i++) {
+          handleInputEvent(keyChar[i]);
+        }
+        return;
+      }
+
+      // Tránh xử lý trùng lặp nếu cả window.keydown và input.onChange cùng kích hoạt cho 1 phím vật lý
+      if (
+        keyChar !== 'Backspace' &&
+        keyChar.toLowerCase() === lastKeyProcessedRef.current.key &&
+        now - lastKeyProcessedRef.current.time < 50
+      ) {
+        return;
+      }
+      lastKeyProcessedRef.current = { key: keyChar.toLowerCase(), time: now };
+
+      const currentStartTime = startTime ?? now;
+      if (!startTime) setStartTime(now);
+
+      // Đưa phím vào bàn phím (chiếu sáng phím vừa bấm trên bàn phím ảo theo thời gian thực)
+      const flashCode =
+        keyCode ||
+        (keyChar === 'Backspace'
+          ? 'Backspace'
+          : keyChar === 'Enter'
+          ? 'Enter'
+          : keyChar === ' '
+          ? 'Space'
+          : getKeyForChar(keyChar)?.code);
+      if (flashCode) {
+        setPressedKeys((prev) => new Set(prev).add(flashCode));
+        setTimeout(() => {
+          setPressedKeys((prev) => {
+            const next = new Set(prev);
+            next.delete(flashCode);
+            return next;
+          });
+        }, 180);
+      }
+
+      // CASE 1: In MISTAKE state
+      if (hasMistake) {
+        if (keyChar === 'Backspace' || keyCode === 'Backspace') {
+          setHasMistake(false);
+          setMistakeChar(null);
+          setMistakeKeyCode(null);
+          setRecentTypedKeys((prev) => [
+            ...prev.slice(-14),
+            {
+              id: `${now}-${Math.random()}`,
+              keyLabel: '⌫ Xóa',
+              isCorrect: true,
+              timestamp: now,
+              isBackspace: true,
+            },
+          ]);
+          if (settings.soundEnabled) soundEngine.playMechanicalClick();
+          return;
+        }
+
+        // TỰ ĐỘNG KHÔI PHỤC NẾU HỌC SINH BẤM ĐÚNG PHÍM TIẾP THEO:
+        const lowerKey = keyChar.toLowerCase();
+        const expectedLower = currentStep.keyChar.toLowerCase();
+        let isCorrectNow = lowerKey === expectedLower;
+
+        if (!isCorrectNow && currentWordInfo && inputMode === 'telex') {
+          const stepsInCurrentWord = keystrokeSteps.slice(currentWordInfo.wordStepStart, currentWordInfo.wordStepEnd);
+          const stepInWordIdx = Math.max(0, stepIndex - currentWordInfo.wordStepStart);
+          const unikeyCheck = matchUnikeyInputInWord(currentWordInfo.targetWord, stepInWordIdx, keyChar, stepsInCurrentWord, wordTypedKeys);
+          if (unikeyCheck.isMatch) {
+            isCorrectNow = true;
+          } else {
+            const smartCheck = checkKeyInSmartTelexWord(currentWordInfo.targetWord, wordTypedKeys, keyChar);
+            if (smartCheck.isValid) isCorrectNow = true;
+          }
+        }
+
+        if (isCorrectNow) {
+          // Bỏ trạng thái lỗi và tiếp tục xử lý phím này bên dưới
+          setHasMistake(false);
+          setMistakeChar(null);
+          setMistakeKeyCode(null);
+        } else {
+          setRecentTypedKeys((prev) => [
+            ...prev.slice(-14),
+            {
+              id: `${now}-${Math.random()}`,
+              keyLabel: keyChar === ' ' ? '␣ Cách' : keyChar,
+              isCorrect: false,
+              timestamp: now,
+              expectedKey: currentStep.keyChar === ' ' ? '␣' : currentStep.keyChar,
+            },
+          ]);
+          if (settings.soundEnabled) soundEngine.playErrorBoop();
+          return;
+        }
+      }
+
+      // CASE 2: Xử lý phím Backspace với Unikey Synthetic Backspace Suppression
+      if (keyChar === 'Backspace' || keyCode === 'Backspace') {
+        const executeNormalBackspace = () => {
+          if (wordTypedKeys.length > 0) {
+            setWordTypedKeys((prev) => prev.slice(0, -1));
+          }
+          if (stepIndex > 0) {
+            setStepIndex((idx) => idx - 1);
+            setRecentTypedKeys((prev) => [
+              ...prev.slice(-14),
+              {
+                id: `${Date.now()}-${Math.random()}`,
+                keyLabel: '⌫ Xóa',
+                isCorrect: true,
+                timestamp: Date.now(),
+                isBackspace: true,
+              },
+            ]);
+            if (settings.soundEnabled) soundEngine.playMechanicalClick();
+          }
+        };
+
+        // Nếu máy tính đang bật Unikey [V] hoặc đang gõ dở một từ trong chế độ Telex:
+        // Hoãn 55ms để lọc bỏ synthetic Backspace của Unikey phát ra trước khi gửi ký tự có dấu!
+        if (keyboardImeMode === 'unikey_v' || (inputMode === 'telex' && wordTypedKeys.length > 0)) {
+          if (pendingBackspaceTimerRef.current) {
+            clearTimeout(pendingBackspaceTimerRef.current);
+          }
+          pendingBackspaceTimerRef.current = setTimeout(() => {
+            pendingBackspaceTimerRef.current = null;
+            executeNormalBackspace();
+          }, 55);
+          return;
+        }
+
+        executeNormalBackspace();
+        return;
+      }
+
+      // Tự động nhận diện nếu người dùng gõ ký tự có dấu từ Unikey:
+      const lowerKey = keyChar.toLowerCase();
+      if (isVietnameseAccented(lowerKey) && keyboardImeMode === 'telex_e') {
+        setKeyboardImeMode('unikey_v');
+        localStorage.setItem('typing_keyboard_ime_mode', 'unikey_v');
+      }
+
+      // Check matching
+      let isMatch = false;
+      let advanceCount = 1;
+
+      // 1. Phím Enter
+      if (currentStep.keyChar === 'Enter') {
+        isMatch = keyChar === 'Enter' || keyCode === 'Enter' || keyCode === 'NumpadEnter';
+        if (isMatch) setWordTypedKeys([]);
+      }
+      // 2. Phím Space (Dấu cách)
+      else if (keyChar === ' ' || keyCode === 'Space') {
+        if (currentStep.keyChar === ' ') {
+          isMatch = true;
+          setWordTypedKeys([]);
+        }
+        // Trường hợp đặc biệt: Người dùng bật Unikey [V] gõ xong từ (ví dụ "trời", "nắng", "học")
+        // Unikey đã nuốt phím dấu thanh để biến thành chữ tiếng Việt hoàn chỉnh, và người dùng bấm Space!
+        else if (currentWordInfo && inputMode === 'telex') {
+          const stepsInCurrentWord = keystrokeSteps.slice(currentWordInfo.wordStepStart, currentWordInfo.wordStepEnd);
+          const stepInWordIdx = Math.max(0, stepIndex - currentWordInfo.wordStepStart);
+          const unikeyCheck = matchUnikeyInputInWord(currentWordInfo.targetWord, stepInWordIdx, ' ', stepsInCurrentWord, wordTypedKeys);
+          if (unikeyCheck.isMatch) {
+            isMatch = true;
+            const remainingInWord = Math.max(1, currentWordInfo.wordStepEnd - stepIndex);
+            const nextStepIsSpace = keystrokeSteps[currentWordInfo.wordStepEnd]?.keyChar === ' ';
+            advanceCount = remainingInWord + (nextStepIsSpace ? 1 : 0);
+            setWordTypedKeys([]);
+          }
+        }
+      } else {
+        const expectedLower = currentStep.keyChar.toLowerCase();
+
+        // 3. Kiểm tra chuẩn thứ tự tuần tự
+        if (currentStep.isShiftRequired) {
+          isMatch = keyChar === currentStep.keyChar;
+        } else {
+          isMatch = lowerKey === expectedLower;
+        }
+
+        // 4. KIỂM TRA BỘ GÕ UNIKEY / EVKEY TRÊN MÁY TÍNH (Khớp ký tự có dấu, âm ghép, hoàn thành từ)
+        if (!isMatch && inputMode === 'telex' && currentWordInfo) {
+          const stepsInCurrentWord = keystrokeSteps.slice(currentWordInfo.wordStepStart, currentWordInfo.wordStepEnd);
+          const stepInWordIdx = Math.max(0, stepIndex - currentWordInfo.wordStepStart);
+          const unikeyCheck = matchUnikeyInputInWord(currentWordInfo.targetWord, stepInWordIdx, keyChar, stepsInCurrentWord, wordTypedKeys);
+          if (unikeyCheck.isMatch) {
+            isMatch = true;
+            advanceCount = unikeyCheck.advanceCount;
+            if (unikeyCheck.isWordCompleted || stepIndex + advanceCount >= currentWordInfo.wordStepEnd) {
+              setWordTypedKeys([]);
+            } else {
+              setWordTypedKeys((prev) => [...prev, keyChar]);
+            }
+          }
+        }
+
+        // 5. CHẾ ĐỘ GÕ DẤU TỰ DO TELEX (Dấu trước hoặc dấu sau)
+        if (!isMatch && inputMode === 'telex' && currentWordInfo) {
+          const smartCheck = checkKeyInSmartTelexWord(currentWordInfo.targetWord, wordTypedKeys, keyChar);
+          if (smartCheck.isValid) {
+            isMatch = true;
+            const nextKeys = [...wordTypedKeys, keyChar];
+            if (smartCheck.isWordCompleted) {
+              advanceCount = Math.max(1, currentWordInfo.wordStepEnd - stepIndex);
+              setWordTypedKeys([]);
+            } else {
+              setWordTypedKeys(nextKeys);
+              advanceCount = 1;
+            }
+          }
+        } else if (isMatch && currentWordInfo) {
+          // Trùng khớp tuần tự
+          const smartCheck = checkKeyInSmartTelexWord(currentWordInfo.targetWord, wordTypedKeys, keyChar);
+          if (smartCheck.isWordCompleted || stepIndex + 1 >= currentWordInfo.wordStepEnd) {
+            setWordTypedKeys([]);
+          } else {
+            setWordTypedKeys((prev) => [...prev, keyChar]);
+          }
+        }
+
+        // 6. HỖ TRỢ BỔ SUNG CÁC BIẾN THỂ PHÂN RÃ KÝ TỰ CÓ DẤU
+        if (!isMatch && inputMode === 'telex') {
+          const decomp = VIETNAMESE_CHAR_DECOMPOSITION[lowerKey];
+          if (decomp) {
+            if (decomp.hatHook && (expectedLower === decomp.hatHook || decomp.base === expectedLower)) {
+              isMatch = true;
+              advanceCount = expectedLower === decomp.base ? 2 : 1;
+              if (currentWordInfo) {
+                setWordTypedKeys((prev) => [...prev, decomp.hatHook!]);
+              }
+            } else if (decomp.tone && (expectedLower === decomp.tone || currentWordInfo?.targetWord.toLowerCase().includes(lowerKey))) {
+              isMatch = true;
+              advanceCount = currentStep.isToneMarkKey ? 1 : Math.max(1, (currentWordInfo?.wordStepEnd ?? stepIndex + 1) - stepIndex);
+              if (currentWordInfo) {
+                setWordTypedKeys([]);
+              }
+            } else if (lowerKey === currentStep.targetChar.toLowerCase()) {
+              isMatch = true;
+              let nextIdx = stepIndex + 1;
+              while (
+                nextIdx < keystrokeSteps.length &&
+                keystrokeSteps[nextIdx].charIndex === currentStep.charIndex
+              ) {
+                nextIdx++;
+              }
+              advanceCount = Math.max(1, nextIdx - stepIndex);
+              setWordTypedKeys([]);
+            }
+          }
+        }
+      }
+
+      // Record this keystroke in real-time visual history
+      const formattedKeyLabel =
+        keyChar === ' '
+          ? '␣ Cách'
+          : keyChar === 'Enter'
+          ? '↵ Enter'
+          : keyChar;
+
+      setRecentTypedKeys((prev) => [
+        ...prev.slice(-14),
+        {
+          id: `${now}-${Math.random()}`,
+          keyLabel: formattedKeyLabel,
+          isCorrect: isMatch,
+          timestamp: now,
+          expectedKey: currentStep.keyChar === ' ' ? '␣' : currentStep.keyChar,
+        },
+      ]);
+
+      // Update stats
+      setStats((prev) => {
+        const total = prev.totalCharacters + 1;
+        const correct = prev.correctCharacters + (isMatch ? 1 : 0);
+        const mistakes = prev.mistakes + (isMatch ? 0 : 1);
+        const streak = isMatch ? prev.currentStreak + 1 : 0;
+        const bestStreak = Math.max(prev.bestStreak, streak);
+        const accuracy = Math.round((correct / total) * 100);
+
+        const elapsedSec = Math.max(1, Math.round((now - currentStartTime) / 1000));
+        const words = correct / 5;
+        const wpm = Math.round((words / elapsedSec) * 60);
+        const cpm = Math.round((correct / elapsedSec) * 60);
+
+        let stars = 1;
+        if (wpm >= activeLesson.targetWpm && accuracy >= activeLesson.targetAccuracy) {
+          stars = 3;
+        } else if (wpm >= activeLesson.targetWpm * 0.75 || accuracy >= 85) {
+          stars = 2;
+        }
+
+        return {
+          wpm,
+          cpm,
+          accuracy,
+          totalCharacters: total,
+          correctCharacters: correct,
+          mistakes,
+          timeSpentSeconds: elapsedSec,
+          currentStreak: streak,
+          bestStreak,
+          stars,
+        };
+      });
+
+      if (isMatch) {
+        if (settings.soundEnabled) {
+          if (settings.soundType === 'bubble') {
+            soundEngine.playBubblePop();
+          } else {
+            soundEngine.playMechanicalClick(currentStep.keyChar === ' ');
+          }
+        }
+
+        const nextStepIndex = stepIndex + advanceCount;
+        setStepIndex(nextStepIndex);
+
+        if (nextStepIndex >= keystrokeSteps.length) {
+          setIsCompleted(true);
+          if (settings.soundEnabled) soundEngine.playVictoryFanfare();
+
+          confetti({
+            particleCount: 130,
+            spread: 90,
+            origin: { y: 0.6 },
+          });
+
+          setCompletedLessons((prev) => {
+            const currentRecord = prev[activeLesson.id];
+            const newStars = Math.max(currentRecord?.stars || 1, stats.stars || 2);
+            const newWpm = Math.max(currentRecord?.bestWpm || 0, stats.wpm);
+            const updated = {
+              ...prev,
+              [activeLesson.id]: { stars: newStars, bestWpm: newWpm },
+            };
+            try {
+              localStorage.setItem('typing_kids_completed_lessons', JSON.stringify(updated));
+            } catch {
+              // Ignore
+            }
+            return updated;
+          });
+        }
+      } else {
+        setHasMistake(true);
+        setMistakeChar(keyChar === ' ' ? 'Space' : keyChar);
+        setMistakeKeyCode(keyCode || null);
+        if (settings.soundEnabled) soundEngine.playErrorBoop();
+      }
+    },
+    [
+      isCompleted,
+      currentStep,
+      startTime,
+      hasMistake,
+      stepIndex,
+      settings,
+      keystrokeSteps,
+      activeLesson,
+      stats.stars,
+      stats.wpm,
+      smartTelexFreeMode,
+      inputMode,
+      keyboardImeMode,
+      currentWordInfo,
+      wordTypedKeys,
+    ]
+  );
+
+  // Global Keyboard event listener
+  useEffect(() => {
+    if (
+      isCustomTextModalOpen ||
+      isTeacherModalOpen ||
+      isGameModalOpen ||
+      isCurriculumModalOpen ||
+      isPostureModalOpen ||
+      isVietnameseGuideOpen ||
+      isThemeModalOpen
+    ) {
+      return;
+    }
+
+    const handleKeyDown = (e: KeyboardEvent) => {
+      setPressedKeys((prev) => {
+        const next = new Set(prev);
+        next.add(e.code);
+        return next;
+      });
+
+      if (['Alt', 'Control', 'Meta', 'CapsLock', 'Tab'].includes(e.key)) {
+        return;
+      }
+
+      if (e.key === 'Shift') {
+        return;
+      }
+
+      if (e.key === 'Escape') {
+        handleRestart();
+        return;
+      }
+
+      if (e.key === 'Backspace') {
+        e.preventDefault();
+        lastPhysicalKeyHandledRef.current = { key: 'Backspace', time: Date.now() };
+        handleInputEvent('Backspace', 'Backspace');
+        return;
+      }
+
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        lastPhysicalKeyHandledRef.current = { key: 'Enter', time: Date.now() };
+        handleInputEvent('Enter', 'Enter');
+        return;
+      }
+
+      if (e.key.length === 1) {
+        e.preventDefault();
+        lastPhysicalKeyHandledRef.current = { key: e.key.toLowerCase(), time: Date.now() };
+        handleInputEvent(e.key, e.code);
+      }
+    };
+
+    const handleKeyUp = (e: KeyboardEvent) => {
+      setPressedKeys((prev) => {
+        const next = new Set(prev);
+        next.delete(e.code);
+        return next;
+      });
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    window.addEventListener('keyup', handleKeyUp);
+
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown);
+      window.removeEventListener('keyup', handleKeyUp);
+    };
+  }, [
+    handleInputEvent,
+    isCustomTextModalOpen,
+    isTeacherModalOpen,
+    isGameModalOpen,
+    isCurriculumModalOpen,
+    isPostureModalOpen,
+    isVietnameseGuideOpen,
+    isThemeModalOpen,
+  ]);
+
+  // Xử lý đầu vào thủ công từ ô gõ (input ẩn) với lọc trùng lặp thông minh
+  const handleManualInput = useCallback(
+    (inputVal: string, code?: string) => {
+      if (!inputVal) return;
+      const now = Date.now();
+      // Bỏ qua nếu là phím đơn và vừa được xử lý bởi keydown vật lý trong vòng 150ms
+      if (
+        inputVal.length === 1 &&
+        inputVal !== 'Backspace' &&
+        inputVal !== 'Enter' &&
+        now - lastPhysicalKeyHandledRef.current.time < 150 &&
+        inputVal.toLowerCase() === lastPhysicalKeyHandledRef.current.key
+      ) {
+        return;
+      }
+      handleInputEvent(inputVal, code);
+    },
+    [handleInputEvent]
+  );
+
+  const handleRestart = () => {
+    setStepIndex(0);
+    setIsCompleted(false);
+    setStartTime(null);
+    setHasMistake(false);
+    setMistakeChar(null);
+    setMistakeKeyCode(null);
+    setRecentTypedKeys([]);
+    setWordTypedKeys([]);
+    setStats({
+      wpm: 0,
+      cpm: 0,
+      accuracy: 100,
+      totalCharacters: 0,
+      correctCharacters: 0,
+      mistakes: 0,
+      timeSpentSeconds: 0,
+      currentStreak: 0,
+      bestStreak: 0,
+      stars: 0,
+    });
+  };
+
+  const gradeFilteredLessons = useMemo(() => {
+    return allAvailableLessons.filter(
+      (l) => l.gradeLevel === selectedGrade || !l.gradeLevel
+    );
+  }, [allAvailableLessons, selectedGrade]);
+
+  const hasPrev = currentLessonIndex > 0;
+  const hasNext = currentLessonIndex < gradeFilteredLessons.length - 1;
+
+  const handlePrevLesson = () => {
+    if (hasPrev) {
+      setCustomLesson(null);
+      setCurrentLessonIndex((idx) => idx - 1);
+    }
+  };
+
+  const handleNextLesson = () => {
+    if (hasNext) {
+      setCustomLesson(null);
+      setCurrentLessonIndex((idx) => idx + 1);
+    }
+  };
+
+  const handleKeyClick = (key: KeyConfig) => {
+    if (hasMistake) {
+      if (key.code === 'Backspace') {
+        handleInputEvent('Backspace', 'Backspace');
+      }
+      return;
+    }
+
+    if (key.code === 'Backspace') {
+      handleInputEvent('Backspace', 'Backspace');
+    } else if (key.code === 'Enter') {
+      handleInputEvent('Enter', 'Enter');
+    } else if (key.code === 'Space') {
+      handleInputEvent(' ', 'Space');
+    } else if (key.char) {
+      handleInputEvent(isShiftTarget ? key.char.toUpperCase() : key.char, key.code);
+    }
+  };
+
+  const handleVoiceSpeak = (txt: string) => {
+    soundEngine.speak(txt);
+  };
+
+  // Assigned homework object for currently selected grade
+  const currentGradeHomework = gradeAssignments[selectedGrade];
+
+  // List of all assigned lessons for the selected grade
+  const assignedLessonsList = useMemo(() => {
+    if (!currentGradeHomework) return [];
+    const ids =
+      currentGradeHomework.lessonIds && currentGradeHomework.lessonIds.length > 0
+        ? currentGradeHomework.lessonIds
+        : currentGradeHomework.lessonId
+        ? [currentGradeHomework.lessonId]
+        : [];
+    return ids
+      .map((id) => allAvailableLessons.find((l) => l.id === id))
+      .filter((l): l is Lesson => !!l);
+  }, [currentGradeHomework, allAvailableLessons]);
+
+  const handleSelectAssignedHomework = (targetLessonId?: string) => {
+    const hw = gradeAssignments[selectedGrade];
+    if (hw) {
+      const chosenId =
+        targetLessonId ||
+        (hw.lessonIds && hw.lessonIds.length > 0 ? hw.lessonIds[0] : hw.lessonId);
+      const assigned = allAvailableLessons.find((l) => l.id === chosenId);
+      if (assigned) {
+        setCustomLesson(assigned);
+        setTextbookTab('homework');
+        setIsRightPanelOpen(true);
+        handleRestart();
+        confetti({
+          particleCount: 40,
+          spread: 60,
+          origin: { y: 0.6 },
+        });
+        return;
+      }
+    }
+    const defaultForGrade = allAvailableLessons.find((l) => l.gradeLevel === selectedGrade);
+    if (defaultForGrade) {
+      setCustomLesson(defaultForGrade);
+      setTextbookTab('curriculum');
+      setIsRightPanelOpen(true);
+      handleRestart();
+    }
+  };
+
+  return (
+    <div
+      className={`min-h-screen ${
+        isFullscreenAdaptive ? 'h-screen overflow-hidden' : 'xl:h-screen xl:overflow-hidden'
+      } bg-gradient-to-b from-sky-100 via-sky-50 to-amber-50 text-slate-800 flex flex-col justify-between selection:bg-amber-300 selection:text-slate-900 font-sans`}
+    >
+      {/* Toast thông báo khi tự động điều chỉnh hiển thị phủ kín màn hình tương thích độ phân giải */}
+      {screenFitToast && (
+        <div className="fixed top-14 left-1/2 -translate-x-1/2 z-50 bg-slate-950/95 text-white px-5 py-2.5 rounded-2xl shadow-2xl border-2 border-indigo-400 backdrop-blur-md flex items-center gap-2.5 animate-in fade-in slide-in-from-top-4 duration-200">
+          <span className="text-xl">🖥️</span>
+          <span className="text-xs font-black text-indigo-200">{screenFitToast}</span>
+        </div>
+      )}
+
+      {/* ======================================================== */}
+      {/* 1. TOP HEADER (COMPACT, RICH, ZERO WASTED SPACE)        */}
+      {/* ======================================================== */}
+      <header className="w-full bg-white/95 border-b-2 border-sky-200 sticky top-0 z-40 backdrop-blur-md px-2 sm:px-4 py-1.5 shadow-sm">
+        <div className="w-full px-2 sm:px-4 xl:px-6 flex items-center justify-between gap-2.5 flex-wrap">
+          {/* Logo & Playful Title */}
+          <div className="flex items-center gap-2.5">
+            <div className="w-10 h-10 rounded-2xl bg-gradient-to-tr from-sky-400 via-indigo-500 to-pink-500 p-0.5 shadow border-2 border-white flex items-center justify-center text-xl select-none animate-bounce">
+              ⌨️
+            </div>
+            <div>
+              <div className="flex items-center gap-1.5">
+                <h1 className="text-base sm:text-lg font-black text-slate-900 tracking-tight">
+                  Bé Luyện Gõ 10 Ngón
+                </h1>
+                <span className="text-[10px] bg-gradient-to-r from-amber-400 to-orange-400 text-slate-950 font-black px-2 py-0.2 rounded-full shadow border border-amber-300">
+                  Tiểu Học
+                </span>
+              </div>
+              <p className="text-[11px] text-sky-800 hidden md:block font-bold">
+                Bàn phím Full Size 104 phím • Phân hệ Lớp 3, 4, 5 • Cô giáo giao bài tập
+              </p>
+            </div>
+          </div>
+
+          {/* GRADE SELECTOR BUTTONS (LỚP 3 / LỚP 4 / LỚP 5) */}
+          <div className="flex items-center gap-1 p-1 bg-sky-100/80 rounded-2xl border border-sky-300 shadow-inner">
+            <span className="text-[11px] font-black text-sky-900 px-2 flex items-center gap-1">
+              <GraduationCap className="w-3.5 h-3.5 text-sky-700" />
+              <span>Khối Lớp:</span>
+            </span>
+
+            {[3, 4, 5].map((grade) => (
+              <button
+                key={`top-grade-${grade}`}
+                type="button"
+                onClick={() => handleSelectGrade(grade)}
+                className={`px-3 py-1.5 rounded-xl font-black text-xs transition-all cursor-pointer flex items-center gap-1 ${
+                  selectedGrade === grade
+                    ? 'bg-sky-600 text-white shadow-md scale-105 ring-2 ring-sky-300'
+                    : 'bg-white text-slate-700 hover:bg-sky-50 hover:text-sky-900 border border-slate-200'
+                }`}
+              >
+                <span>Lớp {grade}</span>
+                {gradeAssignments[grade] && (
+                  <span className="w-2 h-2 rounded-full bg-rose-500 animate-ping" title="Có bài tập cô giáo giao" />
+                )}
+              </button>
+            ))}
+          </div>
+
+          {/* Action Navigation Buttons */}
+          <div className="flex items-center gap-1.5 sm:gap-2">
+            {/* Vietnamese Mode Selector (Telex / VNI) */}
+            <div className="flex items-center gap-1 bg-amber-50 p-1 rounded-xl border border-amber-300">
+              <button
+                type="button"
+                onClick={() => setInputMode('telex')}
+                className={`px-2 py-1 rounded-lg text-xs font-black transition-all cursor-pointer ${
+                  inputMode === 'telex'
+                    ? 'bg-amber-500 text-slate-950 shadow'
+                    : 'text-slate-600 hover:text-slate-900'
+                }`}
+                title="Kiểu gõ Telex"
+              >
+                TELEX
+              </button>
+              <button
+                type="button"
+                onClick={() => setInputMode('vni')}
+                className={`px-2 py-1 rounded-lg text-xs font-black transition-all cursor-pointer ${
+                  inputMode === 'vni'
+                    ? 'bg-emerald-500 text-white shadow'
+                    : 'text-slate-600 hover:text-slate-900'
+                }`}
+                title="Kiểu gõ VNI"
+              >
+                VNI
+              </button>
+            </div>
+
+            {/* Chế độ bộ gõ trên máy tính: [V] Unikey vs [E] Luyện phím */}
+            {inputMode === 'telex' && (
+              <div className="flex items-center gap-1 bg-rose-50 p-1 rounded-xl border border-rose-300 shadow-2xs">
+                <button
+                  type="button"
+                  onClick={() => handleToggleKeyboardImeMode('unikey_v')}
+                  className={`px-2 py-1 rounded-lg text-xs font-black transition-all cursor-pointer flex items-center gap-1 ${
+                    keyboardImeMode === 'unikey_v'
+                      ? 'bg-rose-500 text-white shadow ring-2 ring-rose-200'
+                      : 'text-rose-900 hover:text-rose-950'
+                  }`}
+                  title="Máy tính đang BẬT Unikey/EVKey chữ V. Gõ chữ Việt tự nhiên, không bị bắt lỗi!"
+                >
+                  <span>🇻🇳 [V] Unikey</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleToggleKeyboardImeMode('telex_e')}
+                  className={`px-2 py-1 rounded-lg text-xs font-black transition-all cursor-pointer flex items-center gap-1 ${
+                    keyboardImeMode === 'telex_e'
+                      ? 'bg-sky-600 text-white shadow ring-2 ring-sky-200'
+                      : 'text-slate-600 hover:text-slate-900'
+                  }`}
+                  title="Máy tính TẮT Unikey hoặc để chữ E. Luyện gõ từng phím quy tắc Telex chuẩn SGK!"
+                >
+                  <span>🔤 [E] Luyện phím</span>
+                </button>
+              </div>
+            )}
+
+            {/* Vietnamese Typing Guide Modal Button */}
+            <button
+              type="button"
+              onClick={() => setIsVietnameseGuideOpen(true)}
+              className="px-2.5 py-1.5 rounded-xl bg-amber-100 hover:bg-amber-200 text-amber-900 text-xs font-black flex items-center gap-1 transition-all cursor-pointer border border-amber-300 shadow-sm"
+              title="Xem bảng tra cứu gõ dấu Telex & VNI"
+            >
+              <span>🇻🇳 Gõ Dấu</span>
+            </button>
+
+            {/* TEACHER PORTAL TRIGGER */}
+            <button
+              type="button"
+              onClick={() => setIsTeacherModalOpen(true)}
+              className="px-3 py-1.5 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white text-xs font-black flex items-center gap-1.5 transition-all cursor-pointer shadow-md shadow-emerald-600/20 border-b-2 border-emerald-800 active:border-b-0 active:translate-y-0.5"
+              title="Đăng nhập quản trị giáo viên: Giao bài tập cho Lớp 3, 4, 5 & Đăng ảnh SGK (Đồng bộ Supabase Cloud Realtime)"
+            >
+              <UserCheck className="w-3.5 h-3.5" />
+              <span>Góc Giáo Viên</span>
+              {isSupabaseOnline && (
+                <span className="w-2 h-2 rounded-full bg-emerald-300 animate-pulse hidden sm:inline-block" title="Đã kết nối Supabase Cloud Realtime" />
+              )}
+            </button>
+
+            {/* 9 KEYBOARDS STORE TRIGGER (8 REAL LIFE + 1 SYSTEM) */}
+            <button
+              type="button"
+              onClick={() => setIsThemeModalOpen(true)}
+              className="px-3 py-1.5 rounded-xl bg-gradient-to-r from-sky-600 via-indigo-600 to-amber-600 hover:from-sky-500 hover:to-amber-500 text-white text-xs font-black flex items-center gap-1.5 transition-all cursor-pointer shadow-md shadow-sky-600/20 border-b-2 border-indigo-800 active:border-b-0 active:translate-y-0.5"
+              title="Mở kho 9 mẫu bàn phím: 8 bàn phím thật đời thực (Dell, Mitsumi, Laptop, v.v.) + 1 bàn phím hệ thống"
+            >
+              <Palette className="w-3.5 h-3.5" />
+              <span>{currentKeyboardTheme.emoji} Đổi Bàn Phím</span>
+              <span className="text-[9px] bg-amber-300 text-slate-950 px-1.5 py-0.2 rounded-full font-black hidden xl:inline">
+                9 MẪU
+              </span>
+            </button>
+
+            {/* GÓC BÊN PHẢI: CHỌN BÀI ĐỂ GÕ */}
+            <button
+              type="button"
+              onClick={() => {
+                setTextbookTab('curriculum');
+                setIsRightPanelOpen(true);
+              }}
+              className="px-3 py-1.5 rounded-xl bg-gradient-to-r from-sky-500 to-indigo-600 hover:from-sky-400 hover:to-indigo-500 text-white text-xs font-black flex items-center gap-1.5 transition-all cursor-pointer shadow-md border-b-2 border-indigo-800 active:border-b-0"
+              title="Góc bên phải: Chọn bài để luyện gõ (SGK Lớp 3, 4, 5)"
+            >
+              <BookOpen className="w-3.5 h-3.5" />
+              <span>📚 Chọn Bài Để Gõ</span>
+            </button>
+
+            {/* GÓC BÊN PHẢI: LUYỆN BÀI CÔ GIAO */}
+            <button
+              type="button"
+              onClick={() => handleSelectAssignedHomework()}
+              className={`px-3 py-1.5 rounded-xl text-xs font-black flex items-center gap-1.5 transition-all cursor-pointer shadow-md border-b-2 active:border-b-0 ${
+                isCurrentAssignedHomework
+                  ? 'bg-gradient-to-r from-amber-500 to-emerald-500 text-slate-950 border-emerald-800 ring-2 ring-emerald-300'
+                  : 'bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white border-emerald-800'
+              }`}
+              title="Góc bên phải: Luyện đúng bài cô giao"
+            >
+              <UserCheck className="w-3.5 h-3.5" />
+              <span>🎯 Luyện Bài Cô Giao</span>
+              {currentGradeHomework && !isCurrentAssignedHomework && (
+                <span className="w-2 h-2 rounded-full bg-amber-300 animate-ping" />
+              )}
+            </button>
+
+            {/* 5 Typing Games Hub */}
+            <button
+              type="button"
+              onClick={() => setIsGameModalOpen(true)}
+              className="px-2.5 py-1.5 rounded-xl bg-gradient-to-r from-pink-500 via-rose-500 to-amber-500 hover:from-pink-400 hover:to-amber-400 text-white text-xs font-black flex items-center gap-1.5 transition-all cursor-pointer shadow-md border-b-2 border-pink-700 active:border-b-0 animate-pulse"
+              title="Đấu trường 5 trò chơi luyện gõ đa hàng phím: Chú khỉ leo núi, Bóng bay, Khu vườn âm nhạc, Kho báu, Giao hàng"
+            >
+              <Gamepad2 className="w-3.5 h-3.5" />
+              <span>🎮 5 Trò Chơi</span>
+            </button>
+
+            {/* NÚT LỆNH PHỦ KÍN MÀN HÌNH: TỰ ĐỘNG ĐIỀU CHỈNH KÍCH THƯỚC & CHẾ ĐỘ HIỂN THỊ TƯƠNG THÍCH ĐỘ PHÂN GIẢI MÁY TÍNH HIỆN TẠI */}
+            <button
+              type="button"
+              onClick={handleToggleFullscreenFit}
+              className={`px-3 py-1.5 rounded-xl text-xs font-black flex items-center gap-1.5 transition-all cursor-pointer shadow-md border-b-2 active:border-b-0 ${
+                isFullscreenAdaptive
+                  ? 'bg-gradient-to-r from-indigo-700 via-purple-700 to-pink-600 text-white border-indigo-950 ring-2 ring-indigo-300 shadow-indigo-600/30'
+                  : 'bg-white hover:bg-slate-100 text-indigo-950 border-indigo-200'
+              }`}
+              title="Khi bấm nút lệnh này là sẽ tự động điều chỉnh kích thước và chế độ hiển thị của toàn bộ trang web để tương thích với độ phân giải của máy tính hiện tại"
+            >
+              {isFullscreenAdaptive ? (
+                <Minimize className="w-3.5 h-3.5 text-amber-300" />
+              ) : (
+                <Maximize className="w-3.5 h-3.5 text-indigo-600" />
+              )}
+              <span>
+                {isFullscreenAdaptive
+                  ? `🖥️ Thoát Phủ Kín (${resolutionInfo.width}x${resolutionInfo.height})`
+                  : '🖥️ Phủ Kín Màn Hình'}
+              </span>
+            </button>
+
+            {/* TOGGLE ẨN/HIỆN CỘT SGK ĐỂ MỞ RỘNG BÀN PHÍM TÙY CHỌN */}
+            <button
+              type="button"
+              onClick={() => setIsRightColumnVisible((prev) => !prev)}
+              className={`px-2.5 py-1.5 rounded-xl text-xs font-black flex items-center gap-1 transition-all cursor-pointer shadow-xs border ${
+                !isRightColumnVisible
+                  ? 'bg-indigo-600 text-white border-indigo-800 shadow-md ring-2 ring-indigo-300'
+                  : 'bg-white hover:bg-slate-100 text-slate-700 border-slate-200'
+              }`}
+              title={
+                isRightColumnVisible
+                  ? 'Tạm ẩn cột sách giáo khoa bên phải để bàn phím mở rộng tối đa'
+                  : 'Hiện lại cột sách giáo khoa và danh sách bài cô giao bên phải'
+              }
+            >
+              <span>{isRightColumnVisible ? '📖 Khung SGK: Bật' : '📖 Hiện Khung SGK'}</span>
+            </button>
+
+            {/* Sound Toggle */}
+            <button
+              type="button"
+              onClick={() => setSettings((s) => ({ ...s, soundEnabled: !s.soundEnabled }))}
+              className={`p-1.5 rounded-xl transition-colors cursor-pointer border shadow-sm ${
+                settings.soundEnabled
+                  ? 'bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border-emerald-300'
+                  : 'bg-rose-50 hover:bg-rose-100 text-rose-700 border-rose-300'
+              }`}
+              title={settings.soundEnabled ? 'Tắt âm thanh' : 'Bật âm thanh'}
+            >
+              {settings.soundEnabled ? <Volume2 className="w-4 h-4" /> : <VolumeX className="w-4 h-4" />}
+            </button>
+
+            {/* Settings dropdown */}
+            <div className="relative">
+              <button
+                type="button"
+                onClick={() => setShowSettingsDropdown((prev) => !prev)}
+                className="p-1.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 transition-colors cursor-pointer border border-slate-300 shadow-sm"
+                title="Cài đặt"
+              >
+                <Sliders className="w-4 h-4" />
+              </button>
+
+              {showSettingsDropdown && (
+                <div className="absolute right-0 mt-2 w-72 bg-white border-2 border-sky-300 rounded-3xl p-4 shadow-2xl z-50 text-slate-800 animate-in fade-in zoom-in-95 duration-150">
+                  <h4 className="text-xs font-black text-sky-900 uppercase tracking-wider mb-3">
+                    ⚙️ Cài Đặt Bàn Phím
+                  </h4>
+
+                  {/* Hands Overlay Toggle */}
+                  <div className="mb-3 flex items-center justify-between">
+                    <span className="text-xs text-slate-700 font-bold">Hiện bàn tay phủ phím:</span>
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setSettings((s) => ({ ...s, handsOverlayEnabled: !s.handsOverlayEnabled }))
+                      }
+                      className={`px-3 py-1 rounded-xl text-xs font-black cursor-pointer transition-colors ${
+                        settings.handsOverlayEnabled ? 'bg-sky-500 text-white' : 'bg-slate-100 text-slate-600'
+                      }`}
+                    >
+                      {settings.handsOverlayEnabled ? 'Bật' : 'Tắt'}
+                    </button>
+                  </div>
+
+                  {/* Sound Type */}
+                  <div className="mb-3">
+                    <span className="block text-xs text-slate-700 font-bold mb-1">Âm thanh phím:</span>
+                    <div className="grid grid-cols-2 gap-1.5 p-1 bg-slate-100 rounded-xl">
+                      <button
+                        type="button"
+                        onClick={() => setSettings((s) => ({ ...s, soundType: 'mechanical' }))}
+                        className={`px-2 py-1 rounded-lg text-xs font-bold transition-colors cursor-pointer ${
+                          settings.soundType === 'mechanical' ? 'bg-sky-500 text-white shadow' : 'text-slate-600'
+                        }`}
+                      >
+                        Phím cơ
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setSettings((s) => ({ ...s, soundType: 'bubble' }))}
+                        className={`px-2 py-1 rounded-lg text-xs font-bold transition-colors cursor-pointer ${
+                          settings.soundType === 'bubble' ? 'bg-sky-500 text-white shadow' : 'text-slate-600'
+                        }`}
+                      >
+                        Bong bóng
+                      </button>
+                    </div>
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setShowSettingsDropdown(false);
+                      setIsCustomTextModalOpen(true);
+                    }}
+                    className="w-full py-2 px-3 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-xs font-black text-white cursor-pointer shadow"
+                  >
+                    ✍️ Tự Soạn Bài Riêng
+                  </button>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      </header>
+
+      {/* ======================================================== */}
+      {/* 2. NOTIFICATION BANNER: BÀI TẬP CÔ GIAO CHO KHỐI LỚP     */}
+      {/* ======================================================== */}
+      {currentGradeHomework && assignedLessonsList.length > 0 && (
+        <div className="w-full bg-gradient-to-r from-emerald-600 via-teal-600 to-sky-600 text-white px-2 sm:px-4 py-1.5 shadow-sm border-b border-white/20 select-none">
+          <div className="w-full px-2 sm:px-4 xl:px-6 flex items-center justify-between gap-2.5 flex-wrap text-xs font-bold">
+            <div className="flex items-center gap-2 flex-wrap min-w-0">
+              <span className="w-6 h-6 rounded-full bg-white text-emerald-800 flex items-center justify-center font-black text-xs shadow shrink-0">
+                🔔
+              </span>
+              <span className="shrink-0">
+                <strong>BÀI TẬP CÔ GIÁO GIAO (LỚP {selectedGrade} • {assignedLessonsList.length} BÀI):</strong>
+              </span>
+              {currentGradeHomework.teacherNote && (
+                <span className="italic text-emerald-100 hidden lg:inline max-w-md truncate">
+                  "{currentGradeHomework.teacherNote}"
+                </span>
+              )}
+            </div>
+
+            {/* Quick buttons for all assigned lessons */}
+            <div className="flex items-center gap-1.5 flex-wrap ml-auto">
+              {assignedLessonsList.map((item, idx) => {
+                const isCurrent = activeLesson.id === item.id;
+                return (
+                  <button
+                    key={`banner-hw-${item.id}`}
+                    type="button"
+                    onClick={() => {
+                      setCustomLesson(item);
+                      handleRestart();
+                    }}
+                    className={`px-2.5 py-1 rounded-xl font-black text-[11px] transition-all cursor-pointer shadow-xs flex items-center gap-1 active:scale-95 ${
+                      isCurrent
+                        ? 'bg-amber-300 text-slate-950 ring-2 ring-white scale-102 shadow-md'
+                        : 'bg-white/90 hover:bg-white text-emerald-950'
+                    }`}
+                    title={`Luyện Bài ${idx + 1}: ${item.title}`}
+                  >
+                    <span>Bài {idx + 1}: {item.title}</span>
+                    {isCurrent && (
+                      <span className="text-[9px] bg-emerald-700 text-white px-1.5 py-0.2 rounded-full">
+                        ⭐ Đang gõ
+                      </span>
+                    )}
+                  </button>
+                );
+              })}
+
+              <button
+                type="button"
+                onClick={() => {
+                  setTextbookTab('homework');
+                  setIsRightPanelOpen(true);
+                }}
+                className="px-2.5 py-1 rounded-xl bg-emerald-900/80 hover:bg-emerald-900 text-white font-black text-[11px] cursor-pointer shadow-xs ml-1"
+                title="Mở danh sách chi tiết bài cô giao"
+              >
+                Chi tiết ➜
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ======================================================== */}
+      {/* 3. MAIN WORKSPACE: BỐ TRÍ TRÀN ĐỦ MÀN HÌNH 1920x1080    */}
+      {/* ======================================================== */}
+      <main className="flex-1 w-full px-2 sm:px-3 xl:px-4 py-1.5 min-h-0">
+        <div className="grid grid-cols-1 xl:grid-cols-12 2xl:grid-cols-12 gap-2.5 xl:gap-3 items-start">
+          {/* ======================================================== */}
+          {/* CỘT TRÁI (LEFT COLUMN): Ô LUYỆN GÕ & BÀN PHÍM PHÓNG TO   */}
+          {/* ======================================================== */}
+          <div
+            className={`
+              ${isRightColumnVisible ? 'xl:col-span-9 2xl:col-span-9' : 'xl:col-span-12 2xl:col-span-12'}
+              flex flex-col gap-2 min-w-0 transition-all duration-300
+            `}
+          >
+            {/* 1. Khu vực luyện gõ & ô nhập văn bản (PracticeArea) */}
+            <section aria-label="Khu vực luyện gõ và ô nhập văn bản">
+              <PracticeArea
+                lesson={activeLesson}
+                targetText={targetText}
+                currentCharIndex={currentStep ? currentStep.charIndex : targetText.length}
+                currentSubStepIndex={currentStep?.subStepIndex}
+                currentSubStepTotal={currentStep?.subStepTotal}
+                currentDisplayHint={currentStep?.displayHint}
+                targetKey={targetKeyConfig}
+                activeFinger={activeFinger}
+                stats={stats}
+                isCompleted={isCompleted}
+                hasMistake={hasMistake}
+                mistakeChar={mistakeChar}
+                onRestart={handleRestart}
+                onNextLesson={handleNextLesson}
+                onPrevLesson={handlePrevLesson}
+                hasPrevLesson={hasPrev}
+                hasNextLesson={hasNext}
+                onVoiceSpeak={handleVoiceSpeak}
+                inputMode={inputMode}
+                onManualInput={handleManualInput}
+                onOpenCurriculumModal={() => {
+                  setTextbookTab('curriculum');
+                  setIsRightPanelOpen(true);
+                }}
+                onSelectTeacherAssignedLesson={handleSelectAssignedHomework}
+                hasTeacherAssignedHomework={!!currentGradeHomework}
+                assignedHomeworkTitle={currentGradeHomework?.teacherNote}
+                onOpenTeacherModal={() => setIsTeacherModalOpen(true)}
+                onOpenVietnameseGuide={() => setIsVietnameseGuideOpen(true)}
+                recentTypedKeys={recentTypedKeys}
+                userTypedText={userTypedText}
+                smartTelexFreeMode={smartTelexFreeMode}
+                onToggleSmartTelexFreeMode={() => setSmartTelexFreeMode((prev) => !prev)}
+                keyboardImeMode={keyboardImeMode}
+                onToggleKeyboardImeMode={handleToggleKeyboardImeMode}
+                alternativeAllowedKeys={smartTelexNextInfo?.nextAcceptableKeys}
+                smartHintExplanation={smartTelexNextInfo?.hintExplanationVi}
+              />
+            </section>
+
+            {/* 2. Bạn đồng hành 1 dòng sáng tạo: không bao giờ rơi chữ xuống dòng */}
+            <section aria-label="Bạn đồng hành và kiểu gõ">
+              <MascotBanner
+                mode={inputMode}
+                onModeChange={setInputMode}
+                instructionText={currentStep?.explanationVi || 'Bé hãy bấm phím tiếp theo nhé!'}
+                hasMistake={hasMistake}
+                mistakeChar={mistakeChar}
+                isShiftRequired={isShiftTarget}
+                isEnterRequired={isEnterTarget}
+                targetKeyLabel={targetKeyConfig?.label || ''}
+                onOpenGuide={() => setIsVietnameseGuideOpen(true)}
+              />
+            </section>
+
+            {/* 3. Thanh hướng dẫn ngón tay gõ phím (FingerGuideBar) */}
+            <section aria-label="Hướng dẫn ngón tay gõ phím">
+              <FingerGuideBar activeFinger={activeFinger} targetKey={targetKeyConfig} />
+            </section>
+
+            {/* 4. Bàn phím cơ học Full Size 104 phím tỷ lệ thật 1:1 chuẩn thực tế */}
+            <section aria-label="Bàn phím cơ học Full Size 104 phím chuẩn">
+              <Keyboard
+                targetKey={targetKeyConfig}
+                activeFinger={activeFinger}
+                pressedKeys={pressedKeys}
+                wrongKeyCode={mistakeKeyCode}
+                isShiftTarget={isShiftTarget}
+                isBackspaceTarget={isBackspaceTarget}
+                isEnterTarget={isEnterTarget}
+                onKeyClick={handleKeyClick}
+                handsOverlayEnabled={settings.handsOverlayEnabled}
+                handsOpacity={settings.handsOpacity}
+                handsStyle={settings.handsStyle}
+                theme={currentKeyboardTheme}
+                onOpenThemeModal={() => setIsThemeModalOpen(true)}
+              />
+            </section>
+
+            {/* 5. Mẹo nhỏ cho bé (Footer) - Tinh gọn 1 dòng */}
+            <footer className="flex items-center justify-between gap-2 text-[11px] text-slate-700 bg-amber-50/90 py-1 px-3 rounded-xl border border-amber-200 shadow-2xs select-none">
+              <div className="flex items-center gap-1.5 truncate">
+                <span className="text-amber-800 font-black shrink-0">💡 Mẹo nhỏ:</span>
+                <span className="truncate">
+                  Đặt 2 ngón trỏ lên phím có gờ <strong className="text-sky-700 font-black">F</strong> và{' '}
+                  <strong className="text-sky-700 font-black">J</strong> để xuất phát chuẩn 10 ngón mà không cần cúi đầu nhìn phím!
+                </span>
+              </div>
+
+              <div className="flex items-center gap-2 font-bold text-[10px] shrink-0">
+                <button
+                  type="button"
+                  onClick={() => setIsVietnameseGuideOpen(true)}
+                  className="text-amber-800 hover:underline cursor-pointer"
+                >
+                  Quy tắc gõ
+                </button>
+                <span>•</span>
+                <button
+                  type="button"
+                  onClick={() => setIsPostureModalOpen(true)}
+                  className="text-sky-700 hover:underline cursor-pointer"
+                >
+                  Tư thế ngồi
+                </button>
+                <span>•</span>
+                <button
+                  type="button"
+                  onClick={() => setIsTeacherModalOpen(true)}
+                  className="text-emerald-700 hover:underline cursor-pointer"
+                >
+                  👩‍🏫 Cô giáo giao bài
+                </button>
+              </div>
+            </footer>
+          </div>
+
+          {/* ======================================================== */}
+          {/* CỘT PHẢI (RIGHT COLUMN): ẢNH SGK, BÀI CÔ GIAO & TIỆN ÍCH */}
+          {/* ======================================================== */}
+          {isRightColumnVisible && (
+            <div className="xl:col-span-3 2xl:col-span-3 flex flex-col gap-2.5 min-w-0 xl:max-h-[calc(100vh-90px)] xl:overflow-y-auto custom-scrollbar pr-1">
+              {/* 1. Khung Ảnh Sách Giáo Khoa Về Bài Gõ */}
+              <section aria-label="Ảnh sách giáo khoa về bài gõ" className="w-full">
+              <TextbookIllustrationCard
+                lesson={activeLesson}
+                onOpenTeacherModal={() => {
+                  setEditingLessonForModal(activeLesson);
+                  setIsTeacherModalOpen(true);
+                }}
+                onOpenCurriculumModal={() => {
+                  setTextbookTab('curriculum');
+                  setIsRightPanelOpen(true);
+                }}
+              />
+            </section>
+
+            {/* 2. Thẻ Bài Tập Cô Giáo Giao (Teacher Assignment Card) */}
+            {currentGradeHomework && assignedLessonsList.length > 0 && (
+              <section aria-label="Bài tập cô giáo giao cho khối lớp" className="w-full bg-gradient-to-br from-emerald-500 via-teal-600 to-sky-600 text-white p-3 rounded-2xl shadow-md border-2 border-emerald-400">
+                <div className="flex items-center justify-between gap-2 mb-1.5">
+                  <div className="flex items-center gap-2">
+                    <span className="w-7 h-7 rounded-xl bg-white text-emerald-700 flex items-center justify-center font-black text-sm shadow">
+                      👩‍🏫
+                    </span>
+                    <div>
+                      <h4 className="font-black text-xs uppercase tracking-wider text-emerald-100">
+                        Bài Cô Giao • Lớp {selectedGrade} ({assignedLessonsList.length} bài)
+                      </h4>
+                      <p className="text-[11px] text-white/90 font-bold">
+                        {currentGradeHomework.teacherName || 'Cô giáo'}
+                      </p>
+                    </div>
+                  </div>
+                  {isCurrentAssignedHomework ? (
+                    <span className="text-[10px] bg-amber-300 text-slate-950 font-black px-2 py-0.5 rounded-full shadow animate-pulse">
+                      ⭐ Đang Luyện
+                    </span>
+                  ) : (
+                    <span className="text-[10px] bg-rose-500 text-white font-black px-2 py-0.5 rounded-full shadow animate-bounce">
+                      🔔 Bài Mới
+                    </span>
+                  )}
+                </div>
+
+                <div className="bg-white/10 backdrop-blur-xs p-2 rounded-xl border border-white/20 mb-2 text-xs">
+                  <p className="font-bold text-white line-clamp-2">
+                    "{currentGradeHomework.teacherNote || 'Hãy hoàn thành các bài luyện gõ này nhé các con!'}"
+                  </p>
+                </div>
+
+                {/* Danh sách các bài tập cô giao */}
+                <div className="flex flex-col gap-1 mb-2">
+                  {assignedLessonsList.map((item, idx) => {
+                    const isCurrent = activeLesson.id === item.id;
+                    return (
+                      <button
+                        key={`side-hw-${item.id}`}
+                        type="button"
+                        onClick={() => {
+                          setCustomLesson(item);
+                          handleRestart();
+                        }}
+                        className={`w-full text-left px-2 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center justify-between gap-1.5 ${
+                          isCurrent
+                            ? 'bg-amber-300 text-slate-950 shadow-sm font-black'
+                            : 'bg-white/20 hover:bg-white/30 text-white'
+                        }`}
+                      >
+                        <span className="truncate">
+                          {idx + 1}. {item.title}
+                        </span>
+                        {isCurrent ? (
+                          <span className="text-[10px] bg-emerald-700 text-white px-1.5 rounded shrink-0">
+                            Đang gõ
+                          </span>
+                        ) : (
+                          <span className="text-[10px] opacity-80 shrink-0">Luyện ➜</span>
+                        )}
+                      </button>
+                    );
+                  })}
+                </div>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    setTextbookTab('homework');
+                    setIsRightPanelOpen(true);
+                  }}
+                  className="w-full py-1.5 px-3 rounded-xl bg-white hover:bg-amber-100 text-emerald-950 font-black text-xs transition-all shadow-md cursor-pointer flex items-center justify-center gap-1.5 active:scale-95"
+                >
+                  <UserCheck className="w-3.5 h-3.5 text-emerald-700" />
+                  <span>Xem Chi Tiết Bài Cô Giao ➜</span>
+                </button>
+              </section>
+            )}
+
+            {/* 3. Danh Sách Bài Học SGK Khối Lớp Nhanh (Curriculum Quick Switcher) */}
+            <section aria-label="Danh sách bài học SGK nhanh" className="w-full bg-white border-2 border-sky-200 rounded-2xl p-3 shadow-md flex flex-col">
+              <div className="flex items-center justify-between pb-2 mb-2 border-b border-sky-100">
+                <div className="flex items-center gap-1.5">
+                  <BookOpen className="w-4 h-4 text-sky-600" />
+                  <span className="font-black text-xs text-slate-900 uppercase">
+                    Bài Học SGK Lớp {selectedGrade}
+                  </span>
+                  <span className="text-[10px] bg-sky-100 text-sky-800 font-bold px-1.5 py-0.2 rounded-md">
+                    {gradeFilteredLessons.length} bài
+                  </span>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    setTextbookTab('curriculum');
+                    setIsRightPanelOpen(true);
+                  }}
+                  className="text-[11px] font-bold text-sky-700 hover:text-sky-900 hover:underline cursor-pointer flex items-center gap-0.5"
+                >
+                  <span>Xem tất cả</span>
+                  <span>➜</span>
+                </button>
+              </div>
+
+              {/* Quick lessons list with scroll */}
+              <div className="flex flex-col gap-1.5 max-h-[190px] overflow-y-auto pr-1 custom-scrollbar">
+                {gradeFilteredLessons.map((l, idx) => {
+                  const isCurrent = activeLesson.id === l.id;
+                  const isAssigned = gradeAssignments[selectedGrade]?.lessonId === l.id;
+                  const completed = completedLessons[l.id];
+
+                  return (
+                    <button
+                      key={l.id}
+                      type="button"
+                      onClick={() => {
+                        setCustomLesson(l);
+                        setCurrentLessonIndex(idx);
+                        handleRestart();
+                      }}
+                      className={`w-full text-left p-2 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center justify-between gap-2 border ${
+                        isCurrent
+                          ? 'bg-gradient-to-r from-sky-500 to-indigo-600 text-white border-indigo-700 shadow-sm ring-1 ring-sky-300'
+                          : 'bg-slate-50 hover:bg-sky-50 text-slate-800 border-slate-200 hover:border-sky-300'
+                      }`}
+                    >
+                      <div className="flex items-center gap-2 min-w-0">
+                        <span className={`w-5 h-5 rounded-md flex items-center justify-center text-[10px] font-black shrink-0 ${
+                          isCurrent ? 'bg-white/20 text-white' : 'bg-slate-200 text-slate-700'
+                        }`}>
+                          {idx + 1}
+                        </span>
+                        <div className="truncate">
+                          <p className="truncate font-black text-xs leading-tight">{l.title}</p>
+                          <p className={`text-[10px] truncate ${isCurrent ? 'text-sky-100' : 'text-slate-500'}`}>
+                            {l.categoryTitleVi} • Mục tiêu: {l.targetWpm} WPM
+                          </p>
+                        </div>
+                      </div>
+
+                      <div className="flex items-center gap-1 shrink-0">
+                        {isAssigned && (
+                          <span className="text-[9px] bg-rose-500 text-white px-1.5 py-0.2 rounded-full font-black">
+                            Cô Giao
+                          </span>
+                        )}
+                        {completed ? (
+                          <span className="text-amber-400 text-xs font-black">
+                            {'★'.repeat(completed.stars)}
+                          </span>
+                        ) : null}
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
+            </section>
+
+
+            {/* 5. Tiện ích học sinh nhanh */}
+            <section aria-label="Tiện ích hỗ trợ học sinh" className="grid grid-cols-2 gap-2 text-xs">
+              <button
+                type="button"
+                onClick={() => setIsVietnameseGuideOpen(true)}
+                className="p-2 rounded-xl bg-gradient-to-r from-amber-100 to-amber-50 hover:bg-amber-100 text-amber-900 border border-amber-300 font-black shadow-xs flex items-center justify-center gap-1.5 cursor-pointer transition-all hover:scale-102"
+              >
+                <span>🇻🇳</span>
+                <span>Bảng Gõ Dấu</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setIsPostureModalOpen(true)}
+                className="p-2 rounded-xl bg-gradient-to-r from-sky-100 to-sky-50 hover:bg-sky-100 text-sky-900 border border-sky-300 font-black shadow-xs flex items-center justify-center gap-1.5 cursor-pointer transition-all hover:scale-102"
+              >
+                <span>🧘</span>
+                <span>Tư Thế Chuẩn</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setIsGameModalOpen(true)}
+                className="p-2 rounded-xl bg-gradient-to-r from-pink-100 to-rose-50 hover:bg-pink-100 text-pink-900 border border-pink-300 font-black shadow-xs flex items-center justify-center gap-1.5 cursor-pointer transition-all hover:scale-102"
+              >
+                <span>🎮</span>
+                <span>Trò Chơi Bóng</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setIsThemeModalOpen(true)}
+                className="p-2 rounded-xl bg-gradient-to-r from-indigo-100 to-purple-50 hover:bg-indigo-100 text-indigo-900 border border-indigo-300 font-black shadow-xs flex items-center justify-center gap-1.5 cursor-pointer transition-all hover:scale-102"
+              >
+                <span>🎨</span>
+                <span>Đổi Bàn Phím</span>
+              </button>
+            </section>
+          </div>
+        )}
+        </div>
+      </main>
+
+
+      {/* ======================================================== */}
+      {/* GÓC BÊN PHẢI MÀN HÌNH: CHỌN BÀI ĐỂ GÕ & BÀI CÔ GIAO (SGK) */}
+      {/* ======================================================== */}
+      <TextbookImageViewer
+        isDrawer={true}
+        isOpen={isRightPanelOpen}
+        onClose={() => setIsRightPanelOpen(false)}
+        lesson={activeLesson}
+        imageUrl={activeLesson.imageUrl}
+        lessonTitle={activeLesson.title}
+        teacherName={activeLesson.authorTeacher}
+        teacherNote={activeLesson.teacherNote}
+        gradeLevel={activeLesson.gradeLevel}
+        onOpenTeacherUpload={() => setIsTeacherModalOpen(true)}
+        isAssignedHomework={isCurrentAssignedHomework}
+        activeTab={textbookTab}
+        onTabChange={setTextbookTab}
+        allLessons={allAvailableLessons}
+        onSelectLesson={(l) => {
+          setCustomLesson(l);
+          handleRestart();
+        }}
+        completedLessons={completedLessons}
+        currentGradeHomework={currentGradeHomework}
+        onSelectAssignedHomework={handleSelectAssignedHomework}
+        onVoiceSpeak={handleVoiceSpeak}
+        selectedGrade={selectedGrade}
+        onSelectGrade={handleSelectGrade}
+        onOpenCurriculumModal={() => setIsCurriculumModalOpen(true)}
+      />
+
+      {/* ======================================================== */}
+      {/* THANH TRUY CẬP NHANH GÓC PHẢI MÀN HÌNH (FLOATING DOCK)   */}
+      {/* ======================================================== */}
+      {!isRightPanelOpen && (
+        <aside
+          aria-label="Thanh truy cập nhanh góc phải màn hình"
+          className="fixed right-0 top-1/3 -translate-y-1/2 z-40 flex flex-col items-end gap-1.5 pr-0 pointer-events-auto shadow-2xl"
+        >
+          {/* Nút 1: Chọn bài để gõ (Góc Phải) */}
+          <button
+            type="button"
+            onClick={() => {
+              setTextbookTab('curriculum');
+              setIsRightPanelOpen(true);
+            }}
+            className="flex items-center gap-1.5 py-2.5 px-3 rounded-l-2xl bg-gradient-to-l from-sky-600 to-indigo-600 hover:from-sky-500 hover:to-indigo-500 text-white font-black text-xs shadow-xl border-y border-l border-white/30 cursor-pointer hover:translate-x-0 translate-x-1.5 transition-all"
+            title="Góc bên phải: Chọn bài để luyện gõ (SGK Lớp 3, 4, 5)"
+          >
+            <BookOpen className="w-4 h-4" />
+            <span className="hidden sm:inline">📚 Chọn Bài</span>
+          </button>
+
+          {/* Nút 2: Luyện bài cô giao (Góc Phải) */}
+          <button
+            type="button"
+            onClick={() => handleSelectAssignedHomework()}
+            className={`flex items-center gap-1.5 py-2.5 px-3 rounded-l-2xl font-black text-xs shadow-xl border-y border-l border-white/30 cursor-pointer hover:translate-x-0 translate-x-1.5 transition-all ${
+              isCurrentAssignedHomework
+                ? 'bg-gradient-to-l from-amber-500 to-emerald-500 text-slate-950'
+                : 'bg-gradient-to-l from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white'
+            }`}
+            title="Góc bên phải: Luyện đúng bài cô giao"
+          >
+            <UserCheck className="w-4 h-4" />
+            <span className="hidden sm:inline">🎯 Bài Cô Giao</span>
+            {currentGradeHomework && (
+              <span className="w-2.5 h-2.5 rounded-full bg-amber-300 ring-2 ring-white animate-ping" />
+            )}
+          </button>
+
+          {/* Nút 3: Ảnh SGK (Góc Phải) */}
+          <button
+            type="button"
+            onClick={() => {
+              setTextbookTab('image');
+              setIsRightPanelOpen(true);
+            }}
+            className="flex items-center gap-1.5 py-2 px-3 rounded-l-2xl bg-gradient-to-l from-amber-500 to-orange-500 hover:from-amber-400 hover:to-orange-400 text-slate-950 font-black text-xs shadow-xl border-y border-l border-white/30 cursor-pointer hover:translate-x-0 translate-x-1.5 transition-all"
+            title="Góc bên phải: Xem ảnh Sách Giáo Khoa (SGK)"
+          >
+            <ImageIcon className="w-4 h-4" />
+            <span className="hidden sm:inline">📸 Ảnh SGK</span>
+          </button>
+        </aside>
+      )}
+
+      {/* ======================================================== */}
+      {/* 5. MODALS                                                */}
+      {/* ======================================================== */}
+      {/* Teacher Portal Modal */}
+      <TeacherLessonModal
+        isOpen={isTeacherModalOpen}
+        onClose={() => {
+          setIsTeacherModalOpen(false);
+          setEditingLessonForModal(null);
+        }}
+        onSaveLesson={handleSaveTeacherLesson}
+        allLessons={allAvailableLessons}
+        teacherLessons={teacherLessons}
+        onDeleteLesson={handleDeleteTeacherLesson}
+        onResetSystemLesson={handleResetSystemLesson}
+        onSelectLesson={(lesson) => setCustomLesson(lesson)}
+        gradeAssignments={gradeAssignments}
+        onAssignLessonToGrade={handleAssignLessonToGrade}
+        initialEditingLesson={editingLessonForModal}
+      />
+
+      {/* Vietnamese Rules Guide Modal */}
+      <VietnameseGuideModal
+        isOpen={isVietnameseGuideOpen}
+        onClose={() => setIsVietnameseGuideOpen(false)}
+        activeMode={inputMode}
+        onSelectMode={(m) => setInputMode(m)}
+      />
+
+      {/* Posture Guide Modal */}
+      <PostureGuideModal
+        isOpen={isPostureModalOpen}
+        onClose={() => setIsPostureModalOpen(false)}
+      />
+
+      {/* 5 Typing Games Hub (Chú khỉ leo núi, Bóng bay, Khu vườn âm nhạc, Kho báu, Giao hàng) */}
+      {isGameModalOpen && (
+        <MultiGameHub
+          soundEnabled={settings.soundEnabled}
+          onClose={() => setIsGameModalOpen(false)}
+        />
+      )}
+
+      {/* Curriculum Modal by Grade */}
+      <CurriculumModal
+        isOpen={isCurriculumModalOpen}
+        onClose={() => setIsCurriculumModalOpen(false)}
+        currentLessonId={activeLesson.id}
+        onSelectLesson={(lesson) => {
+          setCustomLesson(lesson);
+          if (lesson.gradeLevel) setSelectedGrade(lesson.gradeLevel);
+        }}
+        completedLessons={completedLessons}
+        allLessons={allAvailableLessons}
+        teacherLessons={teacherLessons}
+        onOpenTeacherModal={() => setIsTeacherModalOpen(true)}
+        initialGradeFilter={selectedGrade}
+      />
+
+      {/* Custom Text Practice Modal */}
+      <CustomTextModal
+        isOpen={isCustomTextModalOpen}
+        onClose={() => setIsCustomTextModalOpen(false)}
+        onApplyCustomText={(text, title) => {
+          setCustomLesson({
+            id: 'custom-' + Date.now(),
+            level: 99,
+            category: 'short_sentences',
+            categoryTitleVi: 'Tự chọn',
+            title: title,
+            subtitle: 'Bài do thầy cô hoặc học sinh tự nhập',
+            descriptionVi: 'Luyện tập nội dung tự chọn theo yêu cầu riêng.',
+            focusKeys: Array.from(new Set(text.toLowerCase().split(''))).filter((c) => c !== ' ' && c !== '\n').slice(0, 10),
+            text: text,
+            targetWpm: 20,
+            targetAccuracy: 90,
+            badgeName: 'Nhà Thám Hiểm Tự Do',
+            gradeLevel: selectedGrade,
+          });
+        }}
+      />
+
+      {/* 8 Keyboards Theme Modal */}
+      <KeyboardThemeModal
+        isOpen={isThemeModalOpen}
+        onClose={() => setIsThemeModalOpen(false)}
+        currentThemeId={currentKeyboardTheme.id}
+        onSelectTheme={handleSelectTheme}
+      />
+
+      {/* MÀN HÌNH TỔNG KẾT & KHEN THƯỞNG KHI HOÀN THÀNH BÀI GÕ (Điểm số, Kỹ năng, Hoa rơi & Tiếng vỗ tay) */}
+      <CompletionModal
+        isOpen={isCompleted}
+        onClose={() => setIsCompleted(false)}
+        lesson={activeLesson}
+        stats={stats}
+        onRestart={handleRestart}
+        onNextLesson={handleNextLesson}
+        hasNextLesson={hasNext}
+        onOpenCurriculumModal={() => {
+          setTextbookTab('curriculum');
+          setIsRightPanelOpen(true);
+        }}
+      />
+    </div>
+  );
+}
