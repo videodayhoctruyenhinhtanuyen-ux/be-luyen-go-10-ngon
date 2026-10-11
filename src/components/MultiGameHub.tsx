@@ -37,7 +37,10 @@ import {
   GameTypingMode,
   GameWordItem,
   getRandomGameWord,
-  getGameWords
+  getGameWords,
+  LEVEL_TIME_LIMITS,
+  SmartWordDeck,
+  createWordDeck
 } from '../data/gameWords';
 import {
   telexCompose,
@@ -191,31 +194,36 @@ const LEVEL_GOALS: Record<number, LevelGoalConfig> = {
   5: { climberTargetPos: 100, balloonTargetCount: 15, danceTargetNotes: 15, treasureTargetChests: 15, courierTargetDistance: 1500 },
 };
 
-const LEVEL_NAMES: Record<number, { title: string; subtitle: string; descVi: string }> = {
+const LEVEL_NAMES: Record<number, { title: string; subtitle: string; descVi: string; timeLimit: number }> = {
   1: {
     title: 'Level 1: Nhập Cuộc',
     subtitle: 'Khởi đầu vững chắc',
-    descVi: 'Từ ngắn 3-5 ký tự. Tổ hợp đa hàng phím (trên, cơ sở, dưới). Tốc độ vừa phải.',
+    descVi: 'Tối đa 50s/lượt • Từ đơn 1 tiếng (bút, bàn, mèo, hoa, mẹ...). Rèn vị trí phím cơ bản.',
+    timeLimit: 50,
   },
   2: {
     title: 'Level 2: Tăng Tốc',
     subtitle: 'Nhanh nhẹn & linh hoạt',
-    descVi: 'Từ ghép 5-8 ký tự. Phối hợp nhịp nhàng các ngón tay giữa các hàng phím.',
+    descVi: 'Tối đa 40s/lượt • Cụm từ 2 đến 3 từ (thước kẻ, gia đình vui vẻ, máy tính thông minh...).',
+    timeLimit: 40,
   },
   3: {
     title: 'Level 3: Mở Rộng',
-    subtitle: 'Chinh phục cụm từ',
-    descVi: 'Cụm từ 9-15 ký tự. Thử thách phản xạ chuyển đổi ngón tay liên tục.',
+    subtitle: 'Chinh phục câu ngắn',
+    descVi: 'Tối đa 35s/lượt • Câu ngắn có độ dài 4 đến 6 từ (chăm ngoan học giỏi mỗi ngày...).',
+    timeLimit: 35,
   },
   4: {
     title: 'Level 4: Tinh Thông',
-    subtitle: 'Câu ngắn hoàn chỉnh',
-    descVi: 'Câu văn học tập 15-22 ký tự. Tốc độ cao, rèn luyện cấu trúc gõ câu hoàn chỉnh.',
+    subtitle: 'Câu hoàn chỉnh',
+    descVi: 'Tối đa 30s/lượt • Câu hoàn chỉnh 4 đến 7 từ (cô giáo như người mẹ hiền thứ hai...).',
+    timeLimit: 30,
   },
   5: {
     title: 'Level 5: Đỉnh Cao',
     subtitle: 'Vô địch toàn năng',
-    descVi: 'Khẩu hiệu & câu truyền cảm hứng 22-35 ký tự. Đòi hỏi tốc độ và sự tập trung tối đa!',
+    descVi: 'Tối đa 25s/lượt • Câu linh hoạt 3 đến 8 từ. Đòi hỏi phản xạ gõ phím nhanh và chính xác cao!',
+    timeLimit: 25,
   },
 };
 
@@ -496,6 +504,14 @@ export const MultiGameHub: React.FC<MultiGameHubProps> = ({ onClose, soundEnable
   const [currentTypedInput, setCurrentTypedInput] = useState<string>('');
   const [inputHasError, setInputHasError] = useState<boolean>(false);
 
+  // Quản lý bộ bài ngẫu nhiên Fisher-Yates không trùng lặp cho phiên chơi
+  const wordDeckRef = useRef<SmartWordDeck | null>(null);
+
+  // Chuẩn hóa thời gian đếm ngược từng lượt gõ theo yêu cầu:
+  // Level 1: 50s | Level 2: 40s | Level 3: 35s | Level 4: 30s | Level 5: 25s
+  const [wordTimeLeft, setWordTimeLeft] = useState<number>(50);
+  const [totalWordTime, setTotalWordTime] = useState<number>(50);
+
   // TRẠNG THÁI HẾT GIỜ QUY ĐỊNH CHO TỪ HIỆN TẠI:
   // Nếu hết thời gian quy định, vẫn cho học sinh gõ tiếp đến cùng, nhưng sẽ nhận 0 điểm vì không kịp thời gian!
   const [isTimeExpiredForCurrentWord, setIsTimeExpiredForCurrentWord] = useState<boolean>(false);
@@ -513,9 +529,9 @@ export const MultiGameHub: React.FC<MultiGameHubProps> = ({ onClose, soundEnable
   const [climberPos, setClimberPos] = useState<number>(0);
   const [climberWordItem, setClimberWordItem] = useState<GameWordItem>({
     word: 'bút',
-    hint: 'b (dưới) + u,t (trên)',
-    category: 'su_vat',
-    categoryLabelVi: 'Sự vật',
+    hint: 'Đồ dùng học tập thân thiết',
+    category: 'do_dung_hoc_tap',
+    categoryLabelVi: 'Đồ dùng học tập',
   });
   const [climberTimeLeft, setClimberTimeLeft] = useState<number>(100);
 
@@ -548,26 +564,26 @@ export const MultiGameHub: React.FC<MultiGameHubProps> = ({ onClose, soundEnable
   const [treasureChest, setTreasureChest] = useState<number>(1);
   const [treasureWordItem, setTreasureWordItem] = useState<GameWordItem>({
     word: 'sách',
-    hint: 's,a,h (cơ sở) + c (dưới)',
-    category: 'su_vat',
-    categoryLabelVi: 'Sự vật',
+    hint: 'Kho tàng tri thức quý báu',
+    category: 'do_dung_hoc_tap',
+    categoryLabelVi: 'Đồ dùng học tập',
   });
-  const [treasureTime, setTreasureTime] = useState<number>(18);
+  const [treasureTime, setTreasureTime] = useState<number>(50);
 
   // 5. GAME 5: Siêu nhân giao hàng
   const [courierDistance, setCourierDistance] = useState<number>(0);
   const [currentSignWordItem, setCurrentSignWordItem] = useState<GameWordItem>({
-    word: 'lớp học',
-    hint: 'Lớp học thân yêu',
+    word: 'lớp học vui vẻ',
+    hint: 'Môi trường học tập thân thiện',
     category: 'hoc_tap',
-    categoryLabelVi: 'Học tập',
+    categoryLabelVi: 'Hoạt động học tập',
   });
   const [carTurning, setCarTurning] = useState<'straight' | 'left' | 'right'>('straight');
 
   const inputRef = useRef<HTMLInputElement>(null);
 
   // ==========================================================================
-  // CHỨC NĂNG: HỌC SINH NHẤN ENTER TỰ ĐỘNG XÓA KÝ TỰ & CHUẨN BỊ GÕ TỪ MỚI
+  // CHỨC NĂNG: HỌC SINH NHẤN ENTER TỰ ĐỘNG XÓA KÝ TỰ & CHUẨN BỊ GÕ TỪ MỚI (TỪ BỘ BÀI NGẪU NHIÊN)
   // ==========================================================================
   const handleSkipOrResetCurrentWord = useCallback(() => {
     if (!isPlaying || isGameOver || isLevelClearedModalOpen || isGrandChampionModalOpen) return;
@@ -575,33 +591,43 @@ export const MultiGameHub: React.FC<MultiGameHubProps> = ({ onClose, soundEnable
     setCurrentTypedInput('');
     setInputHasError(false);
     setIsTimeExpiredForCurrentWord(false);
+
+    // Chuẩn hóa thời gian đếm ngược theo Level
+    const limit = LEVEL_TIME_LIMITS[level] || 50;
+    setWordTimeLeft(limit);
+    setTotalWordTime(limit);
     soundEngine.playMechanicalClick();
 
+    // Bốc từ mới ngẫu nhiên không trùng lặp từ bộ bài Fisher-Yates
+    const getNextWord = () => {
+      if (wordDeckRef.current) return wordDeckRef.current.drawNext();
+      return getRandomGameWord(gameMode, level);
+    };
+
     if (selectedGameId === 'climber') {
-      setClimberWordItem(getRandomGameWord(gameMode, level));
+      setClimberWordItem(getNextWord());
       setClimberTimeLeft(100);
     } else if (selectedGameId === 'balloon') {
-      setBalloons((prev) =>
-        prev.map((b) => ({
-          ...b,
-          wordItem: getRandomGameWord(gameMode, level),
-          typed: '',
-        }))
-      );
+      const w1 = getNextWord();
+      const w2 = getNextWord();
+      setBalloons((prev) => [
+        { ...prev[0], wordItem: w1, typed: '', y: 88 },
+        { ...prev[1], wordItem: w2, typed: '', y: 92 },
+      ]);
     } else if (selectedGameId === 'dance') {
       setMusicNotes([
         {
           id: Date.now(),
-          wordItem: getRandomGameWord(gameMode, level),
+          wordItem: getNextWord(),
           x: 90,
           speed: 0.22 + level * 0.06,
         },
       ]);
     } else if (selectedGameId === 'treasure') {
-      setTreasureWordItem(getRandomGameWord(gameMode, level));
-      setTreasureTime(Math.max(12, 20 - level * 1.5));
+      setTreasureWordItem(getNextWord());
+      setTreasureTime(limit);
     } else if (selectedGameId === 'courier') {
-      setCurrentSignWordItem(getRandomGameWord(gameMode, level));
+      setCurrentSignWordItem(getNextWord());
     }
 
     setEncouragement('🔄 Đã xóa ký tự & nạp từ mới! Sẵn sàng gõ tiếp!');
@@ -738,18 +764,28 @@ export const MultiGameHub: React.FC<MultiGameHubProps> = ({ onClose, soundEnable
     setIsTimeExpiredForCurrentWord(false);
     setWordsCompletedInLevel(0);
 
+    // Khởi tạo SmartWordDeck với thuật toán Fisher-Yates ngẫu nhiên không trùng lặp
+    wordDeckRef.current = new SmartWordDeck(activeMode, validLevel);
+
+    // Chuẩn hóa thời gian đếm ngược theo Level (mỗi lượt gõ):
+    // Level 1: 50s | Level 2: 40s | Level 3: 35s | Level 4: 30s | Level 5: 25s
+    const timeLimit = LEVEL_TIME_LIMITS[validLevel] || 50;
+    setWordTimeLeft(timeLimit);
+    setTotalWordTime(timeLimit);
+
     if (gameId === 'climber') {
       setClimberPos(10);
-      setClimberWordItem(getRandomGameWord(activeMode, validLevel));
+      setClimberWordItem(wordDeckRef.current.drawNext());
       setClimberTimeLeft(100);
     } else if (gameId === 'balloon') {
       balloonIdRef.current = 1;
       setBalloonPoppedCount(0);
       const colors = ['#ec4899', '#3b82f6', '#10b981', '#f59e0b', '#8b5cf6'];
+      const [w1, w2] = wordDeckRef.current.drawTwoDistinct();
       setBalloons([
         {
           id: balloonIdRef.current++,
-          wordItem: getRandomGameWord(activeMode, validLevel),
+          wordItem: w1,
           typed: '',
           x: 25,
           y: 85,
@@ -758,7 +794,7 @@ export const MultiGameHub: React.FC<MultiGameHubProps> = ({ onClose, soundEnable
         },
         {
           id: balloonIdRef.current++,
-          wordItem: getRandomGameWord(activeMode, validLevel),
+          wordItem: w2,
           typed: '',
           x: 65,
           y: 95,
@@ -772,18 +808,18 @@ export const MultiGameHub: React.FC<MultiGameHubProps> = ({ onClose, soundEnable
       setMusicNotes([
         {
           id: 1,
-          wordItem: getRandomGameWord(activeMode, validLevel),
+          wordItem: wordDeckRef.current.drawNext(),
           x: 90,
           speed: 0.22 + validLevel * 0.06,
         },
       ]);
     } else if (gameId === 'treasure') {
       setTreasureChest(1);
-      setTreasureWordItem(getRandomGameWord(activeMode, validLevel));
-      setTreasureTime(20 - validLevel * 1.5);
+      setTreasureWordItem(wordDeckRef.current.drawNext());
+      setTreasureTime(timeLimit);
     } else if (gameId === 'courier') {
       setCourierDistance(0);
-      setCurrentSignWordItem(getRandomGameWord(activeMode, validLevel));
+      setCurrentSignWordItem(wordDeckRef.current.drawNext());
       setCarTurning('straight');
     }
 
@@ -801,50 +837,60 @@ export const MultiGameHub: React.FC<MultiGameHubProps> = ({ onClose, soundEnable
   };
 
   // ==========================================================================
-  // GAME LOOP CHO THỜI GIAN: HẾT GIỜ THÌ GIỮ NGUYÊN TỪ VÀ CHO GÕ TIẾP (0 ĐIỂM)
+  // GAME LOOP CHO THỜI GIAN ĐẾM NGƯỢC CHUẨN XÁC THEO TỪNG LEVEL:
+  // HẾT GIỜ (0s) THÌ GIỮ NGUYÊN TỪ VÀ CHO GÕ TIẾP (0 ĐIỂM HOẶC ENTER ĐỔI TỪ)
   // ==========================================================================
   useEffect(() => {
     if (!isPlaying || isGameOver || isLevelClearedModalOpen || isGrandChampionModalOpen) return;
 
     const interval = setInterval(() => {
-      // 1. Chú khỉ leo núi: thanh thời gian mỏm đá
+      // 1. Đếm ngược thời gian lượt gõ hiện tại (chuẩn xác mỗi 100ms)
+      setWordTimeLeft((t) => {
+        if (t <= 0) {
+          setIsTimeExpiredForCurrentWord((expired) => {
+            if (!expired) soundEngine.playErrorBoop();
+            return true;
+          });
+          return 0;
+        }
+        const next = Math.max(0, t - 0.1);
+        if (next <= 0) {
+          setIsTimeExpiredForCurrentWord((expired) => {
+            if (!expired) soundEngine.playErrorBoop();
+            return true;
+          });
+        }
+        return next;
+      });
+
+      // 2. Chú khỉ leo núi: đồng bộ thanh thời gian mỏm đá theo % thời gian còn lại
       if (selectedGameId === 'climber') {
-        setClimberTimeLeft((t) => {
-          if (t <= 0) {
-            // Đã hết thời gian: Vẫn cho học sinh gõ tiếp, giữ ở 0, KHÔNG đổi từ!
-            setIsTimeExpiredForCurrentWord((expired) => {
-              if (!expired) soundEngine.playErrorBoop();
-              return true;
-            });
-            return 0;
-          }
-          return Math.max(0, t - (1.6 + level * 0.4));
+        setClimberTimeLeft(() => {
+          return totalWordTime > 0 ? (wordTimeLeft / totalWordTime) * 100 : 0;
         });
       }
 
-      // 2. Bóng bay: bay dần lên trời
+      // 3. Bóng bay: bay dần lên trời theo % thời gian trôi qua, chạm đỉnh khi hết giờ
       if (selectedGameId === 'balloon') {
         setBalloons((prev) => {
           const updated = prev.map((b) => {
-            // Nếu bóng bay lên tới đỉnh (y <= 12), giữ lại cho học sinh gõ xong, đánh dấu hết giờ!
-            if (b.y <= 12) {
-              setIsTimeExpiredForCurrentWord((expired) => {
-                if (!expired) soundEngine.playErrorBoop();
-                return true;
-              });
+            if (wordTimeLeft <= 0) {
               return { ...b, y: 12 };
             }
-            return { ...b, y: b.y - b.speed };
+            const progress = totalWordTime > 0 ? (totalWordTime - wordTimeLeft) / totalWordTime : 0;
+            const targetY = 88 - progress * 74;
+            return { ...b, y: Math.max(14, targetY) };
           });
 
-          if (updated.length < 2 + Math.min(2, level)) {
+          if (updated.length < 2) {
             const colors = ['#ec4899', '#3b82f6', '#10b981', '#f59e0b', '#8b5cf6'];
+            const nextWord = wordDeckRef.current ? wordDeckRef.current.drawNext() : getRandomGameWord(gameMode, level);
             updated.push({
               id: balloonIdRef.current++,
-              wordItem: getRandomGameWord(gameMode, level),
+              wordItem: nextWord,
               typed: '',
               x: Math.floor(Math.random() * 60) + 20,
-              y: 92,
+              y: 88,
               speed: 0.12 + level * 0.03,
               color: colors[Math.floor(Math.random() * colors.length)],
             });
@@ -853,55 +899,28 @@ export const MultiGameHub: React.FC<MultiGameHubProps> = ({ onClose, soundEnable
         });
       }
 
-      // 3. Khu vườn âm nhạc: nốt nhạc trôi dạt sang trái
+      // 4. Khu vườn âm nhạc: nốt nhạc trôi dạt sang trái, chạm Hit Zone khi hết giờ
       if (selectedGameId === 'dance') {
         setMusicNotes((prev) => {
-          const updated = prev.map((n) => {
-            // Khi nốt nhạc trôi sát Hit Zone (x <= 15), giữ lại ở 15% cho học sinh tiếp tục gõ!
-            if (n.x <= 15) {
-              setIsTimeExpiredForCurrentWord((expired) => {
-                if (!expired) soundEngine.playErrorBoop();
-                return true;
-              });
+          return prev.map((n) => {
+            if (wordTimeLeft <= 0) {
               return { ...n, x: 15 };
             }
-            return { ...n, x: n.x - n.speed };
+            const progress = totalWordTime > 0 ? (totalWordTime - wordTimeLeft) / totalWordTime : 0;
+            const targetX = 90 - progress * 75;
+            return { ...n, x: Math.max(15, targetX) };
           });
-
-          return updated;
         });
       }
 
-      // 4. Mở rương kho báu: đếm lùi thời gian
+      // 5. Mở rương kho báu: đồng bộ đếm lùi thời gian
       if (selectedGameId === 'treasure') {
-        setTreasureTime((t) => {
-          if (t <= 0) {
-            // Hết giờ rương báu: Vẫn cho học sinh tiếp tục giải mã, KHÔNG đổi từ!
-            setIsTimeExpiredForCurrentWord((expired) => {
-              if (!expired) soundEngine.playErrorBoop();
-              return true;
-            });
-            return 0;
-          }
-          return t - 1;
-        });
-      }
-
-      // 5. Xe giao hàng: tự động chạy tới
-      if (selectedGameId === 'courier') {
-        setCourierDistance((d) => {
-          const targetDist = LEVEL_GOALS[level]?.courierTargetDistance || 800;
-          if (d >= targetDist) {
-            handleLevelCleared();
-            return targetDist;
-          }
-          return d + 2 + level;
-        });
+        setTreasureTime(Math.ceil(wordTimeLeft));
       }
     }, 100);
 
     return () => clearInterval(interval);
-  }, [isPlaying, isGameOver, isLevelClearedModalOpen, isGrandChampionModalOpen, selectedGameId, level, gameMode, handleLevelCleared]);
+  }, [isPlaying, isGameOver, isLevelClearedModalOpen, isGrandChampionModalOpen, selectedGameId, level, gameMode, totalWordTime, wordTimeLeft]);
 
   // ==========================================================================
   // XỬ LÝ NHẬP LIỆU THÔNG MINH (HỖ TRỢ UNIKEY [V], TIẾNG ANH & HẾT GIỜ 0 ĐIỂM)
@@ -985,12 +1004,25 @@ export const MultiGameHub: React.FC<MultiGameHubProps> = ({ onClose, soundEnable
           return;
         }
 
+        // Chuẩn hóa thời gian đếm ngược lượt gõ cho từ tiếp theo:
+        // Level 1: 50s | Level 2: 40s | Level 3: 35s | Level 4: 30s | Level 5: 25s
+        const nextTimeLimit = LEVEL_TIME_LIMITS[level] || 50;
+        setWordTimeLeft(nextTimeLimit);
+        setTotalWordTime(nextTimeLimit);
+        setIsTimeExpiredForCurrentWord(false);
+
+        // Bốc từ ngẫu nhiên không trùng lặp từ bộ bài Fisher-Yates
+        const getNextWord = (exclude?: string) => {
+          if (wordDeckRef.current) return wordDeckRef.current.drawNextDistinct(exclude || targetWord);
+          return getRandomGameWord(gameMode, level, exclude || targetWord);
+        };
+
         // 1. Chú khỉ leo núi (15 lượt leo 100% đỉnh núi)
         if (selectedGameId === 'climber') {
           const nextPos = Math.min(100, Math.round((nextCompleted / WORDS_PER_LEVEL) * 100));
           awardScore(60, 'Khỉ con nhảy thoăn thoắt! 🐒 Siêu quá!');
           setClimberPos(nextPos);
-          setClimberWordItem(getRandomGameWord(gameMode, level));
+          setClimberWordItem(getNextWord());
           setClimberTimeLeft(100);
         }
 
@@ -1001,12 +1033,13 @@ export const MultiGameHub: React.FC<MultiGameHubProps> = ({ onClose, soundEnable
           setBalloons((prev) => {
             const colors = ['#ec4899', '#3b82f6', '#10b981', '#f59e0b', '#8b5cf6'];
             const remaining = prev.filter((b) => !isWordCompleteForMode(val, b.wordItem.word, gameMode, vnSubMode));
+            const otherWord = remaining[0]?.wordItem.word;
             remaining.push({
               id: balloonIdRef.current++,
-              wordItem: getRandomGameWord(gameMode, level),
+              wordItem: getNextWord(otherWord),
               typed: '',
               x: Math.floor(Math.random() * 60) + 20,
-              y: 92,
+              y: 88,
               speed: 0.12 + level * 0.03,
               color: colors[Math.floor(Math.random() * colors.length)],
             });
@@ -1023,7 +1056,7 @@ export const MultiGameHub: React.FC<MultiGameHubProps> = ({ onClose, soundEnable
           setMusicNotes([
             {
               id: Date.now(),
-              wordItem: getRandomGameWord(gameMode, level),
+              wordItem: getNextWord(),
               x: 90,
               speed: 0.22 + level * 0.06,
             },
@@ -1035,8 +1068,8 @@ export const MultiGameHub: React.FC<MultiGameHubProps> = ({ onClose, soundEnable
           soundEngine.playVictoryFanfare();
           awardScore(90, `Đã mở Rương Báu #${nextCompleted}! 💎 Nhận ngọc bích!`);
           setTreasureChest(nextCompleted);
-          setTreasureWordItem(getRandomGameWord(gameMode, level));
-          setTreasureTime(Math.max(12, 20 - level * 1.5));
+          setTreasureWordItem(getNextWord());
+          setTreasureTime(nextTimeLimit);
         }
 
         // 5. Siêu nhân giao hàng (15 ngã rẽ giao hàng)
@@ -1045,7 +1078,7 @@ export const MultiGameHub: React.FC<MultiGameHubProps> = ({ onClose, soundEnable
           setTimeout(() => setCarTurning('straight'), 500);
           awardScore(75, 'Khúc cua an toàn! 🚚 Tốc độ tối đa!');
           setCourierDistance(nextCompleted * 100);
-          setCurrentSignWordItem(getRandomGameWord(gameMode, level));
+          setCurrentSignWordItem(getNextWord());
         }
       }
     } else {
@@ -1706,12 +1739,28 @@ export const MultiGameHub: React.FC<MultiGameHubProps> = ({ onClose, soundEnable
                 <span className="flex items-center gap-1.5 text-emerald-950 bg-emerald-200/90 px-3 py-1.5 rounded-xl border border-emerald-400 shadow-2xs">
                   <Star className="w-3.5 h-3.5 text-emerald-700" /> {accuracy}% Chuẩn
                 </span>
+                {/* Huy hiệu đếm ngược thời gian chuẩn hóa theo Level */}
+                <span
+                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl border shadow-2xs font-mono font-black transition-all ${
+                    isTimeExpiredForCurrentWord
+                      ? 'bg-rose-500 text-white border-rose-600 animate-pulse'
+                      : wordTimeLeft <= 10
+                      ? 'bg-amber-400 text-slate-950 border-amber-500 animate-bounce'
+                      : 'bg-white text-emerald-950 border-emerald-300'
+                  }`}
+                  title={`Thời gian hoàn thành tối đa mỗi lượt gõ ở Level ${level} là ${totalWordTime} giây`}
+                >
+                  <Clock className={`w-3.5 h-3.5 ${isTimeExpiredForCurrentWord ? 'text-white' : 'text-amber-600'}`} />
+                  <span>
+                    {isTimeExpiredForCurrentWord ? '0s (HẾT GIỜ)' : `${Math.ceil(wordTimeLeft)}s / ${totalWordTime}s`}
+                  </span>
+                </span>
                 {combo > 1 && (
                   <span className="flex items-center gap-1.5 text-rose-950 bg-pink-200/90 px-3 py-1.5 rounded-xl border border-pink-400 shadow-2xs animate-bounce">
                     <Flame className="w-3.5 h-3.5 fill-rose-500 text-rose-600" /> Combo x{combo}
                   </span>
                 )}
-                <span className="hidden md:flex items-center gap-1.5 text-emerald-950 bg-white/90 px-3 py-1.5 rounded-xl border border-emerald-300 font-black shadow-2xs">
+                <span className="hidden lg:flex items-center gap-1.5 text-emerald-950 bg-white/90 px-3 py-1.5 rounded-xl border border-emerald-300 font-black shadow-2xs">
                   <Target className="w-3.5 h-3.5 text-emerald-600" /> Tiến độ: {wordsCompletedInLevel}/{WORDS_PER_LEVEL} lượt ({Math.round((wordsCompletedInLevel / WORDS_PER_LEVEL) * 100)}%)
                 </span>
               </div>
@@ -1831,15 +1880,26 @@ export const MultiGameHub: React.FC<MultiGameHubProps> = ({ onClose, soundEnable
                     {renderWordWithHighlight(climberWordItem.word, currentTypedInput)}
 
                     {/* Thanh thời gian mỏm đá */}
-                    <div className="w-full max-w-md h-2.5 bg-emerald-100 rounded-full mt-3 overflow-hidden border border-emerald-300 shadow-inner">
-                      <div
-                        className={`h-full transition-all duration-100 ${
-                          isTimeExpiredForCurrentWord
-                            ? 'bg-rose-500'
-                            : 'bg-gradient-to-r from-emerald-400 via-amber-400 to-rose-400'
-                        }`}
-                        style={{ width: `${climberTimeLeft}%` }}
-                      />
+                    <div className="w-full max-w-md mt-3 space-y-1">
+                      <div className="flex items-center justify-between text-[11px] font-black text-slate-700">
+                        <span className="flex items-center gap-1">
+                          <Clock className="w-3.5 h-3.5 text-amber-600" />
+                          <span>Thời gian lượt gõ:</span>
+                        </span>
+                        <span className={`font-mono ${isTimeExpiredForCurrentWord ? 'text-rose-600 font-black' : 'text-slate-900'}`}>
+                          {isTimeExpiredForCurrentWord ? '0s (Đã hết giờ)' : `${Math.ceil(wordTimeLeft)}s / ${totalWordTime}s`}
+                        </span>
+                      </div>
+                      <div className="w-full h-2.5 bg-emerald-100 rounded-full overflow-hidden border border-emerald-300 shadow-inner">
+                        <div
+                          className={`h-full transition-all duration-100 ${
+                            isTimeExpiredForCurrentWord
+                              ? 'bg-rose-500'
+                              : 'bg-gradient-to-r from-emerald-400 via-amber-400 to-rose-400'
+                          }`}
+                          style={{ width: `${climberTimeLeft}%` }}
+                        />
+                      </div>
                     </div>
                   </div>
                 </div>
@@ -1848,10 +1908,13 @@ export const MultiGameHub: React.FC<MultiGameHubProps> = ({ onClose, soundEnable
               {/* TRÒ CHƠI 2: BÓNG BAY KỲ DIỆU */}
               {selectedGameId === 'balloon' && (
                 <div className="w-full h-full relative rounded-3xl bg-gradient-to-b from-sky-200 via-cyan-100 to-pink-100 border-3 border-pink-300 overflow-hidden flex flex-col justify-between p-4 shadow-xl">
-                  {/* Tiến trình số bóng bay đã nổ */}
+                  {/* Tiến trình số bóng bay đã nổ & đếm ngược */}
                   <div className="flex justify-between items-center text-xs font-black text-slate-900 bg-white/95 px-4 py-2 rounded-2xl border-2 border-pink-300 shadow-sm z-20">
                     <span className="text-pink-700">🎈 ĐÃ NỔ: {balloonPoppedCount} / {WORDS_PER_LEVEL} BÓNG</span>
-                    <span className="bg-pink-100 text-pink-900 px-2.5 py-0.5 rounded-full border border-pink-200">Tốc độ bay: Level {level}</span>
+                    <span className="flex items-center gap-1 bg-pink-50 text-pink-900 px-2.5 py-0.5 rounded-full border border-pink-300 font-mono">
+                      <Clock className="w-3.5 h-3.5 text-pink-600" />
+                      <span>{isTimeExpiredForCurrentWord ? '0s (HẾT GIỜ)' : `${Math.ceil(wordTimeLeft)}s / ${totalWordTime}s`}</span>
+                    </span>
                   </div>
 
                   {/* Hoạt ảnh tung hoa ăn mừng khi gõ đúng từ */}
