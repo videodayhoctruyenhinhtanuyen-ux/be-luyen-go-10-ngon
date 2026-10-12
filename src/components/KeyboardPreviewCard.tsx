@@ -48,7 +48,12 @@ export const KeyboardPreviewCard: React.FC<KeyboardPreviewCardProps> = ({
               <h4 className="text-sm font-black text-slate-900 group-hover:text-sky-700 transition-colors leading-tight">
                 {theme.shortName}
               </h4>
-              {theme.isSystemCreated ? (
+              {theme.isHandsGuideTheme ? (
+                <span className="text-[9px] font-black bg-gradient-to-r from-sky-500 to-indigo-600 text-white px-2 py-0.2 rounded-full flex items-center gap-0.5 shadow-xs">
+                  <span>👐</span>
+                  <span>Có Hướng Dẫn Tay Gõ</span>
+                </span>
+              ) : theme.isSystemCreated ? (
                 <span className="text-[9px] font-black bg-purple-100 text-purple-700 border border-purple-200 px-1.5 py-0.2 rounded-full flex items-center gap-0.5">
                   <Cpu className="w-2.5 h-2.5" />
                   Hệ Thống #9
@@ -335,6 +340,41 @@ export const KeyboardPreviewCard: React.FC<KeyboardPreviewCardProps> = ({
           {/* 0 . */}
           <rect x="270" y="120" width="20" height="14" rx={keyRadius} fill={previewColors.alphaKey} />
           <rect x="292" y="120" width="9" height="14" rx={keyRadius} fill={previewColors.alphaKey} />
+
+          {/* Miniature Hands Overlay for Hands Guide Theme */}
+          {theme.isHandsGuideTheme && (
+            <g id="mini-hands-overlay" opacity="0.85">
+              {/* Left Hand Silhouette */}
+              <path
+                d="M 35,145 C 30,120 40,105 60,95 C 78,85 105,82 120,95 C 130,105 130,125 125,145 Z"
+                fill="rgba(245, 220, 206, 0.75)"
+                stroke="#38bdf8"
+                strokeWidth="1.5"
+              />
+              {/* Home Row Left Finger Rings (ASDF) */}
+              <circle cx="50" cy="93" r="3.5" fill="#ec4899" />
+              <circle cx="64" cy="90" r="3.5" fill="#f97316" />
+              <circle cx="78" cy="87" r="3.5" fill="#22c55e" />
+              <circle cx="92" cy="93" r="4.5" fill="#06b6d4" stroke="#ffffff" strokeWidth="1" />
+
+              {/* Right Hand Silhouette */}
+              <path
+                d="M 140,145 C 135,125 135,105 145,95 C 160,82 187,85 205,95 C 225,105 235,120 230,145 Z"
+                fill="rgba(245, 220, 206, 0.75)"
+                stroke="#38bdf8"
+                strokeWidth="1.5"
+              />
+              {/* Home Row Right Finger Rings (JKL;) */}
+              <circle cx="173" cy="93" r="4.5" fill="#06b6d4" stroke="#ffffff" strokeWidth="1" />
+              <circle cx="187" cy="87" r="3.5" fill="#22c55e" />
+              <circle cx="201" cy="90" r="3.5" fill="#f97316" />
+              <circle cx="215" cy="93" r="3.5" fill="#ec4899" />
+
+              {/* Laser return trail indication */}
+              <path d="M 92,93 Q 98,75 106,75" stroke="#f59e0b" strokeWidth="2" strokeDasharray="2 1.5" fill="none" />
+              <circle cx="106" cy="75" r="3" fill="#38bdf8" />
+            </g>
+          )}
         </svg>
 
         {/* Hover Sparkle Badge */}

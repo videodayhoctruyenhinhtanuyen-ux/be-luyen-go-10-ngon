@@ -9,6 +9,7 @@ export interface KeyboardSkinTheme {
   accentBg: string;
   brandTag: string; // Tên thương hiệu đời thực hoặc nhãn dập nổi
   isSystemCreated?: boolean; // Đánh dấu bàn phím số 9 tự chế tạo
+  isHandsGuideTheme?: boolean; // Bàn phím có hướng dẫn tay gõ theo chuẩn sư phạm 10 ngón
   keycapShape?: 'standard' | 'chiclet' | 'round'; // Dáng phím
   // Classes applied to keyboard casing
   outerFrameClass: string;
@@ -33,7 +34,40 @@ export interface KeyboardSkinTheme {
   };
 }
 
+export const HANDS_GUIDE_THEME_ID = 'keyboard_with_hands_guide';
+
 export const KEYBOARD_THEMES: KeyboardSkinTheme[] = [
+  // 0. BÀN PHÍM CÓ HƯỚNG DẪN TAY GÕ: BẢN QUYỀN SƯ PHẠM 10 NGÓN (HOME ROW RETURN)
+  {
+    id: HANDS_GUIDE_THEME_ID,
+    name: 'BÀN PHÍM CÓ HƯỚNG DẪN TAY GÕ (Chuẩn Sư Phạm 10 Ngón)',
+    shortName: 'Bàn Phím Có Hướng Dẫn Tay Gõ',
+    emoji: '👐⌨️',
+    badge: 'Chuẩn Sư Phạm 10 Ngón',
+    isHandsGuideTheme: true,
+    descriptionVi: 'Mẫu bàn phím cơ 98 phím cao cấp tích hợp mô phỏng đôi bàn tay thật 10 ngón. Tự động hướng dẫn ngón tay vươn tới phím mục tiêu và lập tức thu tay về hàng phím cơ sở (ASDF - JKL;) theo chuẩn sư phạm.',
+    themeColor: '#0284c7',
+    accentBg: 'from-sky-500 via-indigo-600 to-amber-500',
+    brandTag: 'PEDAGOGY MASTER • HOME ROW RETURN',
+    keycapShape: 'standard',
+    outerFrameClass: 'bg-gradient-to-b from-slate-900 via-slate-800 to-black border-4 border-sky-500 ring-4 ring-sky-400/80 shadow-2xl',
+    headerBarClass: 'border-b-2 border-sky-600/80 bg-gradient-to-r from-slate-900 via-sky-950 to-slate-900 text-sky-200',
+    plateClass: 'bg-gradient-to-b from-slate-950 via-slate-900 to-black border-2 border-sky-700 shadow-inner',
+    alphaKeycapClass: 'keycap-handsguide-alpha',
+    modifierKeycapClass: 'keycap-handsguide-mod',
+    numLedActive: 'bg-sky-400 shadow-[0_0_12px_#38bdf8]',
+    capsLedActive: 'bg-amber-400 shadow-[0_0_12px_#fbbf24]',
+    scrollLedActive: 'bg-emerald-400 shadow-[0_0_12px_#34d399]',
+    previewColors: {
+      frame: '#0f172a',
+      plate: '#0b1329',
+      alphaKey: '#f8fafc',
+      modKey: '#1e3a5f',
+      accent: '#0284c7',
+      text: '#0f2744',
+    },
+  },
+
   // 1. BÀN PHÍM THỰC TẾ 1: DELL KB216 ĐEN PHÒNG TIN HỌC TIÊU CHUẨN
   {
     id: 'dell_kb216_black',

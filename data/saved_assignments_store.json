@@ -1,0 +1,26 @@
+{
+  "3": {
+    "gradeLevel": 3,
+    "lessonId": "lesson-3-3",
+    "lessonIds": ["lesson-3-3"],
+    "assignedAt": "2026-10-12T05:00:00.000Z",
+    "teacherName": "Cô Mai",
+    "teacherNote": "Bài tập về nhà tuần này: Các con Lớp 3 hoàn thành bài thơ Mèo con đi học trước tiết học nhé!"
+  },
+  "4": {
+    "gradeLevel": 4,
+    "lessonId": "lesson-4-1",
+    "lessonIds": ["lesson-4-1", "lesson-4-2"],
+    "assignedAt": "2026-10-12T05:00:00.000Z",
+    "teacherName": "Cô Mai",
+    "teacherNote": "Bài tập về nhà tuần này: Các con Lớp 4 hoàn thành 2 bài gõ phím số và đồ dùng học tập nhé!"
+  },
+  "5": {
+    "gradeLevel": 5,
+    "lessonId": "lesson-5-1",
+    "lessonIds": ["lesson-5-1", "lesson-5-2"],
+    "assignedAt": "2026-10-12T05:00:00.000Z",
+    "teacherName": "Cô Mai",
+    "teacherNote": "Bài tập về nhà tuần này: Các con Lớp 5 hoàn thành 2 bài thơ Hạt gạo làng ta và Tre Việt Nam nhé!"
+  }
+}

@@ -51,6 +51,19 @@ export const PostureGuideModal: React.FC<PostureGuideModalProps> = ({ isOpen, on
             <p className="text-xs sm:text-sm text-slate-700 leading-relaxed">
               Hàng phím cơ sở là "ngôi nhà" xuất phát của 10 ngón tay. Trước khi gõ và sau khi gõ xong bất kỳ phím nào, các ngón tay đều phải quay về nghỉ ngơi tại đây!
             </p>
+
+            {/* AI Real Photo Illustration of Hand Placement */}
+            <div className="mt-3 relative rounded-2xl overflow-hidden border-2 border-sky-300 shadow-md bg-slate-900 flex flex-col items-center">
+              <img
+                src="/images/realistic_typing_hands.jpg"
+                alt="Ảnh mô phỏng AI đôi bàn tay thật đặt chuẩn trên hàng phím cơ sở"
+                className="w-full h-auto max-h-56 object-cover"
+              />
+              <div className="absolute top-2 left-2 bg-slate-950/85 backdrop-blur-xs text-white text-[10px] font-black px-2.5 py-0.5 rounded-full border border-sky-400 shadow flex items-center gap-1">
+                <span>📸 Mô phỏng AI: Đôi bàn tay con người thật đặt chuẩn 10 ngón (ASDF - JKL;)</span>
+              </div>
+            </div>
+
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mt-3">
               <div className="bg-white p-3.5 rounded-2xl border-2 border-sky-100 shadow-sm">
                 <div className="font-black text-xs text-sky-800 mb-1 flex items-center gap-1.5">

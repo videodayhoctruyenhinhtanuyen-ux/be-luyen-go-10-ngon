@@ -1,6 +1,19 @@
 // Engine to decompose Vietnamese text into physical keystrokes for Telex and VNI typing
 // Aligned with Vietnamese Primary School Informatics (SGK Tin học Lớp 3, 4, 5)
 import { VIETNAMESE_CHAR_DECOMPOSITION } from './vietnameseSmartTelex';
+import {
+  SYMBOL_KEY_GUIDE_MAP,
+  isShiftedSymbolChar,
+  getSymbolKeyGuideInfo,
+  SymbolKeyGuideInfo,
+} from './symbolKeyGuide';
+
+export {
+  SYMBOL_KEY_GUIDE_MAP,
+  isShiftedSymbolChar,
+  getSymbolKeyGuideInfo,
+};
+export type { SymbolKeyGuideInfo };
 
 export type TypingInputMode = 'telex' | 'vni' | 'no_accent';
 
@@ -184,23 +197,45 @@ export const VNI_MAP: Record<string, string[]> = {
   'ự': ['u', '7', '5'],
 };
 
+// Bảng ánh xạ ký tự đặc biệt hàng phím số sang phím số và ngón tay tương ứng
+export const NUMBER_ROW_SYMBOLS_MAP: Record<string, { digit: string; code: string; fingerDesc: string; keyLabel: string }> = {
+  '!': { digit: '1', code: 'Digit1', fingerDesc: 'ngón út tay trái', keyLabel: '1 (!)' },
+  '@': { digit: '2', code: 'Digit2', fingerDesc: 'ngón áp út tay trái', keyLabel: '2 (@)' },
+  '#': { digit: '3', code: 'Digit3', fingerDesc: 'ngón giữa tay trái', keyLabel: '3 (#)' },
+  '$': { digit: '4', code: 'Digit4', fingerDesc: 'ngón trỏ tay trái', keyLabel: '4 ($)' },
+  '%': { digit: '5', code: 'Digit5', fingerDesc: 'ngón trỏ tay trái', keyLabel: '5 (%)' },
+  '^': { digit: '6', code: 'Digit6', fingerDesc: 'ngón trỏ tay phải', keyLabel: '6 (^)' },
+  '&': { digit: '7', code: 'Digit7', fingerDesc: 'ngón trỏ tay phải', keyLabel: '7 (&)' },
+  '*': { digit: '8', code: 'Digit8', fingerDesc: 'ngón giữa tay phải', keyLabel: '8 (*)' },
+  '(': { digit: '9', code: 'Digit9', fingerDesc: 'ngón áp út tay phải', keyLabel: '9 (() ' },
+  ')': { digit: '0', code: 'Digit0', fingerDesc: 'ngón út tay phải', keyLabel: '0 ())' },
+};
+
+export function isNumberRowSymbol(char: string): boolean {
+  return !!char && char in NUMBER_ROW_SYMBOLS_MAP;
+}
+
 // Map character to physical KeyboardEvent.code
 export function charToKeyCode(char: string): string {
   if (char === ' ') return 'Space';
   if (char === '\n') return 'Enter';
   if (char >= '0' && char <= '9') return `Digit${char}`;
+  const symbolGuide = getSymbolKeyGuideInfo(char);
+  if (symbolGuide) return symbolGuide.baseKeyCode;
+  if (NUMBER_ROW_SYMBOLS_MAP[char]) return NUMBER_ROW_SYMBOLS_MAP[char].code;
   if (char >= 'a' && char <= 'z') return `Key${char.toUpperCase()}`;
   if (char >= 'A' && char <= 'Z') return `Key${char}`;
   if (char === '.') return 'Period';
   if (char === ',') return 'Comma';
   if (char === ';') return 'Semicolon';
   if (char === ':') return 'Semicolon';
-  if (char === '!') return 'Digit1';
   if (char === '?') return 'Slash';
+  if (char === '/') return 'Slash';
   if (char === '-') return 'Minus';
+  if (char === '_') return 'Minus';
+  if (char === '=') return 'Equal';
+  if (char === '+') return 'Equal';
   if (char === '"' || char === "'") return 'Quote';
-  if (char === '(') return 'Digit9';
-  if (char === ')') return 'Digit0';
   return 'Key' + char.toUpperCase();
 }
 
@@ -233,16 +268,41 @@ export function isLowerCaseChar(char: string): boolean {
 
 /**
  * Đánh giá lỗi gõ chữ hoa / chữ thường theo chuẩn sư phạm Tin học Tiểu học:
- * - Gõ chữ hoa có 2 cách:
- *   1. Dùng phím Shift kết hợp
- *   2. Bật phím Caps Lock
- * - Nếu yêu cầu HOA mà gõ THƯỜNG -> "Bạn đang chọn chế độ gõ chữ thường"
- * - Nếu yêu cầu THƯỜNG mà gõ HOA (do Caps Lock bật / Shift giữ) -> "Bạn đang chọn chế độ gõ chữ hoa"
+ * - Hỗ trợ cực kỳ linh hoạt cho các phím gõ dấu (s, f, r, x, j, w, d, a, e, o) khi gõ chữ hoa tiếng Việt.
+ * - Khi gõ chữ in hoa có dấu (như ĐÀ NẴNG, ĐIỂM SỐ), các phím dấu có thể gõ HOA hoặc THƯỜNG đều hợp lệ.
  */
 export function evaluateCaseMistake(
   expectedKeyChar: string,
-  typedKeyChar: string
+  typedKeyChar: string,
+  options?: {
+    isAuxiliaryKey?: boolean;
+    isHatHookKey?: boolean;
+    isToneMarkKey?: boolean;
+    isWordAllUpper?: boolean;
+    targetChar?: string;
+  }
 ): { isCaseMismatch: boolean; mistakeType: 'need_upper' | 'need_lower' | null; title: string; detail: string } {
+  // Bỏ qua các phím đặc biệt không có tính chất hoa/thường
+  if (!expectedKeyChar || !typedKeyChar || expectedKeyChar.length > 1 || typedKeyChar.length > 1) {
+    return { isCaseMismatch: false, mistakeType: null, title: '', detail: '' };
+  }
+
+  // Nếu ký tự mong đợi và ký tự nhập trùng nhau (không phân biệt hoa thường)
+  const isCharSameIgnoringCase = expectedKeyChar.toLowerCase() === typedKeyChar.toLowerCase();
+
+  // ĐẶC BIỆT: Phím gõ dấu tiếng Việt (mũ/móc/dấu thanh lặp: s, f, r, x, j, w, d, a, e, o)
+  // Khi người dùng gõ từ in hoa (như ĐÀ NẴNG, ĐIỂM SỐ), bé có thể gõ phím dấu dạng HOA hoặc THƯỜNG:
+  // DDAF hay DdAF hay DdAf, NAWNGX hay NAwNGX hay NAwNGx, DDIEEMR hay DdIEeMR hay DDIEEMr, SOOS hay SOoS hay SOos...
+  const isVietnameseModifierKey = 'asfrxjweod'.includes(expectedKeyChar.toLowerCase());
+  const isModifierStep = options?.isAuxiliaryKey || options?.isHatHookKey || options?.isToneMarkKey || isVietnameseModifierKey;
+
+  if (isCharSameIgnoringCase) {
+    // Nếu là phím bổ trợ dấu hoặc từ mục tiêu là từ in hoa toàn bộ: Chấp nhận cả chữ hoa và chữ thường!
+    if (isModifierStep || options?.isWordAllUpper) {
+      return { isCaseMismatch: false, mistakeType: null, title: '', detail: '' };
+    }
+  }
+
   const expectedIsUpper = isUpperCaseChar(expectedKeyChar);
   const expectedIsLower = isLowerCaseChar(expectedKeyChar);
   const typedIsUpper = isUpperCaseChar(typedKeyChar);
@@ -250,6 +310,10 @@ export function evaluateCaseMistake(
 
   // 1. Cần gõ chữ HOA nhưng bé đang gõ chữ thường
   if (expectedIsUpper && typedIsLower) {
+    // Ngoại lệ: Nếu là từ viết hoa mà phím phụ trợ được gõ thường -> Cho phép
+    if (options?.isWordAllUpper && isModifierStep) {
+      return { isCaseMismatch: false, mistakeType: null, title: '', detail: '' };
+    }
     return {
       isCaseMismatch: true,
       mistakeType: 'need_upper',
@@ -260,6 +324,10 @@ export function evaluateCaseMistake(
 
   // 2. Cần gõ chữ THƯỜNG nhưng bé đang gõ chữ hoa (do Caps Lock đang bật hoặc giữ phím Shift)
   if (expectedIsLower && typedIsUpper) {
+    // Ngoại lệ: Nếu là phím bổ trợ dấu tiếng Việt trong từ in hoa -> Cho phép
+    if (isModifierStep && (options?.isWordAllUpper || (options?.targetChar && isUpperCaseChar(options.targetChar)))) {
+      return { isCaseMismatch: false, mistakeType: null, title: '', detail: '' };
+    }
     return {
       isCaseMismatch: true,
       mistakeType: 'need_lower',
@@ -319,16 +387,23 @@ export function convertWordToTelexSteps(word: string, wordStartIndex: number): W
   for (let p = 0; p < prefixPunct.length; p++) {
     const ch = prefixPunct[p];
     script += ch;
+    const numSymbolInfo = NUMBER_ROW_SYMBOLS_MAP[ch];
+    const isShift = numSymbolInfo ? true : (ch !== ch.toLowerCase() && ch.toUpperCase() === ch);
+    const hint = numSymbolInfo
+      ? `Ký tự đặc biệt '${ch}': Nhấn giữ phím SHIFT kết hợp gõ phím số '${numSymbolInfo.digit}' (${numSymbolInfo.fingerDesc})!`
+      : `Gõ phím '${ch}'`;
+    const displayHint = numSymbolInfo ? `SHIFT + ${numSymbolInfo.digit} ➜ ${ch}` : ch;
+
     steps.push({
       keyChar: ch,
       code: charToKeyCode(ch),
-      isShiftRequired: ch !== ch.toLowerCase() && ch.toUpperCase() === ch,
+      isShiftRequired: isShift,
       targetChar: ch,
       charIndex: wordStartIndex + p,
       subStepIndex: 0,
       subStepTotal: 1,
-      displayHint: ch,
-      explanationVi: `Gõ phím '${ch}'`,
+      displayHint,
+      explanationVi: hint,
     });
   }
 
@@ -474,16 +549,23 @@ export function convertWordToTelexSteps(word: string, wordStartIndex: number): W
   for (let s = 0; s < suffixPunct.length; s++) {
     const ch = suffixPunct[s];
     script += ch;
+    const numSymbolInfo = NUMBER_ROW_SYMBOLS_MAP[ch];
+    const isShift = numSymbolInfo ? true : (ch !== ch.toLowerCase() && ch.toUpperCase() === ch);
+    const hint = numSymbolInfo
+      ? `Ký tự đặc biệt '${ch}': Nhấn giữ phím SHIFT kết hợp gõ phím số '${numSymbolInfo.digit}' (${numSymbolInfo.fingerDesc})!`
+      : `Gõ dấu '${ch}'`;
+    const displayHint = numSymbolInfo ? `SHIFT + ${numSymbolInfo.digit} ➜ ${ch}` : ch;
+
     steps.push({
       keyChar: ch,
       code: charToKeyCode(ch),
-      isShiftRequired: ch !== ch.toLowerCase() && ch.toUpperCase() === ch,
+      isShiftRequired: isShift,
       targetChar: ch,
       charIndex: wordStartIndex + end + s,
       subStepIndex: 0,
       subStepTotal: 1,
-      displayHint: ch,
-      explanationVi: `Gõ dấu '${ch}'`,
+      displayHint,
+      explanationVi: hint,
     });
   }
 
@@ -674,21 +756,33 @@ export function buildKeystrokeSteps(text: string, mode: TypingInputMode): Keystr
       targetC = removeVietnameseAccents(rawChar);
     }
 
+    const symbolGuide = getSymbolKeyGuideInfo(targetC);
+    const numSymbolInfo = NUMBER_ROW_SYMBOLS_MAP[targetC];
     const isTargetUpper = isUpperCaseChar(targetC);
+    const isShiftRequired = !!symbolGuide || !!numSymbolInfo || isTargetUpper;
+
     let hint = `Bấm phím '${targetC}'`;
-    if (isTargetUpper) {
+    let displayHint = targetC;
+
+    if (symbolGuide) {
+      displayHint = `SHIFT + ${symbolGuide.baseKeyChar} ➜ ${targetC}`;
+      hint = `${symbolGuide.instructionVi} (${symbolGuide.fingerDesc})!`;
+    } else if (numSymbolInfo) {
+      displayHint = `SHIFT + ${numSymbolInfo.digit} ➜ ${targetC}`;
+      hint = `Ký tự đặc biệt '${targetC}': Nhấn giữ phím SHIFT kết hợp gõ phím số '${numSymbolInfo.digit}' (${numSymbolInfo.fingerDesc})!`;
+    } else if (isTargetUpper) {
       hint = `Gõ CHỮ HOA '${targetC}': Có 2 cách: 1. Giữ phím SHIFT kết hợp | 2. Bật phím CAPS LOCK!`;
     }
 
     steps.push({
       keyChar: targetC,
       code: charToKeyCode(targetC),
-      isShiftRequired: isTargetUpper,
+      isShiftRequired,
       targetChar: rawChar,
       charIndex: i,
       subStepIndex: 0,
       subStepTotal: 1,
-      displayHint: targetC,
+      displayHint,
       explanationVi: hint,
     });
   }

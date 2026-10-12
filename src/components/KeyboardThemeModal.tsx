@@ -16,12 +16,15 @@ export const KeyboardThemeModal: React.FC<KeyboardThemeModalProps> = ({
   currentThemeId,
   onSelectTheme,
 }) => {
-  const [filterTab, setFilterTab] = useState<'all' | 'real' | 'system'>('all');
+  const [filterTab, setFilterTab] = useState<'all' | 'hands' | 'real' | 'system'>('all');
 
   if (!isOpen) return null;
 
+  const handsGuideTheme = KEYBOARD_THEMES.find((t) => t.isHandsGuideTheme);
+
   const filteredThemes = KEYBOARD_THEMES.filter((theme) => {
-    if (filterTab === 'real') return !theme.isSystemCreated;
+    if (filterTab === 'hands') return !!theme.isHandsGuideTheme;
+    if (filterTab === 'real') return !theme.isSystemCreated && !theme.isHandsGuideTheme;
     if (filterTab === 'system') return theme.isSystemCreated;
     return true;
   });
@@ -38,14 +41,17 @@ export const KeyboardThemeModal: React.FC<KeyboardThemeModalProps> = ({
             <div>
               <div className="flex items-center gap-2 flex-wrap">
                 <h3 className="text-lg sm:text-xl font-black text-slate-900 tracking-tight">
-                  Kho Bàn Phím Thực Tế Đời Sống &amp; Bàn Phím Hệ Thống
+                  Kho Bàn Phím Có Hướng Dẫn Tay Gõ &amp; Bàn Phím Đời Thật
                 </h3>
+                <span className="text-[11px] font-black bg-gradient-to-r from-sky-600 to-indigo-600 text-white px-2.5 py-0.5 rounded-full shadow-xs">
+                  ⭐ Có Bàn Phím Hướng Dẫn Tay Gõ
+                </span>
                 <span className="text-[11px] font-black bg-emerald-600 text-white px-2.5 py-0.5 rounded-full shadow-xs">
-                  8 Bàn Phím Thật + 1 Bàn Phím Hệ Thống
+                  8 Bàn Phím Thật + 1 Bản Quyền Hệ Thống
                 </span>
               </div>
               <p className="text-xs text-slate-700 font-bold mt-0.5">
-                8 mẫu bàn phím mô phỏng chính xác bàn phím máy tính thật ngoài đời thực giúp bé nhận diện phím dễ dàng, cùng 1 bàn phím số 9 bản quyền hệ thống!
+                Bàn phím cơ học chuẩn 10 ngón với cơ chế tự động vươn ngón và thu về hàng phím cơ sở (Home Row Return Mechanism), cùng 8 mẫu bàn phím máy tính thật ngoài đời!
               </p>
             </div>
           </div>
@@ -60,10 +66,44 @@ export const KeyboardThemeModal: React.FC<KeyboardThemeModalProps> = ({
           </button>
         </div>
 
+        {/* FEATURED SPOTLIGHT HERO CARD: BÀN PHÍM CÓ HƯỚNG DẪN TAY GÕ */}
+        {handsGuideTheme && (
+          <div className="px-5 py-3 bg-gradient-to-r from-sky-900 via-indigo-950 to-slate-950 text-white border-b-2 border-sky-400 flex items-center justify-between gap-4 flex-wrap">
+            <div className="flex items-center gap-3">
+              <span className="text-3xl animate-bounce">👐</span>
+              <div>
+                <div className="flex items-center gap-2">
+                  <h4 className="text-sm sm:text-base font-black text-amber-300">
+                    BÀN PHÍM CÓ HƯỚNG DẪN TAY GÕ (CHUẨN SƯ PHẠM 10 NGÓN)
+                  </h4>
+                  <span className="text-[10px] bg-emerald-500 text-slate-950 font-black px-2 py-0.2 rounded-full">
+                    ĐỘC QUYỀN SƯ PHẠM
+                  </span>
+                </div>
+                <p className="text-xs text-slate-200 font-medium">
+                  Tự động mô phỏng động tác ngón tay vươn tới phím mục tiêu (như phím T) và lập tức <strong>tự động thu tay về vị trí xuất phát ban đầu (ASDF - JKL;)</strong>!
+                </p>
+              </div>
+            </div>
+
+            <button
+              type="button"
+              onClick={() => {
+                onSelectTheme(handsGuideTheme);
+                onClose();
+              }}
+              className="px-4 py-2 rounded-xl bg-gradient-to-r from-sky-500 to-indigo-500 hover:from-sky-400 hover:to-indigo-400 text-white font-black text-xs transition-all cursor-pointer shadow-lg hover:scale-105 active:scale-95 flex items-center gap-1.5 border border-sky-300"
+            >
+              <span>👐 Dùng Bàn Phím Có Tay Gõ Ngay</span>
+              <span>➜</span>
+            </button>
+          </div>
+        )}
+
         {/* Motivational Info Bar & Filter Tabs */}
         <div className="px-5 py-2.5 bg-slate-100 border-b border-slate-200 flex items-center justify-between gap-3 flex-wrap">
           {/* Filter Tabs */}
-          <div className="flex items-center gap-1.5 bg-white p-1 rounded-2xl border border-slate-200 shadow-xs">
+          <div className="flex items-center gap-1.5 bg-white p-1 rounded-2xl border border-slate-200 shadow-xs flex-wrap">
             <button
               type="button"
               onClick={() => setFilterTab('all')}
@@ -73,7 +113,19 @@ export const KeyboardThemeModal: React.FC<KeyboardThemeModalProps> = ({
                   : 'text-slate-600 hover:bg-slate-100'
               }`}
             >
-              Tất Cả (9 Bàn Phím)
+              Tất Cả (10 Bàn Phím)
+            </button>
+            <button
+              type="button"
+              onClick={() => setFilterTab('hands')}
+              className={`px-3 py-1.5 rounded-xl text-xs font-black transition-all cursor-pointer flex items-center gap-1 ${
+                filterTab === 'hands'
+                  ? 'bg-gradient-to-r from-sky-600 to-indigo-600 text-white shadow-sm'
+                  : 'text-slate-600 hover:bg-slate-100'
+              }`}
+            >
+              <span>👐</span>
+              <span>BÀN PHÍM CÓ HƯỚNG DẪN TAY GÕ</span>
             </button>
             <button
               type="button"

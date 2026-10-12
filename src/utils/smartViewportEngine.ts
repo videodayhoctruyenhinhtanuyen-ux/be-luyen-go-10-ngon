@@ -136,8 +136,9 @@ export function computeSmartViewportMetrics(
   const maxKeyboardHeight = Math.max(160, availableWorkspaceHeight - estimatedPracticeHeight - 10);
 
   // Bàn phím có 6 hàng phím:
-  // Fn row (0.76) + 4 row (1.0 each) + Space row (1.0) = ~5.76 đơn vị phím + padding (~16px)
-  const computedMaxKeyHeight = Math.floor((maxKeyboardHeight - 16) / 5.76);
+  // Fn row (0.76) + 4 row (1.0 each) + Space row (1.0) = ~5.76 đơn vị phím + padding (~16px) + khoảng cách giữa các hàng phím (~34px)
+  const totalKeyboardChromeAndGaps = (isCompactHeight ? 26 : 36) + (isUltraCompactHeight ? 10 : 16);
+  const computedMaxKeyHeight = Math.floor((maxKeyboardHeight - totalKeyboardChromeAndGaps) / 5.76);
 
   // Kích thước đơn vị phím (U) theo chiều ngang
   const leftColWidth = winWidth * (winWidth >= 1200 ? 0.75 : 1.0) - 32;

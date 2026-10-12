@@ -9,7 +9,8 @@ import {
   FingerId,
   FINGER_DATA,
 } from '../types/typing';
-import { convertWordToTelexSteps } from '../utils/vietnameseKeystrokes';
+import { convertWordToTelexSteps, NUMBER_ROW_SYMBOLS_MAP } from '../utils/vietnameseKeystrokes';
+import { getSymbolKeyGuideInfo, SymbolKeyGuideInfo } from '../utils/symbolKeyGuide';
 import { soundEngine } from '../utils/audio';
 import {
   RotateCcw,
@@ -31,6 +32,7 @@ interface PracticeAreaProps {
   currentSubStepIndex?: number;
   currentSubStepTotal?: number;
   currentDisplayHint?: string;
+  currentKeyChar?: string;
   targetKey?: KeyConfig;
   activeFinger?: FingerId;
   stats: TypingStats;
@@ -66,6 +68,7 @@ interface PracticeAreaProps {
   caseMistakeMessage?: { title: string; detail: string } | null;
   isTargetUpper?: boolean;
   capsLockOn?: boolean;
+  symbolGuideInfo?: SymbolKeyGuideInfo | null;
 }
 
 type TextSize = 'large' | 'huge' | 'normal';
@@ -124,12 +127,45 @@ export const PracticeArea: React.FC<PracticeAreaProps> = ({
   caseMistakeMessage = null,
   isTargetUpper = false,
   capsLockOn: capsLockOnProp,
+  currentKeyChar,
+  symbolGuideInfo,
 }) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const activeCharRef = useRef<HTMLSpanElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const [isInputFocused, setIsInputFocused] = useState<boolean>(true);
   const [internalCapsLockOn, setInternalCapsLockOn] = useState<boolean>(false);
+
+  // Phát hiện ký tự đặc biệt kết hợp phím Shift (Dual-Key Highlighting)
+  const activeChar = targetText[currentCharIndex] || currentKeyChar || '';
+  const effectiveSymbolGuide = useMemo(() => {
+    if (symbolGuideInfo) return symbolGuideInfo;
+    return getSymbolKeyGuideInfo(currentKeyChar) || getSymbolKeyGuideInfo(activeChar);
+  }, [symbolGuideInfo, currentKeyChar, activeChar]);
+
+  const numberRowSymbolInfo = useMemo(() => {
+    if (effectiveSymbolGuide) {
+      return {
+        symbol: effectiveSymbolGuide.symbol,
+        digit: effectiveSymbolGuide.baseKeyLabel,
+        code: effectiveSymbolGuide.baseKeyCode,
+        fingerDesc: effectiveSymbolGuide.fingerDesc,
+        keyLabel: effectiveSymbolGuide.baseKeyLabel,
+      };
+    }
+    const sym = (currentKeyChar && NUMBER_ROW_SYMBOLS_MAP[currentKeyChar])
+      ? currentKeyChar
+      : (activeChar && NUMBER_ROW_SYMBOLS_MAP[activeChar])
+      ? activeChar
+      : null;
+    if (sym && NUMBER_ROW_SYMBOLS_MAP[sym]) {
+      return {
+        symbol: sym,
+        ...NUMBER_ROW_SYMBOLS_MAP[sym],
+      };
+    }
+    return null;
+  }, [effectiveSymbolGuide, activeChar, currentKeyChar]);
 
   useEffect(() => {
     const handleKeyMod = (e: KeyboardEvent) => {
@@ -451,8 +487,9 @@ export const PracticeArea: React.FC<PracticeAreaProps> = ({
           )}
 
           {lesson.isAssignedHomework && (
-            <span className="text-[9px] bg-rose-500 text-white px-1.5 py-0.2 rounded-full font-black shrink-0 animate-pulse hidden md:inline">
-              Cô Giao
+            <span className="text-[10px] sm:text-[11px] bg-gradient-to-r from-amber-500 via-orange-500 to-rose-500 text-white px-2.5 py-0.5 rounded-full font-black shadow-xs flex items-center gap-1 animate-pulse shrink-0">
+              <Sparkles className="w-3 h-3 text-yellow-200 fill-yellow-300" />
+              <span>BÀI TẬP CÔ GIAO - CẦN HOÀN THÀNH</span>
             </span>
           )}
         </div>
@@ -825,6 +862,46 @@ export const PracticeArea: React.FC<PracticeAreaProps> = ({
                     <span>⇪ Tắt phím Caps Lock</span>
                   </span>
                 )}
+              </div>
+            </div>
+          )}
+
+          {/* HƯỚNG DẪN KẾT HỢP PHÍM SHIFT CHO KÝ TỰ ĐẶC BIỆT (DUAL-KEY HIGHLIGHTING) */}
+          {effectiveSymbolGuide && !hasMistake && (
+            <div className="w-full bg-gradient-to-r from-indigo-800 via-sky-600 to-amber-500 text-white px-3 sm:px-4 py-2 rounded-xl shadow-md flex items-center justify-between gap-2.5 border-2 border-amber-300 animate-in slide-in-from-top-1 fade-in duration-200">
+              <div className="flex items-center gap-2.5 min-w-0">
+                <span className="text-xl shrink-0 animate-bounce">⚡</span>
+                <div className="flex flex-col leading-tight min-w-0">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <span className="font-black text-xs sm:text-sm tracking-tight text-amber-200 uppercase drop-shadow-2xs">
+                      HƯỚNG DẪN GÕ 10 NGÓN:
+                    </span>
+                    <span className="px-2.5 py-0.5 bg-amber-300 text-slate-950 font-black rounded-lg text-xs sm:text-sm font-sans shadow-md ring-2 ring-white">
+                      {effectiveSymbolGuide.instructionVi}
+                    </span>
+                    <span className="text-white/90 font-bold text-xs hidden md:inline">
+                      ({effectiveSymbolGuide.fingerDesc})
+                    </span>
+                  </div>
+                  <span className="text-[11px] sm:text-xs font-bold text-sky-100 mt-1">
+                    Nhấn đè phím <strong>SHIFT</strong> đồng thời gõ phím <strong>[{effectiveSymbolGuide.baseKeyLabel}]</strong> để xuất hiện ký tự <strong>'{effectiveSymbolGuide.symbol}'</strong> chuẩn xác!
+                  </span>
+                </div>
+              </div>
+
+              {/* Phím kết hợp trực quan */}
+              <div className="shrink-0 flex items-center gap-1.5 bg-white/20 backdrop-blur-md px-2.5 sm:px-3 py-1.5 rounded-xl border border-white/40 shadow-inner">
+                <kbd className="px-2.5 py-1 rounded-lg bg-pink-600 text-white font-black text-xs sm:text-sm font-mono shadow-md border border-pink-300 animate-pulse">
+                  ⇧ SHIFT
+                </kbd>
+                <span className="font-black text-amber-300 text-sm sm:text-base">+</span>
+                <kbd className="px-2.5 py-1 rounded-lg bg-amber-400 text-slate-950 font-black text-xs sm:text-sm font-mono shadow-md border border-amber-200">
+                  {effectiveSymbolGuide.baseKeyLabel}
+                </kbd>
+                <span className="font-black text-white text-sm sm:text-base">➜</span>
+                <kbd className="px-2.5 py-1 rounded-lg bg-emerald-400 text-slate-950 font-black text-xs sm:text-sm font-mono shadow-md border border-emerald-200">
+                  {effectiveSymbolGuide.symbol}
+                </kbd>
               </div>
             </div>
           )}

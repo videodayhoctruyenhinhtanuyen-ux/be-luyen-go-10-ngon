@@ -293,7 +293,37 @@ export function generateValidTelexSequencesForWord(word: string): string[][] {
   }
 
   // Ghép lại tiền tố và hậu tố dấu câu
-  const sequences: string[][] = rawSequences.map((seq) => [
+  const isAllUpperCore = coreWord.length > 0 && coreWord === coreWord.toUpperCase() && /[A-Z\u00C0-\u1EF9]/.test(coreWord);
+
+  // Sinh thêm các biến thể chữ hoa / chữ thường linh hoạt cho từ in hoa
+  const expandedRawSequences: string[][] = [];
+  for (const seq of rawSequences) {
+    expandedRawSequences.push(seq);
+    if (isAllUpperCore) {
+      // 1. Biến thể in hoa 100% (Caps Lock: DDAF, NAWNGX, DDIEEMR, SOOS)
+      expandedRawSequences.push(seq.map((c) => c.toUpperCase()));
+      // 2. Biến thể phím gốc hoa, phím dấu thường (Shift: DdAf, NAwNGx, DdIEeMr, SOos)
+      expandedRawSequences.push(
+        seq.map((c, idx) => {
+          if ('asfrxjweod'.includes(c.toLowerCase()) && idx > 0) {
+            return c.toLowerCase();
+          }
+          return c.toUpperCase();
+        })
+      );
+      // 3. Biến thể phím mũ hoa, phím thanh thường (DdAF, NAwNGX, DdIEeMR, SOoS)
+      expandedRawSequences.push(
+        seq.map((c, idx) => {
+          if ('sfrxj'.includes(c.toLowerCase()) && idx > 0) {
+            return c.toLowerCase();
+          }
+          return c.toUpperCase();
+        })
+      );
+    }
+  }
+
+  const sequences: string[][] = expandedRawSequences.map((seq) => [
     ...prefixPunct,
     ...seq,
     ...suffixPunct,
@@ -314,7 +344,43 @@ export function generateValidTelexSequencesForWord(word: string): string[][] {
 }
 
 /**
+ * Hàm hỗ trợ loại bỏ dấu thanh tiếng Việt (giữ nguyên mũ và móc)
+ */
+export function stripVietnameseTonesOnly(str: string): string {
+  const map: Record<string, string> = {
+    'á': 'a', 'à': 'a', 'ả': 'a', 'ã': 'a', 'ạ': 'a',
+    'ấ': 'â', 'ầ': 'â', 'ẩ': 'â', 'ẫ': 'â', 'ậ': 'â',
+    'ắ': 'ă', 'ằ': 'ă', 'ẳ': 'ă', 'ẵ': 'ă', 'ặ': 'ă',
+    'é': 'e', 'è': 'e', 'ẻ': 'e', 'ẽ': 'e', 'ẹ': 'e',
+    'ế': 'ê', 'ề': 'ê', 'ể': 'ê', 'ễ': 'ê', 'ệ': 'ê',
+    'í': 'i', 'ì': 'i', 'ỉ': 'i', 'ĩ': 'i', 'ị': 'i',
+    'ó': 'o', 'ò': 'o', 'ỏ': 'o', 'õ': 'o', 'ọ': 'o',
+    'ố': 'ô', 'ồ': 'ô', 'ổ': 'ô', 'ỗ': 'ô', 'ộ': 'ô',
+    'ớ': 'ơ', 'ờ': 'ơ', 'ở': 'ơ', 'ỡ': 'ơ', 'ợ': 'ơ',
+    'ú': 'u', 'ù': 'u', 'ủ': 'u', 'ũ': 'u', 'ụ': 'u',
+    'ứ': 'ư', 'ừ': 'ư', 'ử': 'ư', 'ữ': 'ư', 'ự': 'ư',
+    'ý': 'y', 'ỳ': 'y', 'ỷ': 'y', 'ỹ': 'y', 'ỵ': 'y',
+    'Á': 'A', 'À': 'A', 'Ả': 'A', 'Ã': 'A', 'Ạ': 'A',
+    'Ấ': 'Â', 'Ầ': 'Â', 'Ẩ': 'Â', 'Ẫ': 'Â', 'Ậ': 'Â',
+    'Ắ': 'Ă', 'Ằ': 'Ă', 'Ẳ': 'Ă', 'Ẵ': 'Ă', 'Ặ': 'Ă',
+    'É': 'E', 'È': 'E', 'Ẻ': 'E', 'Ẽ': 'E', 'Ẹ': 'E',
+    'Ế': 'Ê', 'Ề': 'Ê', 'Ể': 'Ê', 'Ễ': 'Ê', 'Ệ': 'Ê',
+    'Í': 'I', 'Ì': 'I', 'Ỉ': 'I', 'Ĩ': 'I', 'Ị': 'I',
+    'Ó': 'O', 'Ò': 'O', 'Ỏ': 'O', 'Õ': 'O', 'Ọ': 'O',
+    'Ố': 'Ô', 'Ồ': 'Ô', 'Ổ': 'Ô', 'Ỗ': 'Ô', 'Ộ': 'Ô',
+    'Ớ': 'Ơ', 'Ờ': 'Ơ', 'Ở': 'Ơ', 'Ỡ': 'Ơ', 'Ợ': 'Ơ',
+    'Ú': 'U', 'Ù': 'U', 'Ủ': 'U', 'Ũ': 'U', 'Ụ': 'U',
+    'Ứ': 'Ư', 'Ừ': 'Ư', 'Ử': 'Ư', 'Ữ': 'Ư', 'Ự': 'Ư',
+    'Ý': 'Y', 'Ỳ': 'Y', 'Ỷ': 'Y', 'Ỹ': 'Y', 'Ỵ': 'Y',
+  };
+  return str.split('').map((c) => map[c] || c).join('');
+}
+
+/**
  * Kiểm tra phím vừa gõ có hợp lệ theo kiểu gõ Telex thông minh hay không
+ * Hỗ trợ nhận diện cực kỳ linh hoạt & thông minh đối với cả chữ in hoa có dấu tiếng Việt:
+ * Ví dụ: ĐÀ NẴNG (DDAF, DdAF, DdAf, NAWNGX, NAwNGX, NAwNGx)
+ *        ĐIỂM SỐ (DDIEEMR, DdIEeMR, DdIEeMr, DDIEEMr, SOOS, SOoS, SOos, SOOs)
  */
 export function checkKeyInSmartTelexWord(
   targetWord: string,
@@ -328,36 +394,61 @@ export function checkKeyInSmartTelexWord(
   activeSequence: string[] | null;
   hintExplanationVi: string;
 } {
-  const validSequences = generateValidTelexSequencesForWord(targetWord);
   const potentialKeys = newKey ? [...typedKeys, newKey] : [...typedKeys];
+  const cleanTarget = targetWord.replace(/^[^\p{L}\p{N}]+|[^\p{L}\p{N}]+$/gu, '') || targetWord;
+  const isTargetAllUpper = cleanTarget.length > 0 && cleanTarget === cleanTarget.toUpperCase() && /[A-Z\u00C0-\u1EF9]/.test(cleanTarget);
 
-  // 1. Tìm các dãy có tiền tố trùng khớp với potentialKeys
+  // 1. Kiểm tra trực tiếp bằng telexCompose: Nếu các phím đã ghép thành trọn vẹn từ mục tiêu
+  try {
+    const composed = telexCompose(potentialKeys.join(''));
+    if (composed === cleanTarget || composed.toLowerCase() === cleanTarget.toLowerCase()) {
+      return {
+        isValid: true,
+        isWordCompleted: true,
+        nextAcceptableKeys: [],
+        recommendedNextKey: null,
+        activeSequence: potentialKeys,
+        hintExplanationVi: `Tuyệt vời! Bé đã gõ xong từ "${targetWord}". Hãy nhấn Dấu Cách (Space) để tiếp tục!`,
+      };
+    }
+  } catch {
+    // Ignore telexCompose errors
+  }
+
+  const validSequences = generateValidTelexSequencesForWord(targetWord);
+
+  // 2. Tìm các dãy có tiền tố trùng khớp với potentialKeys
   const matchingSequences = validSequences.filter((seq) => {
     if (seq.length < potentialKeys.length) return false;
     for (let i = 0; i < potentialKeys.length; i++) {
       const p = potentialKeys[i];
       const s = seq[i];
-      // Kiểm tra nghiêm ngặt chữ hoa / chữ thường
-      const sUpper = s.toLowerCase() !== s && s.toUpperCase() === s;
-      const sLower = s.toUpperCase() !== s && s.toLowerCase() === s;
-      const pUpper = p.toLowerCase() !== p && p.toUpperCase() === p;
-      const pLower = p.toUpperCase() !== p && p.toLowerCase() === p;
+      
+      // Xử lý linh hoạt chữ hoa / chữ thường cho tiếng Việt:
+      // Các phím tạo dấu/mũ/móc (a, e, o, d, w, s, f, r, x, j) hoặc trong từ in hoa toàn bộ:
+      // Học sinh có thể gõ HOA hoặc THƯỜNG đều hợp lệ!
+      const isModifierKey = 'asfrxjweod'.includes(s.toLowerCase());
 
-      // Nếu yêu cầu chữ hoa mà gõ chữ thường -> KHÔNG KHỚP
-      if (sUpper && pLower) return false;
-      // Nếu yêu cầu chữ thường mà gõ chữ hoa -> KHÔNG KHỚP
-      if (sLower && pUpper) return false;
-
-      if (i === 0) {
-        if (p !== s && p.toLowerCase() !== s.toLowerCase()) return false;
+      if (isModifierKey || isTargetAllUpper) {
+        if (p.toLowerCase() !== s.toLowerCase()) return false;
       } else {
+        const sUpper = s.toLowerCase() !== s && s.toUpperCase() === s;
+        const sLower = s.toUpperCase() !== s && s.toLowerCase() === s;
+        const pUpper = p.toLowerCase() !== p && p.toUpperCase() === p;
+        const pLower = p.toUpperCase() !== p && p.toLowerCase() === p;
+
+        // Nếu ký tự gốc yêu cầu chữ hoa mà gõ chữ thường -> Không khớp
+        if (sUpper && pLower) return false;
+        // Nếu ký tự gốc yêu cầu chữ thường mà gõ chữ hoa -> Không khớp
+        if (sLower && pUpper) return false;
+
         if (p.toLowerCase() !== s.toLowerCase()) return false;
       }
     }
     return true;
   });
 
-  // 2. Nếu khớp tiền tố
+  // 3. Nếu khớp tiền tố từ danh sách dãy mẫu
   if (matchingSequences.length > 0) {
     const activeSeq = matchingSequences[0];
     const isWordCompleted = activeSeq.length === potentialKeys.length;
@@ -391,24 +482,13 @@ export function checkKeyInSmartTelexWord(
     };
   }
 
-  // 3. Fallback Telex Engine Composing Check (Kiểm tra xem chuỗi phím có cấu thành từ mục tiêu không)
+  // 4. Fallback thông minh bằng telexCompose Prefix Check
   try {
     const composed = telexCompose(potentialKeys.join(''));
-    const cleanTarget = targetWord.replace(/^[^a-zA-Z0-9\u00C0-\u1EF9]+|[^a-zA-Z0-9\u00C0-\u1EF9]+$/g, '').toLowerCase();
-    const cleanComposed = composed.toLowerCase();
-
-    if (cleanComposed === cleanTarget) {
-      return {
-        isValid: true,
-        isWordCompleted: true,
-        nextAcceptableKeys: [],
-        recommendedNextKey: null,
-        activeSequence: potentialKeys,
-        hintExplanationVi: `Tuyệt vời! Bé đã gõ xong từ "${targetWord}". Hãy nhấn Dấu Cách (Space)!`,
-      };
-    }
-
-    if (cleanTarget.startsWith(cleanComposed)) {
+    const baseTargetNoTone = stripVietnameseTonesOnly(cleanTarget);
+    
+    // Kiểm tra xem composed có phải là tiền tố hợp lệ của cleanTarget không
+    if (cleanTarget.startsWith(composed) || baseTargetNoTone.startsWith(composed)) {
       return {
         isValid: true,
         isWordCompleted: false,
@@ -417,6 +497,20 @@ export function checkKeyInSmartTelexWord(
         activeSequence: null,
         hintExplanationVi: `Bé đang gõ đúng từ "${targetWord}"!`,
       };
+    }
+
+    // Kiểm tra không phân biệt hoa thường nếu từ mục tiêu in hoa
+    if (isTargetAllUpper) {
+      if (cleanTarget.toLowerCase().startsWith(composed.toLowerCase()) || baseTargetNoTone.toLowerCase().startsWith(composed.toLowerCase())) {
+        return {
+          isValid: true,
+          isWordCompleted: false,
+          nextAcceptableKeys: [],
+          recommendedNextKey: null,
+          activeSequence: null,
+          hintExplanationVi: `Bé đang gõ đúng từ "${targetWord}"!`,
+        };
+      }
     }
   } catch {
     // Ignore fallback errors

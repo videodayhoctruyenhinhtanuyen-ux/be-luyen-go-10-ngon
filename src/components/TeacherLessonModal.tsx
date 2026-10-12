@@ -31,6 +31,8 @@ import {
   Lock,
   BookmarkCheck,
   ShieldCheck,
+  User,
+  KeyRound,
 } from 'lucide-react';
 import { Lesson, GradeAssignment } from '../types/typing';
 import { compressImageFile } from '../utils/imageUtils';
@@ -180,6 +182,38 @@ export const TeacherLessonModal: React.FC<TeacherLessonModalProps> = ({
   const [assignGradeFilter, setAssignGradeFilter] = useState<number | 'all'>(3);
   const [assignNote, setAssignNote] = useState<string>('Các con hoàn thành các bài tập này trước tiết học Tin học tiếp theo nhé!');
   const [assignmentSuccessMsg, setAssignmentSuccessMsg] = useState<string>('');
+
+  // Tự động đồng bộ thời gian thực trạng thái bài được giao khi safeAssignments hoặc khối lớp chọn thay đổi
+  useEffect(() => {
+    if (!isOpen) return;
+    const existing = safeAssignments[selectedGradeForAssign];
+    if (existing) {
+      const ids = Array.isArray(existing.lessonIds) && existing.lessonIds.length > 0
+        ? existing.lessonIds.filter(Boolean)
+        : existing.lessonId ? [existing.lessonId] : [];
+      setSelectedLessonIdsForAssign(ids);
+      if (existing.teacherNote) {
+        setAssignNote(existing.teacherNote);
+      }
+    }
+  }, [isOpen, selectedGradeForAssign, safeAssignments]);
+
+  // Thống kê tổng quan số bài đã giao toàn trường theo từng khối
+  const totalAssignedSummary = useMemo(() => {
+    const counts: Record<number, number> = { 3: 0, 4: 0, 5: 0 };
+    let total = 0;
+    [3, 4, 5].forEach((g) => {
+      const hw = safeAssignments[g];
+      if (hw) {
+        const ids = Array.isArray(hw.lessonIds) && hw.lessonIds.length > 0
+          ? hw.lessonIds
+          : hw.lessonId ? [hw.lessonId] : [];
+        counts[g] = ids.length;
+        total += ids.length;
+      }
+    });
+    return { counts, total };
+  }, [safeAssignments]);
 
   // Sanitize effective lessons to guarantee valid array of objects
   const effectiveLessons: Lesson[] = useMemo(() => {
@@ -910,6 +944,159 @@ export const TeacherLessonModal: React.FC<TeacherLessonModalProps> = ({
 
   if (!isOpen) return null;
 
+  {/* ========================================================================= */}
+  {/* HỘP THOẠI (MODAL) ĐĂNG NHẬP QUẢN TRỊ GIÁO VIÊN 3D HIỆN ĐẠI & BẢO MẬT      */}
+  {/* HOÀN TOÀN SẠCH SẼ, KHÔNG ĐỂ LỘ GỢI Ý TÀI KHOẢN HAY MẬT KHẨU MẶC ĐỊNH        */}
+  {/* ========================================================================= */}
+  if (!isAuthenticated) {
+    return (
+      <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-950/75 backdrop-blur-md animate-in fade-in duration-200">
+        <div className="relative w-full max-w-md bg-white rounded-3xl border-2 border-emerald-400/80 shadow-[0_25px_60px_-15px_rgba(0,0,0,0.5),0_12px_28px_-10px_rgba(16,185,129,0.35)] ring-4 ring-emerald-500/15 overflow-hidden text-slate-800 animate-in zoom-in-95 duration-200">
+          {/* Hiệu ứng ánh sáng phản chiếu 3D mềm mại */}
+          <div className="absolute -top-24 -right-24 w-52 h-52 bg-emerald-400/20 rounded-full blur-3xl pointer-events-none" />
+          <div className="absolute -bottom-24 -left-24 w-52 h-52 bg-teal-400/20 rounded-full blur-3xl pointer-events-none" />
+
+          {/* Header 3D của Modal Đăng Nhập */}
+          <div className="relative flex items-center justify-between px-5 sm:px-6 py-4 border-b border-emerald-100 bg-gradient-to-r from-emerald-100 via-teal-50 to-emerald-50 shrink-0">
+            <div className="flex items-center gap-3">
+              <div className="w-11 h-11 rounded-2xl bg-gradient-to-tr from-emerald-600 to-teal-500 border-2 border-white shadow-md flex items-center justify-center text-xl text-white shrink-0">
+                👩‍🏫
+              </div>
+              <div>
+                <h3 className="text-sm sm:text-base font-black text-slate-900 tracking-tight flex items-center gap-1.5">
+                  Đăng Nhập Quản Trị
+                  <span className="px-1.5 py-0.5 rounded-md bg-emerald-600 text-white text-[10px] font-bold">
+                    Giáo Viên
+                  </span>
+                </h3>
+                <p className="text-[11px] text-emerald-800 font-semibold">
+                  Hệ thống bảo mật biên soạn &amp; giao bài SGK
+                </p>
+              </div>
+            </div>
+
+            <button
+              type="button"
+              onClick={onClose}
+              className="p-1.5 rounded-xl bg-white/80 hover:bg-white text-slate-400 hover:text-slate-800 transition-all cursor-pointer border border-slate-200 shadow-xs hover:scale-105 active:scale-95"
+              title="Đóng cửa sổ đăng nhập"
+            >
+              <X className="w-5 h-5" />
+            </button>
+          </div>
+
+          {/* Body Modal Đăng Nhập 3D */}
+          <div className="p-6 sm:p-7 space-y-5">
+            {/* Huy hiệu 3D Nổi khối Bảo Mật */}
+            <div className="text-center space-y-2">
+              <div className="relative inline-flex items-center justify-center">
+                <div className="w-16 h-16 rounded-3xl bg-gradient-to-tr from-emerald-500 via-teal-500 to-emerald-600 border-3 border-white shadow-[0_12px_24px_rgba(16,185,129,0.35),inset_0_2px_4px_rgba(255,255,255,0.4)] flex items-center justify-center text-white">
+                  <ShieldCheck className="w-8 h-8 text-white drop-shadow-sm" />
+                </div>
+                <div className="absolute -bottom-1 -right-1 w-6 h-6 rounded-full bg-amber-400 border-2 border-white shadow-xs flex items-center justify-center text-slate-950">
+                  <Lock className="w-3 h-3 text-slate-900" />
+                </div>
+              </div>
+
+              <div>
+                <h4 className="text-base font-black text-slate-900">
+                  Xác Thực Tài Khoản Quản Trị
+                </h4>
+                <p className="text-xs text-slate-500 mt-0.5 leading-relaxed">
+                  Vui lòng nhập thông tin xác thực để truy cập bảng điều khiển biên soạn bài học và quản lý chuyên đề
+                </p>
+              </div>
+            </div>
+
+            {/* Form Đăng Nhập - Hoàn toàn bảo mật, không có bất kỳ dòng gợi ý mật khẩu nào */}
+            <form onSubmit={handleLogin} className="space-y-4">
+              {/* Tên đăng nhập */}
+              <div className="space-y-1.5">
+                <label className="flex items-center gap-1.5 text-xs font-black text-slate-700 uppercase tracking-wider">
+                  <User className="w-3.5 h-3.5 text-emerald-600" />
+                  <span>Tên đăng nhập:</span>
+                </label>
+                <div className="relative flex items-center">
+                  <div className="absolute left-3.5 flex items-center justify-center pointer-events-none text-slate-400">
+                    <User className="w-4 h-4 text-emerald-600/70" />
+                  </div>
+                  <input
+                    type="text"
+                    value={username}
+                    onChange={(e) => setUsername(e.target.value)}
+                    placeholder="Nhập tên tài khoản quản trị"
+                    required
+                    autoFocus
+                    autoComplete="off"
+                    className="w-full text-sm font-bold pl-10 pr-3.5 py-3 rounded-2xl bg-slate-50/80 hover:bg-white focus:bg-white border-2 border-slate-200 focus:border-emerald-500 focus:ring-4 focus:ring-emerald-500/15 shadow-inner transition-all text-slate-900 placeholder:text-slate-400 placeholder:font-normal outline-none"
+                  />
+                </div>
+              </div>
+
+              {/* Mật khẩu */}
+              <div className="space-y-1.5">
+                <label className="flex items-center gap-1.5 text-xs font-black text-slate-700 uppercase tracking-wider">
+                  <KeyRound className="w-3.5 h-3.5 text-emerald-600" />
+                  <span>Mật khẩu:</span>
+                </label>
+                <div className="relative flex items-center">
+                  <div className="absolute left-3.5 flex items-center justify-center pointer-events-none text-slate-400">
+                    <Lock className="w-4 h-4 text-emerald-600/70" />
+                  </div>
+                  <input
+                    type={showPassword ? 'text' : 'password'}
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    placeholder="Nhập mật khẩu quản trị"
+                    required
+                    autoComplete="current-password"
+                    className="w-full text-sm font-bold pl-10 pr-11 py-3 rounded-2xl bg-slate-50/80 hover:bg-white focus:bg-white border-2 border-slate-200 focus:border-emerald-500 focus:ring-4 focus:ring-emerald-500/15 shadow-inner transition-all text-slate-900 placeholder:text-slate-400 placeholder:font-normal outline-none"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword((prev) => !prev)}
+                    className="absolute right-2.5 p-2 text-slate-400 hover:text-slate-700 transition-colors cursor-pointer rounded-xl hover:bg-slate-100"
+                    title={showPassword ? 'Ẩn mật khẩu' : 'Hiện mật khẩu'}
+                  >
+                    {showPassword ? (
+                      <EyeOff className="w-4 h-4 text-emerald-600" />
+                    ) : (
+                      <Eye className="w-4 h-4 text-slate-400" />
+                    )}
+                  </button>
+                </div>
+
+                {authError && (
+                  <div className="p-2.5 rounded-xl bg-rose-50 border border-rose-300 text-xs text-rose-700 font-bold flex items-center gap-2 shadow-2xs mt-2 animate-in fade-in slide-in-from-top-1">
+                    <AlertCircle className="w-4 h-4 text-rose-600 shrink-0" />
+                    <span>{authError}</span>
+                  </div>
+                )}
+              </div>
+
+              {/* Nút bấm Đăng Nhập Quản Trị phong cách 3D nổi khối & đổi màu bắt mắt khi rê chuột */}
+              <div className="pt-2">
+                <button
+                  type="submit"
+                  className="w-full py-3.5 px-6 rounded-2xl font-black text-sm sm:text-base text-white tracking-wide transition-all duration-200 cursor-pointer bg-gradient-to-r from-emerald-600 via-teal-600 to-emerald-700 hover:from-emerald-500 hover:via-teal-500 hover:to-emerald-600 active:from-emerald-700 active:to-emerald-800 border-b-4 border-emerald-900 hover:border-emerald-950 active:border-b-0 active:translate-y-1 shadow-[0_10px_25px_-5px_rgba(16,185,129,0.45),0_8px_10px_-6px_rgba(16,185,129,0.35)] hover:shadow-[0_16px_32px_-5px_rgba(16,185,129,0.55),0_10px_15px_-5px_rgba(16,185,129,0.45)] hover:scale-[1.01] flex items-center justify-center gap-2 group"
+                >
+                  <ShieldCheck className="w-5 h-5 text-emerald-100 group-hover:scale-110 transition-transform" />
+                  <span>Đăng Nhập Quản Trị</span>
+                </button>
+              </div>
+            </form>
+
+            {/* Footer bảo mật */}
+            <div className="pt-2 border-t border-slate-100 flex items-center justify-center gap-2 text-[11px] text-slate-500 font-medium">
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
+              <span>Hệ thống bảo mật 2 lớp • Kết nối Supabase Cloud an toàn</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-1 sm:p-2.5 md:p-3 bg-slate-950/75 backdrop-blur-md animate-in fade-in duration-200">
       {/* ========================================================================= */}
@@ -1026,88 +1213,8 @@ export const TeacherLessonModal: React.FC<TeacherLessonModalProps> = ({
         {/* ======================================================== */}
         {/* BODY QUẢN TRỊ                                            */}
         {/* ======================================================== */}
-        {!isAuthenticated ? (
-          /* Teacher Login Form */
-          <div className="flex-1 flex items-center justify-center p-6 sm:p-10">
-            <div className="p-8 rounded-3xl bg-slate-50 border-2 border-emerald-300 text-center max-w-md w-full shadow-lg space-y-4">
-              <div className="w-16 h-16 rounded-3xl bg-emerald-100 border-2 border-emerald-300 flex items-center justify-center text-3xl shadow-inner mx-auto">
-                🔐
-              </div>
-              <div>
-                <h3 className="text-lg font-black text-slate-900">Đăng Nhập Quản Trị Giáo Viên</h3>
-                <p className="text-xs text-slate-600 mt-1">
-                  Vui lòng đăng nhập để biên soạn bài học SGK, quản lý chuyên đề thơ văn và phân quyền giao bài
-                </p>
-                <div className="mt-2 p-2 rounded-xl bg-emerald-50 border border-emerald-300 text-[11px] text-emerald-950 font-bold flex items-center justify-center gap-1.5 shadow-2xs">
-                  <span>🔑 Tên đăng nhập: <code className="font-mono bg-white px-1.5 py-0.5 rounded text-emerald-800 font-black">admin</code></span>
-                  <span>•</span>
-                  <span>Mật khẩu: <code className="font-mono bg-white px-1.5 py-0.5 rounded text-emerald-800 font-black">Tanuyen@2026</code></span>
-                </div>
-              </div>
-
-              <form onSubmit={handleLogin} className="space-y-3 text-left">
-                <div>
-                  <label className="block text-xs font-black text-slate-700 uppercase tracking-wider mb-1">
-                    Tên đăng nhập:
-                  </label>
-                  <input
-                    type="text"
-                    value={username}
-                    onChange={(e) => setUsername(e.target.value)}
-                    placeholder="Nhập tên đăng nhập (ví dụ: admin)"
-                    required
-                    autoFocus
-                    autoComplete="off"
-                    className="w-full text-sm font-bold px-3.5 py-2.5 rounded-xl bg-white border-2 border-slate-300 focus:outline-none focus:border-emerald-500 transition-colors"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-xs font-black text-slate-700 uppercase tracking-wider mb-1">
-                    Mật khẩu:
-                  </label>
-                  <div className="relative flex items-center">
-                    <input
-                      type={showPassword ? 'text' : 'password'}
-                      value={password}
-                      onChange={(e) => setPassword(e.target.value)}
-                      placeholder="Nhập mật khẩu"
-                      required
-                      autoComplete="current-password"
-                      className="w-full text-sm font-bold pl-3.5 pr-11 py-2.5 rounded-xl bg-white border-2 border-slate-300 focus:outline-none focus:border-emerald-500 transition-colors"
-                    />
-                    <button
-                      type="button"
-                      onClick={() => setShowPassword((prev) => !prev)}
-                      className="absolute right-2.5 p-1.5 text-slate-400 hover:text-slate-700 transition-colors cursor-pointer rounded-lg hover:bg-slate-100"
-                      title={showPassword ? 'Ẩn mật khẩu' : 'Hiện mật khẩu để kiểm tra'}
-                    >
-                      {showPassword ? (
-                        <EyeOff className="w-4 h-4 text-emerald-600" />
-                      ) : (
-                        <Eye className="w-4 h-4 text-slate-500" />
-                      )}
-                    </button>
-                  </div>
-                  {authError && (
-                    <p className="text-xs text-rose-600 font-bold mt-1.5">{authError}</p>
-                  )}
-                </div>
-
-                <div className="pt-2">
-                  <button
-                    type="submit"
-                    className="w-full py-3 rounded-2xl bg-emerald-600 hover:bg-emerald-500 text-white font-black text-sm shadow-md transition-all cursor-pointer border-b-2 border-emerald-800 active:border-b-0 active:scale-98"
-                  >
-                    Đăng Nhập Quản Trị
-                  </button>
-                </div>
-              </form>
-            </div>
-          </div>
-        ) : (
-          /* Authenticated Teacher Workspace */
-          <div className="flex-1 flex flex-col min-h-0 overflow-hidden">
+        {/* Authenticated Teacher Workspace */}
+        <div className="flex-1 flex flex-col min-h-0 overflow-hidden">
             {/* ======================================================== */}
             {/* THANH DANH MỤC TAB QUẢN TRỊ                              */}
             {/* ======================================================== */}
@@ -1938,13 +2045,18 @@ export const TeacherLessonModal: React.FC<TeacherLessonModalProps> = ({
 
                   {/* 1. Chọn Khối Lớp */}
                   <div>
-                    <div className="flex items-center justify-between mb-1.5">
+                    <div className="flex items-center justify-between mb-1.5 flex-wrap gap-1">
                       <label className="text-xs font-black text-slate-800 uppercase tracking-wider">
                         1. Chọn Khối Lớp để giao bài:
                       </label>
-                      <span className="text-[11px] font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-md border border-emerald-200">
-                        Đang giao cho: Khối Lớp {selectedGradeForAssign}
-                      </span>
+                      <div className="flex items-center gap-1.5 flex-wrap">
+                        <span className="text-[11px] font-black text-amber-900 bg-amber-100 px-2 py-0.5 rounded-md border border-amber-300">
+                          Toàn trường: {totalAssignedSummary.total} bài cô giao (K3: {totalAssignedSummary.counts[3]}, K4: {totalAssignedSummary.counts[4]}, K5: {totalAssignedSummary.counts[5]})
+                        </span>
+                        <span className="text-[11px] font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-md border border-emerald-200">
+                          Đang chọn: Khối Lớp {selectedGradeForAssign}
+                        </span>
+                      </div>
                     </div>
 
                     <div className="grid grid-cols-3 gap-2">
@@ -2201,8 +2313,7 @@ export const TeacherLessonModal: React.FC<TeacherLessonModalProps> = ({
               )}
             </div>
           </div>
-        )}
+        </div>
       </div>
-    </div>
   );
 };

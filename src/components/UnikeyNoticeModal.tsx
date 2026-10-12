@@ -10,7 +10,12 @@ export const UnikeyNoticeModal: React.FC<UnikeyNoticeModalProps> = ({ isOpen, on
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/70 backdrop-blur-sm animate-in fade-in duration-200">
+    <div 
+      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/70 backdrop-blur-sm animate-in fade-in duration-200"
+      onClick={(e) => {
+        if (e.target === e.currentTarget) onClose();
+      }}
+    >
       <div 
         className="relative w-full max-w-xl bg-gradient-to-b from-amber-50 via-white to-sky-50 rounded-3xl shadow-2xl border-4 border-amber-300 overflow-hidden text-slate-800 animate-in zoom-in-95 duration-200"
         role="dialog"

@@ -1,14 +1,17 @@
 import React from 'react';
 import { FingerId, FINGER_DATA, KeyConfig } from '../types/typing';
+import { SymbolKeyGuideInfo } from '../utils/symbolKeyGuide';
 
 interface FingerGuideBarProps {
   activeFinger?: FingerId;
   targetKey?: KeyConfig;
+  symbolGuideInfo?: SymbolKeyGuideInfo | null;
 }
 
 export const FingerGuideBar: React.FC<FingerGuideBarProps> = ({
   activeFinger,
   targetKey,
+  symbolGuideInfo,
 }) => {
   const activeFingerInfo = activeFinger ? FINGER_DATA[activeFinger] : undefined;
 
@@ -36,7 +39,32 @@ export const FingerGuideBar: React.FC<FingerGuideBarProps> = ({
       <div className="flex items-center gap-1.5 min-w-0">
         <span className="text-sm shrink-0">💡</span>
         <div className="text-xs font-black text-slate-800 flex items-center gap-1.5 flex-nowrap truncate">
-          {targetKey ? (
+          {symbolGuideInfo ? (
+            <>
+              <span className="px-2 py-0.5 bg-amber-400 text-slate-950 font-black rounded text-[11px] font-sans shadow-xs animate-pulse">
+                ⚡ {symbolGuideInfo.instructionVi}
+              </span>
+              <span className="px-1.5 py-0.2 bg-pink-600 text-white font-mono font-black rounded shadow-2xs text-[10px]">
+                ⇧ Giữ Shift
+              </span>
+              <span className="text-slate-400 font-bold hidden xs:inline">+</span>
+              <span className="px-1.5 py-0.2 bg-sky-600 text-white font-mono font-black rounded shadow-2xs text-[10px]">
+                Phím [{symbolGuideInfo.baseKeyLabel}]
+              </span>
+              <span className="text-slate-400 font-bold hidden xs:inline">➜</span>
+              <span className="px-1.5 py-0.2 bg-emerald-600 text-white font-mono font-black rounded shadow-2xs text-[10px]">
+                '{symbolGuideInfo.symbol}'
+              </span>
+              {activeFingerInfo && (
+                <span
+                  className="px-1.5 py-0.2 rounded font-black text-white text-[10px] shadow-2xs truncate hidden sm:inline"
+                  style={{ backgroundColor: activeFingerInfo.color }}
+                >
+                  👉 {activeFingerInfo.nameVi}
+                </span>
+              )}
+            </>
+          ) : targetKey ? (
             <>
               <span className="text-slate-600 font-bold hidden sm:inline">Phím:</span>
               <span className="px-1.5 py-0.2 bg-sky-500 text-white font-mono font-black rounded shadow-2xs text-[11px]">
