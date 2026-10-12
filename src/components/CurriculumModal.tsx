@@ -76,6 +76,17 @@ export const CurriculumModal: React.FC<CurriculumModalProps> = ({
   const [gradeAssignedOnly, setGradeAssignedOnly] = useState<boolean>(false);
   const [searchQuery, setSearchQuery] = useState<string>('');
 
+  // Luôn đồng bộ chuẩn xác bộ lọc bài học theo đúng khối lớp học sinh đang chọn khi mở modal
+  useEffect(() => {
+    if (isOpen) {
+      if (initialGradeFilter) {
+        setFilterTab(String(initialGradeFilter) as any);
+        setAssignedGradeFilter(initialGradeFilter as 3 | 4 | 5);
+      }
+      setGradeAssignedOnly(false);
+    }
+  }, [isOpen, initialGradeFilter]);
+
   // Lắng nghe phím ESC để đóng modal toàn trang
   useEffect(() => {
     if (!isOpen) return;
@@ -395,7 +406,7 @@ export const CurriculumModal: React.FC<CurriculumModalProps> = ({
               type="button"
               onClick={() => {
                 setFilterTab('assigned');
-                setAssignedGradeFilter('all');
+                setAssignedGradeFilter(initialGradeFilter ? (initialGradeFilter as 3 | 4 | 5) : 'all');
                 setGradeAssignedOnly(false);
               }}
               className={`px-3 py-1.5 rounded-xl text-xs font-black transition-all cursor-pointer flex items-center gap-1.5 whitespace-nowrap shadow-xs active:scale-95 ${

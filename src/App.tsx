@@ -1600,9 +1600,24 @@ export default function App() {
   const handleSelectAssignedHomework = (targetLessonId?: string) => {
     const hw = gradeAssignments[selectedGrade];
     if (hw) {
-      const chosenId =
-        targetLessonId ||
-        (hw.lessonIds && hw.lessonIds.length > 0 ? hw.lessonIds[0] : hw.lessonId);
+      const ids =
+        hw.lessonIds && hw.lessonIds.length > 0
+          ? hw.lessonIds
+          : hw.lessonId
+          ? [hw.lessonId]
+          : [];
+      
+      let chosenId = targetLessonId;
+      if (!chosenId && ids.length > 0) {
+        // Nếu bài hiện tại đã là 1 bài cô giao của lớp, bấm tiếp sẽ chuyển bài giao tiếp theo
+        const currentIdx = customLesson ? ids.indexOf(customLesson.id) : -1;
+        if (currentIdx !== -1 && currentIdx < ids.length - 1) {
+          chosenId = ids[currentIdx + 1];
+        } else {
+          chosenId = ids[0];
+        }
+      }
+
       const assigned = allAvailableLessons.find((l) => l.id === chosenId);
       if (assigned) {
         setCustomLesson(assigned);
@@ -2246,6 +2261,7 @@ export default function App() {
         selectedGrade={selectedGrade}
         onSelectGrade={handleSelectGrade}
         onOpenCurriculumModal={() => setIsCurriculumModalOpen(true)}
+        gradeAssignments={gradeAssignments}
       />
 
       {/* ======================================================== */}
