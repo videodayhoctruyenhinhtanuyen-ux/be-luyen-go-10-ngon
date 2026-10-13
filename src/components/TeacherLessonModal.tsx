@@ -1038,11 +1038,6 @@ export const TeacherLessonModal: React.FC<TeacherLessonModalProps> = ({
                 <p className="text-xs text-slate-600 mt-1">
                   Vui lòng đăng nhập để biên soạn bài học SGK, quản lý chuyên đề thơ văn và phân quyền giao bài
                 </p>
-                <div className="mt-2 p-2 rounded-xl bg-emerald-50 border border-emerald-300 text-[11px] text-emerald-950 font-bold flex items-center justify-center gap-1.5 shadow-2xs">
-                  <span>🔑 Tên đăng nhập: <code className="font-mono bg-white px-1.5 py-0.5 rounded text-emerald-800 font-black">admin</code></span>
-                  <span>•</span>
-                  <span>Mật khẩu: <code className="font-mono bg-white px-1.5 py-0.5 rounded text-emerald-800 font-black">Tanuyen@2026</code></span>
-                </div>
               </div>
 
               <form onSubmit={handleLogin} className="space-y-3 text-left">
@@ -1054,7 +1049,7 @@ export const TeacherLessonModal: React.FC<TeacherLessonModalProps> = ({
                     type="text"
                     value={username}
                     onChange={(e) => setUsername(e.target.value)}
-                    placeholder="Nhập tên đăng nhập (ví dụ: admin)"
+                    placeholder="Nhập tên đăng nhập"
                     required
                     autoFocus
                     autoComplete="off"
