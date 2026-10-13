@@ -95,9 +95,10 @@ export const Keyboard: React.FC<KeyboardProps> = ({
       // Reserve 20px for bottom safety margin & footer
       const maxKeyboardAvailableHeight = Math.max(160, vh - topOffset - (isCompactHeight ? 16 : 20));
 
-      // Keyboard key rows height: 5.76 * unitSize + plate/frame padding + khoảng cách giữa các hàng phím (~28-38px)
-      const totalRowGaps = isCompactHeight ? 28 : 38;
-      const fitUnitByHeight = Math.floor((maxKeyboardAvailableHeight - framePadding - totalRowGaps) / 5.76);
+      // Keyboard key rows height: fnKey (0.76) + 5 rows + gaps & margins
+      // Total height = 5.76 * unitSize + fnRowBottomMargin(8) + 4 * gapY(22) + frame/plate padding (~16) + led bar (~24)
+      const verticalExtras = 70;
+      const fitUnitByHeight = Math.floor((maxKeyboardAvailableHeight - verticalExtras) / 5.76);
 
       let finalUnit = fitUnitByWidth;
       if (fitUnitByHeight > 0 && fitUnitByHeight < fitUnitByWidth) {
@@ -108,14 +109,14 @@ export const Keyboard: React.FC<KeyboardProps> = ({
         finalUnit = maxUnitSize;
       }
 
-      finalUnit = Math.max(22, Math.min(52, finalUnit));
+      finalUnit = Math.max(22, Math.min(64, finalUnit));
       setUnitSize(finalUnit);
 
-      // Mở rộng chiều cao phím: tăng thêm ~10-14% so với unitSize khi còn đủ chỗ
-      const maxKeyHeightAllowed = Math.floor((maxKeyboardAvailableHeight - framePadding - totalRowGaps) / 5.76);
+      // Mở rộng chiều cao phím: tăng thêm ~12-16% so với unitSize khi còn đủ chỗ
+      const maxKeyHeightAllowed = Math.floor((maxKeyboardAvailableHeight - verticalExtras) / 5.76);
       let computedHeight = finalUnit;
       if (maxKeyHeightAllowed > finalUnit && !isCompactHeight) {
-        computedHeight = Math.min(Math.round(finalUnit * 1.12), maxKeyHeightAllowed);
+        computedHeight = Math.min(Math.round(finalUnit * 1.15), maxKeyHeightAllowed);
       } else if (maxKeyHeightAllowed > 0) {
         computedHeight = Math.min(finalUnit, maxKeyHeightAllowed);
       }
@@ -124,7 +125,7 @@ export const Keyboard: React.FC<KeyboardProps> = ({
         computedHeight = Math.min(computedHeight, suggestedKeyHeight);
       }
 
-      setKeyHeight(Math.max(22, Math.min(56, computedHeight)));
+      setKeyHeight(Math.max(22, Math.min(68, computedHeight)));
     };
 
     calculateSize();
@@ -153,19 +154,106 @@ export const Keyboard: React.FC<KeyboardProps> = ({
     };
   }, []);
 
-  // Proportional dimensional constants
-  const colGap = isCompactHeight ? 3 : 3.5; // khoảng cách ngang giữa các phím trong hàng (px)
-  const rowGap = isCompactHeight ? 5.5 : 7.5; // khoảng cách dọc giãn cách giữa các hàng phím (px)
-  const fnRowBottomMargin = isCompactHeight ? 7 : 9; // khoảng cách giữa hàng phím F và khối phím chính
-  const sectionGap = Math.round(unitSize * 0.35); // gap between Main ANSI, Nav cluster, and Numpad
+  // Proportional dimensional constants & Row Spacing
+  // 1. Khoảng cách ngang giữa các phím trong cùng hàng (Horizontal Key Gap)
+  const gapX = 3.5;
+  // 2. Giãn nhẹ khoảng cách chiều dọc giữa các hàng phím (Vertical Row Gap: 5.5px)
+  // Tạo sự thoáng đãng, chống dính hàng phím, giúp học sinh nhìn rõ từng hàng phím
+  const gapY = 5.5;
+  // 3. Khoảng cách cách biệt giữa hàng Function (F1-F12) và hàng phím số
+  const fnRowBottomMargin = 8;
+  // 4. Khoảng cách giữa các cụm phím chính, điều hướng và phím số
+  const sectionGap = Math.max(12, Math.round(unitSize * 0.35));
   const fnKeyHeight = Math.round(keyHeight * 0.76); // function keys have standard ~0.76 profile height
   const mainKeyHeight = keyHeight; // Keycap height boosted for prominent, easy-to-read presentation
 
   // Section widths calculated with mathematical precision:
-  const mainSectionWidth = 15.0 * unitSize + 14 * colGap;
-  const navSectionWidth = 3.0 * unitSize + 2 * colGap;
-  const numpadSectionWidth = 4.0 * unitSize + 3 * colGap;
+  const mainSectionWidth = 15.0 * unitSize + 14 * gapX;
+  const navSectionWidth = 3.0 * unitSize + 2 * gapX;
+  const numpadSectionWidth = 4.0 * unitSize + 3 * gapX;
   const totalKeyboardWidth = mainSectionWidth + sectionGap + navSectionWidth + sectionGap + numpadSectionWidth;
+
+
+  // Helper tính toán kích thước phông chữ chuẩn xác theo từng loại phím
+  // Đảm bảo vừa vặn tuyệt đối, không tràn viền hay đè phím lân cận trên mọi độ phân giải (kể cả 1366x768)
+  const getKeyTypographyClass = (key: KeyConfig, height: number): string => {
+    const code = key.code;
+    const label = key.label;
+
+    // 1. Hàng phím chức năng trên cùng (Function Row F1-F12, Esc, Sys keys, Numpad top multimedia)
+    if (code === 'Escape') {
+      return 'text-[9px] sm:text-[10px] font-bold leading-none tracking-tight';
+    }
+    if (/^F\d+$/.test(code)) {
+      // F1 đến F12: giữ phông chữ gọn gàng để các phím 2 chữ số (F10, F11, F12) không bao giờ bị tràn viền 1U
+      return 'text-[8.5px] sm:text-[9.5px] md:text-[10px] font-bold leading-none tracking-tight';
+    }
+    if (['PrintScreen', 'ScrollLock', 'Pause'].includes(code)) {
+      return 'text-[8px] sm:text-[8.5px] font-bold leading-none tracking-tight';
+    }
+    if (['VolumeMute', 'VolumeDown', 'VolumeUp', 'Calculator'].includes(code)) {
+      return 'text-[9px] sm:text-[10px] leading-none';
+    }
+
+    // 2. Các phím chức năng / modifier có nhãn văn bản dài
+    if (code === 'Backspace') {
+      return 'text-[8.5px] sm:text-[9.5px] md:text-[10.5px] font-bold leading-none tracking-tight truncate max-w-full px-0.5';
+    }
+    if (code === 'CapsLock') {
+      return 'text-[8px] sm:text-[9px] md:text-[9.5px] font-bold leading-none tracking-tight truncate max-w-full px-0.5';
+    }
+    if (code === 'ShiftLeft' || code === 'ShiftRight') {
+      return 'text-[9px] sm:text-[10px] md:text-[10.5px] font-bold leading-none tracking-tight truncate max-w-full px-0.5';
+    }
+    if (code === 'Enter') {
+      return 'text-[9px] sm:text-[10px] md:text-[10.5px] font-bold leading-none tracking-tight truncate max-w-full px-0.5';
+    }
+    if (code === 'NumpadEnter') {
+      // Phím Enter trên Numpad chỉ rộng 1.0U -> phông nhỏ gọn để không chạm biên
+      return 'text-[8px] sm:text-[8.5px] font-bold leading-tight tracking-tight text-center px-0.5 truncate max-w-full';
+    }
+    if (code === 'Tab') {
+      return 'text-[9px] sm:text-[10px] md:text-[10.5px] font-bold leading-none tracking-tight';
+    }
+    if (code === 'Space') {
+      return 'text-[9.5px] sm:text-[11px] font-semibold leading-none tracking-wider text-slate-300 truncate px-2';
+    }
+    if (code === 'ControlLeft' || code === 'ControlRight') {
+      return 'text-[8.5px] sm:text-[9.5px] font-bold leading-none';
+    }
+    if (code === 'AltLeft' || code === 'AltRight') {
+      return 'text-[8.5px] sm:text-[9.5px] font-bold leading-none';
+    }
+    if (code === 'MetaLeft' || code === 'MetaRight' || code === 'ContextMenu') {
+      return 'text-[8px] sm:text-[9px] font-bold leading-none';
+    }
+    if (['Insert', 'Delete', 'Home', 'End', 'PageUp', 'PageDown'].includes(code)) {
+      return 'text-[8px] sm:text-[9px] font-bold leading-none';
+    }
+    if (code === 'NumLock') {
+      return 'text-[8px] sm:text-[8.5px] font-bold leading-tight text-center';
+    }
+    if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(code)) {
+      return 'text-[11px] sm:text-xs font-bold leading-none';
+    }
+
+    // 3. Các phím có ký tự phụ (hàng phím số 1..0, dấu ` ~ , . / ; ' [ ] \ )
+    if (key.subLabel) {
+      if (height >= 50) return 'mt-1 text-[11px] sm:text-xs font-bold leading-none';
+      if (height >= 40) return 'mt-0.5 text-[10px] sm:text-[11px] font-bold leading-none';
+      return 'mt-0.5 text-[9.5px] sm:text-[10px] font-bold leading-none';
+    }
+
+    // 4. Các phím chữ cái thông thường (A-Z)
+    if (label.length === 1) {
+      if (height >= 50) return 'text-xs sm:text-sm md:text-base font-bold leading-none tracking-tight';
+      if (height >= 40) return 'text-[11px] sm:text-xs md:text-sm font-bold leading-none tracking-tight';
+      return 'text-[10.5px] sm:text-[11.5px] font-bold leading-none tracking-tight';
+    }
+
+    // Mặc định cho các phím khác
+    return 'text-[8.5px] sm:text-[9.5px] font-bold leading-none truncate max-w-full px-0.5';
+  };
 
   // Render individual keycap with true real-world aspect ratios
   const renderKey = (
@@ -219,6 +307,9 @@ export const Keyboard: React.FC<KeyboardProps> = ({
       isTarget = true;
       targetLabelText = 'TẮT CAPS ⇪';
       targetBgColor = '#f43f5e'; // Rose
+    } else if (isTarget && (key.code === 'Comma' || key.code === 'Period' || key.code === 'Semicolon' || key.code === 'Slash' || key.code === 'Quote' || key.code === 'Minus' || key.code === 'Equal')) {
+      targetLabelText = `GÕ [ ${key.label} ] ⬇`;
+      targetBgColor = fingerInfo ? fingerInfo.color : '#0284c7';
     }
 
     const isWrong = wrongKeyCode === key.code;
@@ -251,8 +342,8 @@ export const Keyboard: React.FC<KeyboardProps> = ({
 
     // Authentic key width based on unitRatio
     // If widthRatio = 1: width = unitSize
-    // If widthRatio = N: width = N * unitSize + (N - 1) * colGap
-    const keyWidth = options?.overrideWidth ?? Math.round(key.widthRatio * unitSize + (key.widthRatio - 1) * colGap);
+    // If widthRatio = N: width = N * unitSize + (N - 1) * gapX
+    const keyWidth = options?.overrideWidth ?? Math.round(key.widthRatio * unitSize + (key.widthRatio - 1) * gapX);
     const isEsc = key.code === 'Escape';
 
     const styleObj: React.CSSProperties = {
@@ -348,31 +439,32 @@ export const Keyboard: React.FC<KeyboardProps> = ({
         {/* Sub-label */}
         {key.subLabel && (
           <span
-            className={`absolute top-0.5 left-1 leading-none font-mono transition-all ${
+            className={`absolute top-0.5 left-1 leading-none font-mono transition-all pointer-events-none ${
               isDualBaseKey
-                ? 'text-[10px] sm:text-[11px] font-black text-slate-950 bg-amber-300 px-1 py-0.2 rounded ring-1 ring-amber-400 shadow-xs scale-110'
+                ? 'text-[9px] sm:text-[10px] font-black text-slate-950 bg-amber-300 px-1 py-0.2 rounded ring-1 ring-amber-400 shadow-xs scale-105'
                 : isTarget
-                ? 'text-[8px] sm:text-[9px] text-white font-bold'
-                : 'text-[8px] sm:text-[9px] opacity-70'
+                ? 'text-[7.5px] sm:text-[8px] text-white font-bold'
+                : 'text-[7.5px] sm:text-[8px] opacity-70'
             }`}
           >
             {key.subLabel}
           </span>
         )}
 
-        {/* Main Key Label */}
+        {/* Main Key Label - Tối ưu hóa kích thước chữ vừa vặn, không tràn viền */}
         <span
-          className={`font-mono-key ${
-            key.subLabel
-              ? keyHeight >= 40
-                ? 'mt-0.5 text-xs font-black'
-                : 'mt-0.5 text-[10px] font-bold'
-              : keyHeight >= 40
-              ? 'text-sm sm:text-base font-black tracking-tight'
-              : 'text-xs sm:text-sm font-black'
-          } ${isTarget ? 'font-black scale-115 drop-shadow-md text-white' : ''}`}
+          className={`font-mono-key max-w-full px-0.5 text-center truncate ${getKeyTypographyClass(
+            key,
+            customHeight
+          )} ${
+            isTarget && key.label.length === 1
+              ? 'font-black scale-110 drop-shadow-md text-white'
+              : isTarget
+              ? 'font-black text-white'
+              : ''
+          }`}
         >
-          {key.label}
+          {key.code === 'NumpadEnter' ? '↵ Enter' : key.label}
         </span>
 
         {/* Tactile bump for Home keys (F, J and Numpad 5) */}
@@ -408,7 +500,7 @@ export const Keyboard: React.FC<KeyboardProps> = ({
         {/* Inner Switch Plate with locked real-world physical proportions - Stretches 100% full width */}
         <div
           className={`w-full relative ${
-            isCompactHeight ? 'p-1 rounded-lg' : 'p-1.5 sm:p-2 rounded-xl'
+            isCompactHeight ? 'p-1 rounded-lg gap-0.5 sm:gap-1' : 'p-1.5 sm:p-2 rounded-xl gap-1 sm:gap-1.5'
           } flex flex-col transition-all duration-300 ${activeTheme.plateClass}`}
         >
           {/* ========================================================================= */}
@@ -416,7 +508,7 @@ export const Keyboard: React.FC<KeyboardProps> = ({
           {/* ========================================================================= */}
           <div
             className="flex items-center justify-between mx-auto px-2.5 py-0.5 rounded-lg bg-slate-950/90 border border-slate-700/80 shadow-inner select-none"
-            style={{ width: `${totalKeyboardWidth}px`, marginBottom: `${isCompactHeight ? 4 : 6}px` }}
+            style={{ width: `${totalKeyboardWidth}px` }}
           >
             <div className="flex items-center gap-1.5">
               <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
@@ -494,17 +586,17 @@ export const Keyboard: React.FC<KeyboardProps> = ({
               {renderKey(FUNCTION_ROW[0], fnKeyHeight)}
 
               {/* F1 - F4 Block */}
-              <div className="flex" style={{ gap: `${colGap}px` }}>
+              <div className="flex" style={{ gap: `${gapX}px` }}>
                 {FUNCTION_ROW.slice(1, 5).map((k) => renderKey(k, fnKeyHeight))}
               </div>
 
               {/* F5 - F8 Block */}
-              <div className="flex" style={{ gap: `${colGap}px` }}>
+              <div className="flex" style={{ gap: `${gapX}px` }}>
                 {FUNCTION_ROW.slice(5, 9).map((k) => renderKey(k, fnKeyHeight))}
               </div>
 
               {/* F9 - F12 Block */}
-              <div className="flex" style={{ gap: `${colGap}px` }}>
+              <div className="flex" style={{ gap: `${gapX}px` }}>
                 {FUNCTION_ROW.slice(9, 13).map((k) => renderKey(k, fnKeyHeight))}
               </div>
             </div>
@@ -512,7 +604,7 @@ export const Keyboard: React.FC<KeyboardProps> = ({
             {/* Nav Function Row (PrtSc, ScrLk, Pause) */}
             <div
               className="flex"
-              style={{ width: `${navSectionWidth}px`, gap: `${colGap}px` }}
+              style={{ width: `${navSectionWidth}px`, gap: `${gapX}px` }}
             >
               {SYSTEM_TOP_KEYS.map((k) => renderKey(k, fnKeyHeight))}
             </div>
@@ -520,7 +612,7 @@ export const Keyboard: React.FC<KeyboardProps> = ({
             {/* Numpad Top Area: 4 phím đa phương tiện (🔇 Tắt tiếng, 🔉 Vol-, 🔊 Vol+, 🖩 Máy tính) => Chuẩn Full Size 108 Phím */}
             <div
               className="flex"
-              style={{ width: `${numpadSectionWidth}px`, gap: `${colGap}px` }}
+              style={{ width: `${numpadSectionWidth}px`, gap: `${gapX}px` }}
             >
               {NUMPAD_TOP_EXTRA_KEYS.map((k) => renderKey(k, fnKeyHeight))}
             </div>
@@ -534,15 +626,16 @@ export const Keyboard: React.FC<KeyboardProps> = ({
             style={{ width: `${totalKeyboardWidth}px`, gap: `${sectionGap}px` }}
           >
             {/* 1. Main ANSI Alphanumeric Section (15.0 U wide, exactly 5 rows) */}
+            {/* Khoảng cách giữa các hàng phím (gapY = 5.5px) được giãn nhẹ tạo sự thoáng đãng */}
             <div
               className="relative flex flex-col"
-              style={{ width: `${mainSectionWidth}px`, gap: `${rowGap}px` }}
+              style={{ width: `${mainSectionWidth}px`, gap: `${gapY}px` }}
             >
               {KEYBOARD_ROWS.map((row, rIdx) => (
                 <div
                   key={`main-row-${rIdx}`}
                   className="flex"
-                  style={{ gap: `${colGap}px`, width: `${mainSectionWidth}px` }}
+                  style={{ gap: `${gapX}px`, width: `${mainSectionWidth}px` }}
                 >
                   {row.map((k) => renderKey(k, mainKeyHeight))}
                 </div>
@@ -560,26 +653,29 @@ export const Keyboard: React.FC<KeyboardProps> = ({
 
             {/* 2. Navigation Cluster Section (3.0 U wide, true inverted-T arrows) */}
             <div
-              className="flex flex-col"
-              style={{ width: `${navSectionWidth}px` }}
+              className="flex flex-col justify-between"
+              style={{ width: `${navSectionWidth}px`, height: `${5 * mainKeyHeight + 4 * gapY}px` }}
             >
               {/* Row 1: Ins, Home, PgUp */}
-              <div className="flex" style={{ gap: `${colGap}px`, marginBottom: `${rowGap}px` }}>
+              <div className="flex" style={{ gap: `${gapX}px` }}>
                 {NAV_CLUSTER_ROWS[0].map((k) => renderKey(k, mainKeyHeight))}
               </div>
 
               {/* Row 2: Del, End, PgDn */}
-              <div className="flex" style={{ gap: `${colGap}px`, marginBottom: `${mainKeyHeight + 2 * rowGap}px` }}>
+              <div className="flex" style={{ gap: `${gapX}px` }}>
                 {NAV_CLUSTER_ROWS[1].map((k) => renderKey(k, mainKeyHeight))}
               </div>
 
+              {/* Spacer matching authentic keyboard gap */}
+              <div className="flex-1" />
+
               {/* Row 4: Up Arrow Centered */}
-              <div className="flex justify-center" style={{ width: `${navSectionWidth}px`, marginBottom: `${rowGap}px` }}>
+              <div className="flex justify-center" style={{ width: `${navSectionWidth}px`, marginBottom: `${gapY}px` }}>
                 {NAV_CLUSTER_ROWS[3].map((k) => renderKey(k, mainKeyHeight))}
               </div>
 
               {/* Row 5: Left, Down, Right */}
-              <div className="flex" style={{ gap: `${colGap}px` }}>
+              <div className="flex" style={{ gap: `${gapX}px` }}>
                 {NAV_CLUSTER_ROWS[4].map((k) => renderKey(k, mainKeyHeight))}
               </div>
             </div>
@@ -590,8 +686,8 @@ export const Keyboard: React.FC<KeyboardProps> = ({
                 display: 'grid',
                 gridTemplateColumns: `repeat(4, ${unitSize}px)`,
                 gridTemplateRows: `repeat(5, ${mainKeyHeight}px)`,
-                rowGap: `${rowGap}px`,
-                columnGap: `${colGap}px`,
+                columnGap: `${gapX}px`,
+                rowGap: `${gapY}px`,
                 width: `${numpadSectionWidth}px`,
               }}
             >
@@ -605,7 +701,7 @@ export const Keyboard: React.FC<KeyboardProps> = ({
               {renderKey(CODE_TO_KEY_MAP.get('Numpad7'), mainKeyHeight)}
               {renderKey(CODE_TO_KEY_MAP.get('Numpad8'), mainKeyHeight)}
               {renderKey(CODE_TO_KEY_MAP.get('Numpad9'), mainKeyHeight)}
-              {renderKey(CODE_TO_KEY_MAP.get('NumpadAdd'), 2 * mainKeyHeight + rowGap, {
+              {renderKey(CODE_TO_KEY_MAP.get('NumpadAdd'), 2 * mainKeyHeight + gapY, {
                 customStyle: { gridRow: 'span 2' },
               })}
 
@@ -618,13 +714,13 @@ export const Keyboard: React.FC<KeyboardProps> = ({
               {renderKey(CODE_TO_KEY_MAP.get('Numpad1'), mainKeyHeight)}
               {renderKey(CODE_TO_KEY_MAP.get('Numpad2'), mainKeyHeight)}
               {renderKey(CODE_TO_KEY_MAP.get('Numpad3'), mainKeyHeight)}
-              {renderKey(CODE_TO_KEY_MAP.get('NumpadEnter'), 2 * mainKeyHeight + rowGap, {
+              {renderKey(CODE_TO_KEY_MAP.get('NumpadEnter'), 2 * mainKeyHeight + gapY, {
                 customStyle: { gridRow: 'span 2' },
               })}
 
               {/* Row 5: 0 (spans 2 cols wide), . */}
               {renderKey(CODE_TO_KEY_MAP.get('Numpad0'), mainKeyHeight, {
-                overrideWidth: 2 * unitSize + colGap,
+                overrideWidth: 2 * unitSize + gapX,
                 customStyle: { gridColumn: 'span 2' },
               })}
               {renderKey(CODE_TO_KEY_MAP.get('NumpadDecimal'), mainKeyHeight)}

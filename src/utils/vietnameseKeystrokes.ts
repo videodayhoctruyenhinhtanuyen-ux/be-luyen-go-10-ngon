@@ -31,6 +31,14 @@ export interface KeystrokeStep {
   isHatHookKey?: boolean;   // Is this a hat/hook key (aa, ee, oo, aw, ow, uw, dd / 6, 7, 8, 9)?
 }
 
+/**
+ * Kiểm tra xem một ký tự có phải là dấu câu hoặc ký tự đặc biệt (không phải chữ cái hay số)
+ */
+export const isPunctuationChar = (char: string | undefined): boolean => {
+  if (!char) return false;
+  return /[.,:;?!'"“”‘’…—–()\[\]{}<>/\\|`~@#$%^&*+\-=_]/.test(char);
+};
+
 // Complete TELEX rules breakdown dictionary
 // maps lowercase accented char to array of physical keys
 export const TELEX_MAP: Record<string, string[]> = {
@@ -387,12 +395,26 @@ export function convertWordToTelexSteps(word: string, wordStartIndex: number): W
   for (let p = 0; p < prefixPunct.length; p++) {
     const ch = prefixPunct[p];
     script += ch;
+    const symbolGuide = getSymbolKeyGuideInfo(ch);
     const numSymbolInfo = NUMBER_ROW_SYMBOLS_MAP[ch];
-    const isShift = numSymbolInfo ? true : (ch !== ch.toLowerCase() && ch.toUpperCase() === ch);
-    const hint = numSymbolInfo
-      ? `Ký tự đặc biệt '${ch}': Nhấn giữ phím SHIFT kết hợp gõ phím số '${numSymbolInfo.digit}' (${numSymbolInfo.fingerDesc})!`
-      : `Gõ phím '${ch}'`;
-    const displayHint = numSymbolInfo ? `SHIFT + ${numSymbolInfo.digit} ➜ ${ch}` : ch;
+    const isShift = !!symbolGuide || !!numSymbolInfo || (ch !== ch.toLowerCase() && ch.toUpperCase() === ch);
+
+    let hint = `Gõ phím '${ch}'`;
+    let displayHint = ch;
+
+    if (symbolGuide) {
+      displayHint = `SHIFT + ${symbolGuide.baseKeyLabel} ➜ ${ch}`;
+      hint = `${symbolGuide.instructionVi} (${symbolGuide.fingerDesc})!`;
+    } else if (numSymbolInfo) {
+      displayHint = `SHIFT + ${numSymbolInfo.digit} ➜ ${ch}`;
+      hint = `Ký tự đặc biệt '${ch}': Nhấn giữ phím SHIFT kết hợp gõ phím số '${numSymbolInfo.digit}' (${numSymbolInfo.fingerDesc})!`;
+    } else if (ch === ',') {
+      hint = `Gõ phím dấu phẩy ',' bằng ngón giữa tay phải!`;
+    } else if (ch === '.') {
+      hint = `Gõ phím dấu chấm '.' bằng ngón áp út tay phải!`;
+    } else if (ch === ';') {
+      hint = `Gõ phím dấu chấm phẩy ';' bằng ngón út tay phải!`;
+    }
 
     steps.push({
       keyChar: ch,
@@ -545,16 +567,30 @@ export function convertWordToTelexSteps(word: string, wordStartIndex: number): W
     });
   }
 
-  // 3. Hậu tố dấu câu (nếu có, ví dụ '.')
+  // 3. Hậu tố dấu câu (nếu có, ví dụ ',', '.', ':', ';', '?', '!')
   for (let s = 0; s < suffixPunct.length; s++) {
     const ch = suffixPunct[s];
     script += ch;
+    const symbolGuide = getSymbolKeyGuideInfo(ch);
     const numSymbolInfo = NUMBER_ROW_SYMBOLS_MAP[ch];
-    const isShift = numSymbolInfo ? true : (ch !== ch.toLowerCase() && ch.toUpperCase() === ch);
-    const hint = numSymbolInfo
-      ? `Ký tự đặc biệt '${ch}': Nhấn giữ phím SHIFT kết hợp gõ phím số '${numSymbolInfo.digit}' (${numSymbolInfo.fingerDesc})!`
-      : `Gõ dấu '${ch}'`;
-    const displayHint = numSymbolInfo ? `SHIFT + ${numSymbolInfo.digit} ➜ ${ch}` : ch;
+    const isShift = !!symbolGuide || !!numSymbolInfo || (ch !== ch.toLowerCase() && ch.toUpperCase() === ch);
+
+    let hint = `Gõ dấu '${ch}'`;
+    let displayHint = ch;
+
+    if (symbolGuide) {
+      displayHint = `SHIFT + ${symbolGuide.baseKeyLabel} ➜ ${ch}`;
+      hint = `${symbolGuide.instructionVi} (${symbolGuide.fingerDesc})!`;
+    } else if (numSymbolInfo) {
+      displayHint = `SHIFT + ${numSymbolInfo.digit} ➜ ${ch}`;
+      hint = `Ký tự đặc biệt '${ch}': Nhấn giữ phím SHIFT kết hợp gõ phím số '${numSymbolInfo.digit}' (${numSymbolInfo.fingerDesc})!`;
+    } else if (ch === ',') {
+      hint = `Gõ phím dấu phẩy ',' bằng ngón giữa tay phải!`;
+    } else if (ch === '.') {
+      hint = `Gõ phím dấu chấm '.' bằng ngón áp út tay phải!`;
+    } else if (ch === ';') {
+      hint = `Gõ phím dấu chấm phẩy ';' bằng ngón út tay phải!`;
+    }
 
     steps.push({
       keyChar: ch,

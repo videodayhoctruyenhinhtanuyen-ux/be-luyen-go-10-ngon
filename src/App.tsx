@@ -2,7 +2,7 @@ import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react'
 import { Lesson, KeyConfig, FingerId, TypingStats, AppSettings, TypingInputMode, KeyboardImeMode, GradeAssignment, TypedKeyRecord, CaseMistakeType } from './types/typing';
 import { LESSONS } from './data/lessons';
 import { getKeyForChar, CODE_TO_KEY_MAP } from './data/keyboardLayout';
-import { buildKeystrokeSteps, KeystrokeStep, evaluateCaseMistake, isUpperCaseChar, isLowerCaseChar } from './utils/vietnameseKeystrokes';
+import { buildKeystrokeSteps, KeystrokeStep, evaluateCaseMistake, isUpperCaseChar, isLowerCaseChar, isPunctuationChar } from './utils/vietnameseKeystrokes';
 import { getSymbolKeyGuideInfo, SymbolKeyGuideInfo } from './utils/symbolKeyGuide';
 import { generateValidTelexSequencesForWord, checkKeyInSmartTelexWord, matchUnikeyInputInWord, isVietnameseAccented, VIETNAMESE_CHAR_DECOMPOSITION } from './utils/vietnameseSmartTelex';
 import { soundEngine } from './utils/audio';
@@ -10,6 +10,7 @@ import { Keyboard } from './components/Keyboard';
 import { PracticeArea } from './components/PracticeArea';
 import { PostureGuideModal } from './components/PostureGuideModal';
 import { VietnameseGuideModal } from './components/VietnameseGuideModal';
+import { TypingGuideModal, GuideTabId } from './components/TypingGuideModal';
 import { NumpadGuideModal } from './components/NumpadGuideModal';
 import { MultiGameHub } from './components/MultiGameHub';
 import { CurriculumModal } from './components/CurriculumModal';
@@ -54,6 +55,7 @@ import {
   Image as ImageIcon,
   Maximize,
   Minimize,
+  Minimize2,
   X
 } from 'lucide-react';
 
@@ -230,64 +232,26 @@ export default function App() {
   }, [allLessons]);
 
   // Grade Assignments (Bài tập được giáo viên giao cho từng khối lớp - 1 hoặc nhiều bài)
-  // Khớp chuẩn xác 100% yêu cầu: Tổng 5 bài (Khối 3: 1 bài, Khối 4: 2 bài, Khối 5: 2 bài)
   const [gradeAssignments, setGradeAssignments] = useState<Record<number, GradeAssignment>>(() => {
-    const DEFAULT_ASSIGNMENTS: Record<number, GradeAssignment> = {
-      3: {
-        gradeLevel: 3,
-        lessonId: 'lesson-3-3',
-        lessonIds: ['lesson-3-3'],
-        assignedAt: new Date().toISOString(),
-        teacherName: 'Cô Mai',
-        teacherNote: 'Bài tập về nhà tuần này: Các con Lớp 3 hoàn thành bài thơ Mèo con đi học trước tiết học nhé!',
-      },
-      4: {
-        gradeLevel: 4,
-        lessonId: 'lesson-4-1',
-        lessonIds: ['lesson-4-1', 'lesson-4-2'],
-        assignedAt: new Date().toISOString(),
-        teacherName: 'Cô Mai',
-        teacherNote: 'Bài tập về nhà tuần này: Các con Lớp 4 hoàn thành 2 bài gõ phím số và đồ dùng học tập nhé!',
-      },
-      5: {
-        gradeLevel: 5,
-        lessonId: 'lesson-5-1',
-        lessonIds: ['lesson-5-1', 'lesson-5-2'],
-        assignedAt: new Date().toISOString(),
-        teacherName: 'Cô Mai',
-        teacherNote: 'Bài tập về nhà tuần này: Các con Lớp 5 hoàn thành 2 bài thơ Hạt gạo làng ta và Tre Việt Nam nhé!',
-      },
-    };
-
     try {
       const saved = localStorage.getItem('typing_kids_grade_assignments');
-      const isSyncedV3 = localStorage.getItem('typing_kids_assignments_synced_v3');
-      if (saved && isSyncedV3 === 'true') {
+      if (saved) {
         const parsed = JSON.parse(saved);
-        if (parsed && typeof parsed === 'object') {
-          const g3Count = Array.isArray(parsed[3]?.lessonIds) ? parsed[3].lessonIds.length : (parsed[3]?.lessonId ? 1 : 0);
-          const g4Count = Array.isArray(parsed[4]?.lessonIds) ? parsed[4].lessonIds.length : (parsed[4]?.lessonId ? 1 : 0);
-          const g5Count = Array.isArray(parsed[5]?.lessonIds) ? parsed[5].lessonIds.length : (parsed[5]?.lessonId ? 1 : 0);
-          // Đảm bảo cấu hình có đủ 5 bài chuẩn xác
-          if (g3Count >= 1 && g4Count >= 2 && g5Count >= 2) {
-            return {
-              ...DEFAULT_ASSIGNMENTS,
-              ...parsed,
-            };
-          }
-        }
+        if (parsed && typeof parsed === 'object') return parsed;
       }
     } catch {
       // fallback
     }
-
-    try {
-      localStorage.setItem('typing_kids_grade_assignments', JSON.stringify(DEFAULT_ASSIGNMENTS));
-      localStorage.setItem('typing_kids_assignments_synced_v3', 'true');
-    } catch {
-      // ignore
-    }
-    return DEFAULT_ASSIGNMENTS;
+    return {
+      3: {
+        gradeLevel: 3,
+        lessonId: 'lesson-3-3',
+        lessonIds: ['lesson-3-3', 'lesson-3-1'],
+        assignedAt: new Date().toISOString(),
+        teacherName: 'Cô Mai',
+        teacherNote: 'Bài tập về nhà tuần này: Các con Lớp 3 hoàn thành 2 bài tập này nhé!',
+      },
+    };
   });
 
   // Lọc và sắp xếp tự động các bài học của khối lớp theo đúng tiến trình chuẩn (Bài 1, Bài 2, Bài 3, Bài 4...)
@@ -407,6 +371,13 @@ export default function App() {
   }, []);
   const [isPostureModalOpen, setIsPostureModalOpen] = useState<boolean>(false);
   const [isVietnameseGuideOpen, setIsVietnameseGuideOpen] = useState<boolean>(false);
+  const [isTypingGuideOpen, setIsTypingGuideOpen] = useState<boolean>(false);
+  const [typingGuideTab, setTypingGuideTab] = useState<GuideTabId>('hand_posture');
+
+  const handleOpenTypingGuide = useCallback((tab: GuideTabId = 'hand_posture') => {
+    setTypingGuideTab(tab);
+    setIsTypingGuideOpen(true);
+  }, []);
   const [isNumpadModalOpen, setIsNumpadModalOpen] = useState<boolean>(false);
   const [isGameModalOpen, setIsGameModalOpen] = useState<boolean>(false);
   const [isCurriculumModalOpen, setIsCurriculumModalOpen] = useState<boolean>(false);
@@ -804,12 +775,35 @@ export default function App() {
     const ch = targetText[charIdx];
     if (ch === ' ' || ch === '\n') return null;
 
+    // NẾU KÝ TỰ HIỆN TẠI LÀ DẤU CÂU / KÝ TỰ ĐẶC BIỆT DÍNH LIỀN VỚI TỪ (như ',' trong "bi," hay '.' trong "khoa."):
+    // Dấu câu là ký tự độc lập, không phải là âm tiết chữ cái tiếng Việt cần bộ gõ Smart Telex!
+    // Trả về null để hệ thống nhận diện chính xác 100% phím dấu câu đó, không bị gợi ý nhầm sang chữ cái đầu từ!
+    const charAtCursor = targetText[charIdx];
+    if (
+      isPunctuationChar(ch) ||
+      isPunctuationChar(currentStep.keyChar) ||
+      isPunctuationChar(currentStep.targetChar) ||
+      isPunctuationChar(charAtCursor)
+    ) {
+      return null;
+    }
+
     let wordStart = charIdx;
-    while (wordStart > 0 && targetText[wordStart - 1] !== ' ' && targetText[wordStart - 1] !== '\n') {
+    while (
+      wordStart > 0 &&
+      targetText[wordStart - 1] !== ' ' &&
+      targetText[wordStart - 1] !== '\n' &&
+      !isPunctuationChar(targetText[wordStart - 1])
+    ) {
       wordStart--;
     }
     let wordEnd = charIdx;
-    while (wordEnd < targetText.length && targetText[wordEnd] !== ' ' && targetText[wordEnd] !== '\n') {
+    while (
+      wordEnd < targetText.length &&
+      targetText[wordEnd] !== ' ' &&
+      targetText[wordEnd] !== '\n' &&
+      !isPunctuationChar(targetText[wordEnd])
+    ) {
       wordEnd++;
     }
     const targetWord = targetText.slice(wordStart, wordEnd);
@@ -851,20 +845,38 @@ export default function App() {
     }
     if (!currentStep) return undefined;
 
-    // Nếu là ký tự đặc biệt kết hợp phím Shift (Dual-Key Highlighting):
-    // Ưu tiên phím cơ sở (phím số [1], phím số [8], v.v.)
+    // 1. Ký tự đặc biệt kết hợp phím Shift (Dual-Key Highlighting):
+    // Ưu tiên phím cơ sở (phím số [1], phím số [8], phím [;] cho dấu [:], phím [/] cho dấu [?], v.v.)
     if (currentSymbolGuide) {
       return CODE_TO_KEY_MAP.get(currentSymbolGuide.baseKeyCode) || getKeyForChar(currentSymbolGuide.baseKeyChar, isNumpadLesson);
     }
 
-    // Trong chế độ gõ tự do: gợi ý phím ưu tiên tiếp theo nếu có
+    // 2. ƯU TIÊN TUYỆT ĐỐI CHO DẤU CÂU VÀ KÝ TỰ ĐẶC BIỆT DÍNH LIỀN VỚI TỪ (như dấu phẩy ',', chấm '.', hai chấm ':', v.v.):
+    // Khi con trỏ đang yêu cầu gõ dấu câu, BẮT BUỘC nhận diện chính xác 100% phím dấu câu trên bàn phím,
+    // TUYỆT ĐỐI KHÔNG để bộ gõ Smart Telex can thiệp gợi ý nhảy nhầm sang chữ cái đầu từ (như chữ B hoặc chữ K)!
+    const charAtCursor = targetText[currentStep.charIndex];
+    const isPunct =
+      isPunctuationChar(currentStep.keyChar) ||
+      isPunctuationChar(currentStep.targetChar) ||
+      isPunctuationChar(charAtCursor);
+    if (isPunct) {
+      const punctChar =
+        (isPunctuationChar(currentStep.keyChar)
+          ? currentStep.keyChar
+          : isPunctuationChar(charAtCursor)
+          ? charAtCursor
+          : currentStep.targetChar) || currentStep.keyChar;
+      return getKeyForChar(punctChar, isNumpadLesson) || (currentStep.code ? CODE_TO_KEY_MAP.get(currentStep.code) : undefined);
+    }
+
+    // 3. Trong chế độ gõ tự do: gợi ý phím ưu tiên tiếp theo nếu có (CHỈ KHI ĐANG GÕ TỪ CHỮ CÁI TIẾNG VIỆT)
     if (smartTelexFreeMode && inputMode === 'telex' && smartTelexNextInfo?.recommendedNextKey) {
       const rec = smartTelexNextInfo.recommendedNextKey;
       return getKeyForChar(rec, isNumpadLesson) || getKeyForChar(currentStep.keyChar, isNumpadLesson);
     }
 
     return getKeyForChar(currentStep.keyChar, isNumpadLesson);
-  }, [isBackspaceTarget, isEnterTarget, currentStep, currentSymbolGuide, smartTelexFreeMode, inputMode, smartTelexNextInfo, activeLesson]);
+  }, [isBackspaceTarget, isEnterTarget, currentStep, currentSymbolGuide, smartTelexFreeMode, inputMode, smartTelexNextInfo, activeLesson, targetText]);
 
   const activeFinger: FingerId | undefined = targetKeyConfig?.finger;
 
@@ -1130,15 +1142,23 @@ export default function App() {
         // Trường hợp đặc biệt: Người dùng bật Unikey [V] gõ xong từ (ví dụ "trời", "nắng", "học")
         // Unikey đã nuốt phím dấu thanh để biến thành chữ tiếng Việt hoàn chỉnh, và người dùng bấm Space!
         else if (currentWordInfo && inputMode === 'telex') {
-          const stepsInCurrentWord = keystrokeSteps.slice(currentWordInfo.wordStepStart, currentWordInfo.wordStepEnd);
-          const stepInWordIdx = Math.max(0, stepIndex - currentWordInfo.wordStepStart);
-          const unikeyCheck = matchUnikeyInputInWord(currentWordInfo.targetWord, stepInWordIdx, ' ', stepsInCurrentWord, wordTypedKeys);
-          if (unikeyCheck.isMatch) {
-            isMatch = true;
-            const remainingInWord = Math.max(1, currentWordInfo.wordStepEnd - stepIndex);
-            const nextStepIsSpace = keystrokeSteps[currentWordInfo.wordStepEnd]?.keyChar === ' ';
-            advanceCount = remainingInWord + (nextStepIsSpace ? 1 : 0);
-            setWordTypedKeys([]);
+          // Nếu bước tiếp theo là dấu câu -> KHÔNG cho phép bấm Space để nhảy qua dấu câu!
+          const nextStepIsPunct = keystrokeSteps[stepIndex] && (
+            isPunctuationChar(keystrokeSteps[stepIndex].keyChar) ||
+            isPunctuationChar(keystrokeSteps[stepIndex].targetChar) ||
+            isPunctuationChar(targetText[keystrokeSteps[stepIndex].charIndex])
+          );
+          if (!nextStepIsPunct) {
+            const stepsInCurrentWord = keystrokeSteps.slice(currentWordInfo.wordStepStart, currentWordInfo.wordStepEnd);
+            const stepInWordIdx = Math.max(0, stepIndex - currentWordInfo.wordStepStart);
+            const unikeyCheck = matchUnikeyInputInWord(currentWordInfo.targetWord, stepInWordIdx, ' ', stepsInCurrentWord, wordTypedKeys);
+            if (unikeyCheck.isMatch) {
+              isMatch = true;
+              const remainingInWord = Math.max(1, currentWordInfo.wordStepEnd - stepIndex);
+              const nextStepIsSpace = keystrokeSteps[currentWordInfo.wordStepEnd]?.keyChar === ' ';
+              advanceCount = remainingInWord + (nextStepIsSpace ? 1 : 0);
+              setWordTypedKeys([]);
+            }
           }
         }
       } else {
@@ -1600,24 +1620,9 @@ export default function App() {
   const handleSelectAssignedHomework = (targetLessonId?: string) => {
     const hw = gradeAssignments[selectedGrade];
     if (hw) {
-      const ids =
-        hw.lessonIds && hw.lessonIds.length > 0
-          ? hw.lessonIds
-          : hw.lessonId
-          ? [hw.lessonId]
-          : [];
-      
-      let chosenId = targetLessonId;
-      if (!chosenId && ids.length > 0) {
-        // Nếu bài hiện tại đã là 1 bài cô giao của lớp, bấm tiếp sẽ chuyển bài giao tiếp theo
-        const currentIdx = customLesson ? ids.indexOf(customLesson.id) : -1;
-        if (currentIdx !== -1 && currentIdx < ids.length - 1) {
-          chosenId = ids[currentIdx + 1];
-        } else {
-          chosenId = ids[0];
-        }
-      }
-
+      const chosenId =
+        targetLessonId ||
+        (hw.lessonIds && hw.lessonIds.length > 0 ? hw.lessonIds[0] : hw.lessonId);
       const assigned = allAvailableLessons.find((l) => l.id === chosenId);
       if (assigned) {
         setCustomLesson(assigned);
@@ -1684,31 +1689,14 @@ export default function App() {
         </div>
       )}
 
-      {/* NÚT THOÁT TOÀN MÀN HÌNH (EXIT FULLSCREEN BUTTON) - CỐ ĐỊNH Ở GÓC TRÊN CÙNG BÊN PHẢI MÀN HÌNH */}
-      {isFullscreenAdaptive && (
-        <div className="fixed top-1.5 sm:top-2 right-2 sm:right-2.5 z-50 flex items-center gap-1.5 transition-all duration-200 animate-in fade-in slide-in-from-top-2">
-          <button
-            type="button"
-            onClick={exitFullscreen}
-            className="flex items-center gap-1.5 px-2.5 sm:px-3 py-1 rounded-lg bg-gradient-to-r from-rose-600 via-rose-500 to-amber-500 hover:from-rose-500 hover:to-amber-400 text-white shadow-lg shadow-rose-950/20 border border-white/30 backdrop-blur-md transition-all duration-200 hover:scale-105 active:scale-95 cursor-pointer text-xs font-black select-none ring-2 ring-rose-500/20"
-            title="Bấm nút [✕] này hoặc phím [ESC] trên bàn phím để thoát chế độ Xem Toàn Màn Hình bất cứ lúc nào"
-          >
-            <X className="w-3.5 h-3.5 text-white stroke-[2.5]" />
-            <span className="hidden sm:inline">Thoát Toàn Màn Hình</span>
-            <span className="inline sm:hidden">Thoát</span>
-            <kbd className="px-1.5 py-0.2 rounded bg-black/25 text-[10px] font-mono font-bold text-amber-200 border border-white/20">
-              ESC
-            </kbd>
-          </button>
-        </div>
-      )}
+
 
       {/* ======================================================== */}
       {/* 1. TOP HEADER (COMPACT SINGLE-ROW, FIT-TO-SCREEN 1366px) */}
       {/* ======================================================== */}
-      <header className={`h-10 sm:h-11 min-h-[40px] max-h-[44px] w-full bg-white/95 border-b border-sky-200 z-40 backdrop-blur-md pl-1.5 sm:pl-2.5 ${isFullscreenAdaptive ? 'pr-44 sm:pr-48' : 'pr-1.5 sm:pr-2.5'} flex items-center justify-between gap-0.5 sm:gap-1 shrink-0 select-none shadow-xs overflow-hidden transition-all duration-200`}>
+      <header className="h-10 sm:h-11 min-h-[40px] max-h-[44px] w-full bg-white/95 border-b border-sky-200 z-40 backdrop-blur-md px-2 sm:px-3 flex items-center justify-between gap-1.5 sm:gap-2.5 shrink-0 select-none shadow-xs overflow-x-auto lg:overflow-x-visible no-scrollbar">
         {/* CLUSTER 1: LOGO + KHỐI LỚP (LỚP 3 / 4 / 5) */}
-        <div className="flex items-center gap-1.5 shrink-0">
+        <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
           <div className="w-7 h-7 rounded-full overflow-hidden shadow-xs border border-sky-300 flex items-center justify-center select-none bg-white shrink-0 hover:scale-105 transition-transform">
             <img src="/logo.svg" alt="Logo Luyện Gõ Bàn Phím 10 Ngón" className="w-full h-full object-contain" />
           </div>
@@ -1753,14 +1741,14 @@ export default function App() {
           </div>
         </div>
 
-        {/* CLUSTER 2: CHẾ ĐỘ TELEX/VNI & UNIKEY */}
-        <div className="flex items-center gap-1 shrink-0">
+        {/* CLUSTER 2: CHẾ ĐỘ TELEX/VNI, HƯỚNG DẪN GÕ & UNIKEY */}
+        <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
           {/* Vietnamese Mode Selector (Telex / VNI) */}
-          <div className="flex items-center gap-0.5 bg-amber-50 p-0.5 rounded-md border border-amber-300">
+          <div className="flex items-center gap-0.5 bg-amber-50 p-0.5 rounded-lg border border-amber-300 shadow-2xs">
             <button
               type="button"
               onClick={() => setInputMode('telex')}
-              className={`px-1.5 py-0.5 rounded text-[11px] font-black transition-all cursor-pointer ${
+              className={`px-2 py-0.5 rounded text-[11px] font-black transition-all cursor-pointer ${
                 inputMode === 'telex'
                   ? 'bg-amber-500 text-slate-950 shadow-2xs'
                   : 'text-slate-600 hover:text-slate-900'
@@ -1772,7 +1760,7 @@ export default function App() {
             <button
               type="button"
               onClick={() => setInputMode('vni')}
-              className={`px-1.5 py-0.5 rounded text-[11px] font-black transition-all cursor-pointer ${
+              className={`px-2 py-0.5 rounded text-[11px] font-black transition-all cursor-pointer ${
                 inputMode === 'vni'
                   ? 'bg-emerald-500 text-white shadow-2xs'
                   : 'text-slate-600 hover:text-slate-900'
@@ -1783,47 +1771,39 @@ export default function App() {
             </button>
           </div>
 
-          {/* Vietnamese Typing Guide Modal Button */}
+          {/* Nút HƯỚNG DẪN GÕ trên thanh Header (Bao gồm Đặt tay, Dấu Tiếng Việt & Phím số Numpad) */}
           <button
             type="button"
-            onClick={() => setIsVietnameseGuideOpen(true)}
-            className="px-1.5 py-0.5 rounded-md bg-amber-100 hover:bg-amber-200 text-amber-900 text-[11px] font-black flex items-center gap-1 transition-all cursor-pointer border border-amber-300 shadow-2xs whitespace-nowrap"
-            title="Xem bảng tra cứu gõ dấu Telex & VNI"
+            onClick={() => handleOpenTypingGuide('hand_posture')}
+            className="px-2.5 py-1 rounded-lg bg-gradient-to-r from-amber-400 via-amber-300 to-orange-400 hover:from-amber-300 hover:to-orange-300 text-slate-950 text-[11px] font-black flex items-center gap-1.5 transition-all cursor-pointer border-2 border-amber-400 shadow-2xs hover:shadow-xs hover:scale-103 active:scale-95 whitespace-nowrap"
+            title="Sổ tay Hướng dẫn gõ 10 ngón: Đặt tay đúng, Gõ dấu Tiếng Việt & Bàn phím số Numpad"
           >
-            <span>🇻🇳 Gõ Dấu</span>
+            <span className="text-xs">📖</span>
+            <span className="font-extrabold tracking-wide">HƯỚNG DẪN GÕ</span>
+            <span className="w-1.5 h-1.5 rounded-full bg-red-600 animate-ping shrink-0" />
           </button>
 
           {/* Unikey Notice Modal Button */}
           <button
             type="button"
             onClick={() => setIsUnikeyNoticeOpen(true)}
-            className="px-1.5 py-0.5 rounded-md bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-400 hover:to-orange-400 text-white text-[11px] font-black flex items-center gap-1 transition-all cursor-pointer shadow-2xs whitespace-nowrap"
+            className="px-2 py-1 rounded-lg bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-400 hover:to-orange-400 text-white text-[11px] font-black flex items-center gap-1 transition-all cursor-pointer shadow-2xs hover:scale-102 active:scale-95 whitespace-nowrap border border-amber-400/40"
             title="Xem nhắc nhở cài đặt Unikey khi luyện gõ"
           >
             <span>📢 Tắt Unikey</span>
           </button>
-
-          {/* Numpad Ten-Key Typing Guide Modal Button */}
-          <button
-            type="button"
-            onClick={() => setIsNumpadModalOpen(true)}
-            className="px-1.5 py-0.5 rounded-md bg-emerald-100 hover:bg-emerald-200 text-emerald-950 text-[11px] font-black flex items-center gap-1 transition-all cursor-pointer border border-emerald-300 shadow-2xs whitespace-nowrap"
-            title="Xem quy tắc gõ cụm bàn phím số Numpad"
-          >
-            <span>🖩 Phím Số</span>
-          </button>
         </div>
 
         {/* CLUSTER 3: CÔNG CỤ GIÁO VIÊN, BÀN PHÍM, GAME & XEM TOÀN MÀN HÌNH */}
-        <div className="flex items-center gap-1 shrink-0">
+        <div className="flex items-center gap-1 sm:gap-1.5 shrink-0">
           {/* TEACHER PORTAL TRIGGER */}
           <button
             type="button"
             onClick={() => setIsTeacherModalOpen(true)}
-            className="px-2 py-0.5 rounded-md bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white text-[11px] font-black flex items-center gap-1 transition-all cursor-pointer shadow-2xs active:scale-95 whitespace-nowrap"
+            className="px-2 py-1 rounded-lg bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white text-[11px] font-black flex items-center gap-1 transition-all cursor-pointer shadow-2xs active:scale-95 whitespace-nowrap border border-emerald-500/40"
             title="Đăng nhập quản trị giáo viên: Giao bài tập & Đăng ảnh SGK"
           >
-            <UserCheck className="w-3 h-3" />
+            <UserCheck className="w-3.5 h-3.5" />
             <span className="hidden sm:inline">Góc Giáo Viên</span>
             <span className="sm:hidden">Cô Giáo</span>
             {isSupabaseOnline && (
@@ -1835,10 +1815,10 @@ export default function App() {
           <button
             type="button"
             onClick={() => setIsThemeModalOpen(true)}
-            className="px-2 py-0.5 rounded-md bg-gradient-to-r from-sky-600 via-indigo-600 to-amber-600 hover:from-sky-500 hover:to-amber-500 text-white text-[11px] font-black flex items-center gap-1 transition-all cursor-pointer shadow-2xs active:scale-95 whitespace-nowrap"
+            className="px-2 py-1 rounded-lg bg-gradient-to-r from-sky-600 via-indigo-600 to-amber-600 hover:from-sky-500 hover:to-amber-500 text-white text-[11px] font-black flex items-center gap-1 transition-all cursor-pointer shadow-2xs active:scale-95 whitespace-nowrap border border-indigo-500/40"
             title="Mở kho 9 mẫu bàn phím"
           >
-            <Palette className="w-3 h-3" />
+            <Palette className="w-3.5 h-3.5" />
             <span>{currentKeyboardTheme.emoji} Đổi Phím</span>
           </button>
 
@@ -1846,10 +1826,10 @@ export default function App() {
           <button
             type="button"
             onClick={() => setIsGameModalOpen(true)}
-            className="px-1.5 py-0.5 rounded-md bg-gradient-to-r from-pink-500 via-rose-500 to-amber-500 hover:from-pink-400 hover:to-amber-400 text-white text-[11px] font-black flex items-center gap-1 transition-all cursor-pointer shadow-2xs active:scale-95 animate-pulse whitespace-nowrap"
+            className="px-2 py-1 rounded-lg bg-gradient-to-r from-pink-500 via-rose-500 to-amber-500 hover:from-pink-400 hover:to-amber-400 text-white text-[11px] font-black flex items-center gap-1 transition-all cursor-pointer shadow-2xs active:scale-95 animate-pulse whitespace-nowrap border border-pink-400/40"
             title="Đấu trường luyện gõ 10 ngón"
           >
-            <Gamepad2 className="w-3 h-3" />
+            <Gamepad2 className="w-3.5 h-3.5" />
             <span>🎮 Đấu Trường</span>
           </button>
 
@@ -1857,44 +1837,18 @@ export default function App() {
           <button
             type="button"
             onClick={openAiModal}
-            className="flex items-center gap-1 px-1.5 py-0.5 rounded-md bg-indigo-50 hover:bg-indigo-100 text-indigo-900 text-[10px] font-black transition-all cursor-pointer border border-indigo-200 shadow-2xs active:scale-95 whitespace-nowrap"
+            className="flex items-center gap-1 px-1.5 py-1 rounded-lg bg-indigo-50 hover:bg-indigo-100 text-indigo-900 text-[10px] font-black transition-all cursor-pointer border border-indigo-200 shadow-2xs active:scale-95 whitespace-nowrap"
             title={`AI Smart Auto-Fit: Đang tự động nhận diện màn hình ${smartViewport.detectedResolutionLabel} (${smartViewport.windowWidth}×${smartViewport.windowHeight}px)`}
           >
             <span>🤖</span>
             <span className="text-[9px] bg-emerald-600 text-white px-1.5 py-0.2 rounded-sm font-bold">Fit 100%</span>
           </button>
 
-          {/* NÚT XEM TOÀN MÀN HÌNH / 1366x768 */}
-          <button
-            type="button"
-            onClick={handleToggleFullscreenFit}
-            className={`px-2 py-0.5 rounded-md text-[11px] font-black flex items-center gap-1 transition-all cursor-pointer shadow-2xs border whitespace-nowrap ${
-              isFullscreenAdaptive
-                ? 'bg-indigo-700 text-white border-indigo-900 shadow-inner'
-                : 'bg-white hover:bg-slate-100 text-indigo-950 border-indigo-200'
-            }`}
-            title={`XEM TOÀN MÀN HÌNH: Tự động co dãn giao diện vừa khít tuyệt đối với độ phân giải ${smartViewport.detectedResolutionLabel}`}
-          >
-            {isFullscreenAdaptive ? (
-              <Minimize className="w-3 h-3 text-amber-300" />
-            ) : (
-              <Maximize className="w-3 h-3 text-indigo-600" />
-            )}
-            <span>
-              {isFullscreenAdaptive ? 'Thu Nhỏ' : '🖥️ TOÀN MÀN HÌNH'}
-            </span>
-            {isFullscreenAdaptive && (
-              <kbd className="px-1 py-0.2 rounded bg-white/20 text-[9px] font-mono font-bold text-amber-300">
-                ESC
-              </kbd>
-            )}
-          </button>
-
           {/* TOGGLE ẨN/HIỆN CỘT SGK */}
           <button
             type="button"
             onClick={() => setIsRightColumnVisible((prev) => !prev)}
-            className={`px-1.5 py-0.5 rounded-md text-[11px] font-black flex items-center gap-1 transition-all cursor-pointer shadow-2xs border whitespace-nowrap ${
+            className={`px-2 py-1 rounded-lg text-[11px] font-black flex items-center gap-1 transition-all cursor-pointer shadow-2xs border whitespace-nowrap ${
               !isRightColumnVisible
                 ? 'bg-indigo-600 text-white border-indigo-800'
                 : 'bg-white hover:bg-slate-100 text-slate-700 border-slate-200'
@@ -1908,14 +1862,14 @@ export default function App() {
           <button
             type="button"
             onClick={() => setSettings((s) => ({ ...s, soundEnabled: !s.soundEnabled }))}
-            className={`p-1 rounded-md transition-colors cursor-pointer border shadow-2xs ${
+            className={`p-1.5 rounded-lg transition-colors cursor-pointer border shadow-2xs flex items-center justify-center ${
               settings.soundEnabled
                 ? 'bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border-emerald-300'
                 : 'bg-rose-50 hover:bg-rose-100 text-rose-700 border-rose-300'
             }`}
             title={settings.soundEnabled ? 'Tắt âm thanh' : 'Bật âm thanh'}
           >
-            {settings.soundEnabled ? <Volume2 className="w-3 h-3" /> : <VolumeX className="w-3 h-3" />}
+            {settings.soundEnabled ? <Volume2 className="w-3.5 h-3.5" /> : <VolumeX className="w-3.5 h-3.5" />}
           </button>
 
           {/* Settings dropdown */}
@@ -1989,6 +1943,32 @@ export default function App() {
               </div>
             )}
           </div>
+
+          {/* NÚT THOÁT TOÀN MÀN HÌNH / XEM TOÀN MÀN HÌNH CỐ ĐỊNH Ở GÓC TRÊN CÙNG BÊN PHẢI */}
+          {isFullscreenAdaptive ? (
+            <button
+              type="button"
+              onClick={exitFullscreen}
+              className="px-2.5 py-1 rounded-lg bg-gradient-to-r from-rose-600 via-rose-500 to-amber-600 hover:from-rose-500 hover:to-amber-500 text-white text-[11px] font-black flex items-center gap-1.5 transition-all cursor-pointer shadow-md border border-rose-300 ring-2 ring-rose-400/50 active:scale-95 whitespace-nowrap animate-pulse hover:animate-none"
+              title="Bấm nút này hoặc phím ESC trên bàn phím để thoát chế độ Xem Toàn Màn Hình bất cứ lúc nào"
+            >
+              <Minimize2 className="w-3.5 h-3.5 text-amber-200" />
+              <span>Thoát Toàn Màn Hình</span>
+              <kbd className="px-1.5 py-0.2 rounded bg-black/30 text-[10px] font-mono font-bold text-amber-200">
+                ESC
+              </kbd>
+            </button>
+          ) : (
+            <button
+              type="button"
+              onClick={handleToggleFullscreenFit}
+              className="px-2 py-0.5 rounded-md bg-white hover:bg-slate-100 text-indigo-950 border border-indigo-200 text-[11px] font-black flex items-center gap-1 transition-all cursor-pointer shadow-2xs whitespace-nowrap active:scale-95"
+              title={`XEM TOÀN MÀN HÌNH: Tự động co dãn giao diện vừa khít tuyệt đối với độ phân giải ${smartViewport.detectedResolutionLabel}`}
+            >
+              <Maximize className="w-3 h-3 text-indigo-600" />
+              <span>🖥️ TOÀN MÀN HÌNH</span>
+            </button>
+          )}
         </div>
       </header>
 
@@ -2055,17 +2035,14 @@ export default function App() {
           {/* ======================================================== */}
           <div
             className={`
-              ${isRightColumnVisible ? 'col-span-9 xl:col-span-9 2xl:col-span-9' : 'col-span-12'}
+              ${isRightColumnVisible ? 'col-span-9 xl:col-span-8 2xl:col-span-8' : 'col-span-12'}
               h-full flex flex-col justify-between gap-1 min-w-0 min-h-0 overflow-hidden transition-all duration-300
             `}
           >
             {/* 1. Khu vực luyện gõ & ô nhập văn bản (PracticeArea) */}
             <section aria-label="Khu vực luyện gõ và ô nhập văn bản" className="shrink-0">
               <PracticeArea
-                lesson={{
-                  ...activeLesson,
-                  isAssignedHomework: isCurrentAssignedHomework,
-                }}
+                lesson={activeLesson}
                 targetText={targetText}
                 currentCharIndex={currentStep ? currentStep.charIndex : targetText.length}
                 currentSubStepIndex={currentStep?.subStepIndex}
@@ -2093,7 +2070,7 @@ export default function App() {
                 hasTeacherAssignedHomework={!!currentGradeHomework}
                 assignedHomeworkTitle={currentGradeHomework?.teacherNote}
                 onOpenTeacherModal={() => setIsTeacherModalOpen(true)}
-                onOpenVietnameseGuide={() => setIsVietnameseGuideOpen(true)}
+                onOpenVietnameseGuide={() => handleOpenTypingGuide('vietnamese_accent')}
                 recentTypedKeys={recentTypedKeys}
                 userTypedText={userTypedText}
                 smartTelexFreeMode={smartTelexFreeMode}
@@ -2151,16 +2128,18 @@ export default function App() {
               <div className="flex items-center gap-2 font-bold text-[10px] shrink-0">
                 <button
                   type="button"
-                  onClick={() => setIsVietnameseGuideOpen(true)}
+                  onClick={() => handleOpenTypingGuide('vietnamese_accent')}
                   className="text-amber-800 hover:underline cursor-pointer"
+                  title="Xem hướng dẫn gõ dấu tiếng Việt"
                 >
                   Quy tắc gõ
                 </button>
                 <span>•</span>
                 <button
                   type="button"
-                  onClick={() => setIsPostureModalOpen(true)}
+                  onClick={() => handleOpenTypingGuide('hand_posture')}
                   className="text-sky-700 hover:underline cursor-pointer"
+                  title="Xem hướng dẫn đặt tay và tư thế ngồi"
                 >
                   Tư thế ngồi
                 </button>
@@ -2190,7 +2169,7 @@ export default function App() {
           {/* CỘT PHẢI (RIGHT COLUMN): ẢNH SGK, BÀI CÔ GIAO & NỘI DUNG */}
           {/* ======================================================== */}
           {isRightColumnVisible && (
-            <div className="col-span-3 xl:col-span-3 2xl:col-span-3 h-full flex flex-col gap-1 min-w-0 min-h-0 overflow-hidden">
+            <div className="col-span-3 xl:col-span-4 2xl:col-span-4 h-full flex flex-col gap-1 min-w-0 min-h-0 overflow-hidden">
               {/* 1. KHUNG ẢNH SÁCH GIÁO KHOA & NỘI DUNG BÀI GÕ TRỌN VẸN (CHIẾM TRỌN CỘT PHẢI) */}
               <section aria-label="Ảnh sách giáo khoa và nội dung bài gõ" className="w-full flex-1 min-h-0 overflow-hidden">
                 <TextbookIllustrationCard
@@ -2261,7 +2240,6 @@ export default function App() {
         selectedGrade={selectedGrade}
         onSelectGrade={handleSelectGrade}
         onOpenCurriculumModal={() => setIsCurriculumModalOpen(true)}
-        gradeAssignments={gradeAssignments}
       />
 
       {/* ======================================================== */}
@@ -2366,17 +2344,30 @@ export default function App() {
         onClose={() => setIsAuthorDonateModalOpen(false)}
       />
 
-      {/* Vietnamese Rules Guide Modal */}
+      {/* SỔ TAY HƯỚNG DẪN GÕ 10 NGÓN TRỰC QUAN (3 Phần: Đặt tay đúng, Gõ dấu Tiếng Việt, Phím số & Ký tự Shift) */}
+      <TypingGuideModal
+        isOpen={isTypingGuideOpen || isVietnameseGuideOpen || isPostureModalOpen}
+        onClose={() => {
+          setIsTypingGuideOpen(false);
+          setIsVietnameseGuideOpen(false);
+          setIsPostureModalOpen(false);
+        }}
+        activeMode={inputMode}
+        onSelectMode={(m) => setInputMode(m)}
+        initialTab={typingGuideTab}
+      />
+
+      {/* Vietnamese Rules Guide Modal (Legacy fallback) */}
       <VietnameseGuideModal
-        isOpen={isVietnameseGuideOpen}
+        isOpen={false}
         onClose={() => setIsVietnameseGuideOpen(false)}
         activeMode={inputMode}
         onSelectMode={(m) => setInputMode(m)}
       />
 
-      {/* Posture Guide Modal */}
+      {/* Posture Guide Modal (Legacy fallback) */}
       <PostureGuideModal
-        isOpen={isPostureModalOpen}
+        isOpen={false}
         onClose={() => setIsPostureModalOpen(false)}
       />
 
@@ -2414,8 +2405,6 @@ export default function App() {
         teacherLessons={teacherLessons}
         onOpenTeacherModal={() => setIsTeacherModalOpen(true)}
         initialGradeFilter={selectedGrade}
-        gradeAssignments={gradeAssignments}
-        currentGradeHomework={currentGradeHomework}
       />
 
       {/* Custom Text Practice Modal */}

@@ -95,9 +95,9 @@ export function computeSmartViewportMetrics(
   } else if (winHeight <= 660) {
     sgkBoxHeight = 84; // 2-3 dòng vừa vặn cho màn hình laptop 1366x768
   } else if (isCompactHeight) {
-    sgkBoxHeight = 96; // 3 dòng rõ nét
-  } else if (winHeight >= 920) {
-    sgkBoxHeight = 138; // Màn hình lớn thoải mái 4-5 dòng
+    sgkBoxHeight = 98; // 3 dòng rõ nét
+  } else if (winHeight >= 850 || isWideDesktop) {
+    sgkBoxHeight = 156; // Màn hình lớn Full HD 1920x1080 hoành tráng 4-5 dòng
   }
 
   // 3. Tự động tính chiều cao ô nhập liệu của bé (Input Box)
@@ -108,6 +108,8 @@ export function computeSmartViewportMetrics(
     inputBoxHeight = 38;
   } else if (isCompactHeight) {
     inputBoxHeight = 40;
+  } else if (winHeight >= 850 || isWideDesktop) {
+    inputBoxHeight = 52; // Màn hình 1920x1080 ô nhập chữ to rõ, đĩnh đạc
   }
 
   // 4. Chiều cao tối đa khung ảnh sách giáo khoa SGK ở cột phải
@@ -115,9 +117,9 @@ export function computeSmartViewportMetrics(
   if (isUltraCompactHeight) {
     textbookCoverMaxHeight = 65;
   } else if (isCompactHeight || isLaptop1366) {
-    textbookCoverMaxHeight = 78;
-  } else if (winHeight >= 920) {
-    textbookCoverMaxHeight = 130;
+    textbookCoverMaxHeight = 84;
+  } else if (winHeight >= 850 || isWideDesktop) {
+    textbookCoverMaxHeight = 220; // Khung tranh SGK to rõ nét trên 1920x1080
   }
 
   // 5. Tính toán phân bổ không gian cho Bàn phím cơ học 108 phím
@@ -125,7 +127,7 @@ export function computeSmartViewportMetrics(
   // Notification Banner (nếu có): ~24px
   // Mẹo chân trang (Footer): ~20px
   // Khoảng cách an toàn (Safety margins): ~16px
-  const chromeReservedHeight = isUltraCompactHeight ? 90 : isCompactHeight ? 104 : 116;
+  const chromeReservedHeight = isUltraCompactHeight ? 90 : isCompactHeight ? 104 : isWideDesktop ? 130 : 116;
   const availableWorkspaceHeight = Math.max(300, winHeight - chromeReservedHeight);
 
   // Chiều cao ước tính của PracticeArea:
@@ -136,16 +138,18 @@ export function computeSmartViewportMetrics(
   const maxKeyboardHeight = Math.max(160, availableWorkspaceHeight - estimatedPracticeHeight - 10);
 
   // Bàn phím có 6 hàng phím:
-  // Fn row (0.76) + 4 row (1.0 each) + Space row (1.0) = ~5.76 đơn vị phím + padding (~16px) + khoảng cách giữa các hàng phím (~34px)
-  const totalKeyboardChromeAndGaps = (isCompactHeight ? 26 : 36) + (isUltraCompactHeight ? 10 : 16);
-  const computedMaxKeyHeight = Math.floor((maxKeyboardHeight - totalKeyboardChromeAndGaps) / 5.76);
+  // Fn row (0.76) + 4 row (1.0 each) + Space row (1.0) = ~5.76 đơn vị phím + padding & vertical row gaps (~44px)
+  const computedMaxKeyHeight = Math.floor((maxKeyboardHeight - 44) / 5.76);
 
   // Kích thước đơn vị phím (U) theo chiều ngang
-  const leftColWidth = winWidth * (winWidth >= 1200 ? 0.75 : 1.0) - 32;
+  const leftColWidth = winWidth * (winWidth >= 1600 ? 0.67 : winWidth >= 1200 ? 0.75 : 1.0) - 32;
   const maxUnitByWidth = Math.floor((leftColWidth - 80) / 22.7);
 
-  let keyboardMaxUnitSize = Math.max(24, Math.min(50, maxUnitByWidth));
-  let keyboardKeyHeight = Math.max(24, Math.min(52, computedMaxKeyHeight));
+  const maxUnitUpperLimit = isWideDesktop ? 64 : 54;
+  const maxKeyHeightUpperLimit = isWideDesktop ? 68 : 56;
+
+  let keyboardMaxUnitSize = Math.max(24, Math.min(maxUnitUpperLimit, maxUnitByWidth));
+  let keyboardKeyHeight = Math.max(24, Math.min(maxKeyHeightUpperLimit, computedMaxKeyHeight));
 
   if (keyboardKeyHeight < keyboardMaxUnitSize) {
     keyboardMaxUnitSize = Math.max(24, keyboardKeyHeight);

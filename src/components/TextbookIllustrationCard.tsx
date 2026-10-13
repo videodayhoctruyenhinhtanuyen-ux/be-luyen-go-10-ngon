@@ -110,87 +110,88 @@ export const TextbookIllustrationCard: React.FC<TextbookIllustrationCardProps> =
         </div>
       </div>
 
-      {/* 2. NỘI DUNG CUỘN TRỌN VẸN: HÌNH ẢNH SGK PHÓNG TO PHÍA TRÊN & NỘI DUNG PHÍA DƯỚI */}
-      <div className="flex-1 min-h-0 overflow-y-auto custom-scrollbar bg-slate-50/40 flex flex-col">
-        {/* VỊ TRÍ PHÍA TRÊN (TOP): HÌNH ẢNH SGK PHÓNG TO RỘNG RÃI, SẮC NÉT & TRỰC DIỆN */}
+      {/* 2. NỘI DUNG CUỘN TRỌN VẸN: HÌNH ẢNH SGK VÀ LỜI BÀI VĂN/BÀI THƠ */}
+      <div className="flex-1 min-h-0 overflow-y-auto p-2 space-y-2 custom-scrollbar bg-slate-50/50">
+        {/* KHUNG HÌNH ẢNH ĐÍNH KÈM / BÌA SGK SẮC NÉT */}
         <div
           onClick={() => setIsZoomed(true)}
-          className="relative w-full bg-white flex items-center justify-center cursor-pointer select-none group border-b-2 border-emerald-300 shadow-xs shrink-0"
-          title="Bấm vào tranh để phóng to toàn màn hình"
+          className="relative w-full rounded-xl overflow-hidden bg-gradient-to-b from-sky-50 to-emerald-50 border-2 border-emerald-300 shadow-inner flex items-center justify-center cursor-pointer select-none group"
+          title="Bấm vào tranh để phóng to xem rõ nét"
         >
           <img
             src={currentImgSrc}
             alt={`Ảnh sách giáo khoa: ${lesson.title}`}
             onError={handleImageError}
-            className="w-full h-auto max-h-[380px] sm:max-h-[420px] xl:max-h-[480px] object-contain transition-transform duration-300 group-hover:scale-[1.01]"
+            className={`w-full ${
+              isCompactHeight
+                ? 'max-h-[120px]'
+                : 'max-h-[155px] sm:max-h-[175px] xl:max-h-[220px] 2xl:max-h-[260px]'
+            } object-contain rounded-lg transition-transform duration-300 group-hover:scale-102`}
             loading="eager"
           />
 
-          {/* Huy hiệu Trang Sách Giáo Khoa góc trên */}
-          <div className="absolute top-2 left-2 bg-emerald-700/90 text-white text-[10px] font-black px-2 py-0.5 rounded-full shadow-md flex items-center gap-1 backdrop-blur-xs pointer-events-none">
-            <Sparkles className="w-3 h-3 text-amber-300" />
-            <span>Trang Sách Giáo Khoa</span>
+          {/* Huy hiệu SGK Tiếng Việt */}
+          <div className="absolute top-1.5 left-1.5 bg-emerald-700/90 text-white text-[9px] font-black px-1.5 py-0.2 rounded-full shadow-xs flex items-center gap-1 backdrop-blur-xs">
+            <Sparkles className="w-2.5 h-2.5 text-amber-300" />
+            <span>SGK Tiếng Việt</span>
           </div>
 
-          {/* Nút Phóng to nổi góc dưới */}
-          <div className="absolute bottom-2 right-2 bg-slate-950/85 hover:bg-slate-950 text-white text-[10px] font-black px-2.5 py-1 rounded-lg shadow-lg border border-white/20 flex items-center gap-1.5 opacity-80 group-hover:opacity-100 transition-all">
-            <Maximize2 className="w-3 h-3 text-amber-300" />
+          {/* Nút Phóng to nổi */}
+          <div className="absolute bottom-1.5 right-1.5 bg-slate-950/80 hover:bg-slate-950 text-white text-[9px] font-black px-2 py-0.5 rounded-lg shadow-md border border-white/20 flex items-center gap-1 transition-all opacity-85 group-hover:opacity-100">
+            <Maximize2 className="w-2.5 h-2.5 text-amber-300" />
             <span>Phóng to 🔍</span>
           </div>
         </div>
 
-        {/* VỊ TRÍ PHÍA DƯỚI (BOTTOM): MỤC NỘI DUNG BÀI HỌC SGK */}
-        <div className="p-2 sm:p-2.5 space-y-2 flex-1 flex flex-col justify-between">
-          {/* KHUNG ĐỌC NỘI DUNG TRANG SÁCH GIÁO KHOA (TRANG VỞ / BÀI THƠ) */}
-          <div className="rounded-xl bg-amber-50/95 border border-amber-300/80 p-2.5 shadow-2xs">
-            <div className="flex items-center justify-between pb-1.5 mb-1.5 border-b border-amber-200">
-              <div className="flex items-center gap-1.5 text-xs font-black text-amber-950">
-                <Feather className="w-3.5 h-3.5 text-amber-700" />
-                <span>Nội dung bài học SGK:</span>
-              </div>
-              {lesson.authorTeacher && (
-                <span className="text-[10px] text-emerald-800 font-bold truncate">
-                  ✍️ {lesson.authorTeacher}
-                </span>
-              )}
+        {/* KHUNG ĐỌC NỘI DUNG TRANG SÁCH GIÁO KHOA (TRANG VỞ / BÀI THƠ) */}
+        <div className="rounded-xl bg-amber-50/90 border border-amber-300/80 p-2.5 shadow-2xs">
+          <div className="flex items-center justify-between pb-1 mb-1 border-b border-amber-200">
+            <div className="flex items-center gap-1 text-[11px] font-black text-amber-950">
+              <Feather className="w-3 h-3 text-amber-700" />
+              <span>Nội dung bài học SGK:</span>
             </div>
-
-            {/* VĂN BẢN TRÌNH BÀY ĐẸP NHƯ TRANG VỞ ĐỂ BÉ ĐỌC VÀ ĐỐI CHIẾU LUYỆN GÕ */}
-            <div className="text-xs sm:text-[13px] leading-relaxed text-slate-900 font-medium whitespace-pre-wrap tracking-wide font-sans select-text selection:bg-amber-200">
-              {lesson.text}
-            </div>
-
-            {/* LỜI CÔ GIÁO DẶN HOẶC MẸO GÕ */}
-            {lesson.teacherNote && (
-              <div className="mt-2 pt-1.5 border-t border-amber-200/70 text-[10px] text-amber-900 italic font-semibold flex items-start gap-1">
-                <span className="shrink-0">💡</span>
-                <span><strong>Lời cô dặn:</strong> {lesson.teacherNote}</span>
-              </div>
+            {lesson.authorTeacher && (
+              <span className="text-[10px] text-emerald-800 font-bold truncate">
+                ✍️ {lesson.authorTeacher}
+              </span>
             )}
           </div>
 
-          {/* THÔNG TIN MỤC TIÊU & PHÍM TRỌNG TÂM */}
-          <div className="p-2 rounded-xl bg-white border border-slate-200 shadow-2xs flex items-center justify-between text-[10px] text-slate-600 font-bold">
-            <div className="flex items-center gap-1">
-              <span>🎯 Tốc độ:</span>
-              <span className="text-emerald-700 font-black">{lesson.targetWpm} WPM</span>
-            </div>
-            <div className="flex items-center gap-1">
-              <span>✅ Chuẩn xác:</span>
-              <span className="text-sky-700 font-black">{lesson.targetAccuracy || 90}%</span>
-            </div>
-            {onOpenTeacherModal && (
-              <button
-                type="button"
-                onClick={onOpenTeacherModal}
-                className="text-[9px] bg-slate-100 hover:bg-emerald-50 text-slate-700 hover:text-emerald-800 px-1.5 py-0.5 rounded transition-colors flex items-center gap-0.5 cursor-pointer font-bold"
-                title="Cô giáo đổi ảnh bài này"
-              >
-                <Upload className="w-2.5 h-2.5" />
-                <span>Đổi ảnh</span>
-              </button>
-            )}
+          {/* VĂN BẢN TRÌNH BÀY ĐẸP NHƯ TRANG SGK ĐỂ BÉ ĐỌC HIỂU */}
+          <div className="text-xs sm:text-[13px] leading-relaxed text-slate-900 font-medium whitespace-pre-wrap tracking-wide font-sans max-h-[180px] overflow-y-auto custom-scrollbar select-text selection:bg-amber-200">
+            {lesson.text}
           </div>
+
+          {/* LỜI CÔ GIÁO DẶN HOẶC MẸO GÕ */}
+          {lesson.teacherNote && (
+            <div className="mt-2 pt-1.5 border-t border-amber-200/70 text-[10px] text-amber-900 italic font-semibold flex items-start gap-1">
+              <span className="shrink-0">💡</span>
+              <span><strong>Lời cô dặn:</strong> {lesson.teacherNote}</span>
+            </div>
+          )}
+        </div>
+
+        {/* THÔNG TIN MỤC TIÊU & PHÍM TRỌNG TÂM */}
+        <div className="p-2 rounded-xl bg-white border border-slate-200 shadow-2xs flex items-center justify-between text-[10px] text-slate-600 font-bold">
+          <div className="flex items-center gap-1">
+            <span>🎯 Tốc độ:</span>
+            <span className="text-emerald-700 font-black">{lesson.targetWpm} WPM</span>
+          </div>
+          <div className="flex items-center gap-1">
+            <span>✅ Chuẩn xác:</span>
+            <span className="text-sky-700 font-black">{lesson.targetAccuracy || 90}%</span>
+          </div>
+          {onOpenTeacherModal && (
+            <button
+              type="button"
+              onClick={onOpenTeacherModal}
+              className="text-[9px] bg-slate-100 hover:bg-emerald-50 text-slate-700 hover:text-emerald-800 px-1.5 py-0.5 rounded transition-colors flex items-center gap-0.5 cursor-pointer"
+              title="Cô giáo đổi ảnh bài này"
+            >
+              <Upload className="w-2.5 h-2.5" />
+              <span>Đổi ảnh</span>
+            </button>
+          )}
         </div>
       </div>
 

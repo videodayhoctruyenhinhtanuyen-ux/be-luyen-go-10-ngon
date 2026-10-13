@@ -402,6 +402,21 @@ export function checkKeyInSmartTelexWord(
   try {
     const composed = telexCompose(potentialKeys.join(''));
     if (composed === cleanTarget || composed.toLowerCase() === cleanTarget.toLowerCase()) {
+      // NẾU TỪ CÓ DẤU CÂU HẬU TỐ (ví dụ "bi," hay "ke," hay "thơ."):
+      // Kiểm tra xem đã gõ ký tự dấu câu đó chưa. Nếu chưa gõ -> Bắt buộc gõ dấu câu tiếp theo!
+      const suffixPunct = targetWord.slice(cleanTarget.length);
+      if (suffixPunct.length > 0) {
+        const nextPunctChar = suffixPunct[0];
+        return {
+          isValid: true,
+          isWordCompleted: false,
+          nextAcceptableKeys: [nextPunctChar],
+          recommendedNextKey: nextPunctChar,
+          activeSequence: potentialKeys,
+          hintExplanationVi: `Bé đã gõ xong chữ "${cleanTarget}". Phím tiếp theo: gõ dấu câu [${nextPunctChar}] để hoàn thiện!`,
+        };
+      }
+
       return {
         isValid: true,
         isWordCompleted: true,
@@ -584,11 +599,23 @@ export function matchUnikeyInputInWord(
     return { isMatch: false, advanceCount: 0, isWordCompleted: true };
   }
 
+  // TÌM BƯỚC DẤU CÂU ĐẦU TIÊN TRONG CÁC BƯỚC CÒN LẠI (NẾU CÓ)
+  // Tuyệt đối không bao giờ được nhảy qua hoặc nuốt mất bước dấu câu (như ',', '.', ':', ';', '?', '!')
+  const firstPunctIdx = remainingSteps.findIndex(
+    (s) => /[.,:;?!'"“”‘’…—–()\[\]{}<>/\\|`~@#$%^&*+\-=_]/.test(s.keyChar)
+  );
+  const maxAdvanceBeforePunct = firstPunctIdx !== -1 ? firstPunctIdx : remainingSteps.length;
+
   const currentStep = remainingSteps[0];
   const expectedLower = currentStep.keyChar.toLowerCase();
 
   // 1. Phím Dấu Cách (Space) khi người dùng hoàn thành từ có Unikey
   if (inputKeyOrStr === ' ') {
+    // Nếu từ này còn dấu câu chưa gõ -> KHÔNG cho phép bấm Space để nhảy qua dấu câu!
+    if (firstPunctIdx !== -1) {
+      return { isMatch: false, advanceCount: 0, isWordCompleted: false };
+    }
+
     // Nếu từ này đã gõ xong tất cả các chữ cái gốc (chỉ còn lại bước phím dấu thanh hoặc phím mũ)
     const hasRemainingBaseLetters = remainingSteps.some(
       (s) => !s.isToneMarkKey && !s.isHatHookKey && s.keyChar !== ' '
@@ -605,7 +632,7 @@ export function matchUnikeyInputInWord(
     return { isMatch: false, advanceCount: 0, isWordCompleted: false };
   }
 
-  // 2. Toàn bộ từ hoặc âm tiết cuối (ví dụ Unikey gửi "trời" hoặc "ời")
+  // 2. Toàn bộ từ hoặc âm tiết cuối (ví dụ Unikey gửi "trời" hoặc "ời" hoặc "bi")
   if (lowerInput === cleanTarget || lowerInput === targetWord.toLowerCase()) {
     const targetIsUpperFirst = targetWord[0] && targetWord[0].toLowerCase() !== targetWord[0];
     const inputIsUpperFirst = inputKeyOrStr[0] && inputKeyOrStr[0].toLowerCase() !== inputKeyOrStr[0];
@@ -615,19 +642,21 @@ export function matchUnikeyInputInWord(
     if (!targetIsUpperFirst && inputIsUpperFirst) {
       return { isMatch: false, advanceCount: 0, isWordCompleted: false, explanationVi: 'Bạn đang chọn chế độ gõ chữ hoa' };
     }
+    const advance = Math.min(remainingSteps.length, maxAdvanceBeforePunct);
     return {
       isMatch: true,
-      advanceCount: remainingSteps.length,
-      isWordCompleted: true,
-      explanationVi: `Hoàn thành từ "${targetWord}" bằng bộ gõ Unikey!`,
+      advanceCount: advance,
+      isWordCompleted: advance >= remainingSteps.length && firstPunctIdx === -1,
+      explanationVi: `Hoàn thành từ "${cleanTarget}" bằng bộ gõ Unikey!`,
     };
   }
 
   if (lowerInput.length >= 2 && cleanTarget.endsWith(lowerInput)) {
+    const advance = Math.min(remainingSteps.length, maxAdvanceBeforePunct);
     return {
       isMatch: true,
-      advanceCount: remainingSteps.length,
-      isWordCompleted: true,
+      advanceCount: advance,
+      isWordCompleted: advance >= remainingSteps.length && firstPunctIdx === -1,
       explanationVi: `Hoàn thành âm ghép "${lowerInput}"!`,
     };
   }

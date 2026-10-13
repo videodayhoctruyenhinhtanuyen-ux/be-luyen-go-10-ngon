@@ -472,3 +472,142 @@
   animation: arena-glow-pulse 2s ease-in-out infinite;
 }
 
+/* ========================================================================= */
+/* 1. QUY TẮC CSS RIÊNG TỐI ƯU HÓA ĐỘ NÉT CHO MÀN HÌNH ĐỘ PHÂN GIẢI THẤP (<= 1366px) */
+/* Khắc phục triệt để lỗi mờ chữ, tăng độ sắc sảo, tương phản cao, dễ đọc     */
+/* ========================================================================= */
+@media screen and (max-width: 1366px), screen and (max-height: 768px) {
+  :root {
+    --min-font-btn: 11px;
+    --min-font-body: 13px;
+  }
+
+  html, body {
+    -webkit-font-smoothing: antialiased !important;
+    -moz-osx-font-smoothing: grayscale !important;
+    text-rendering: optimizeLegibility !important;
+    font-synthesis: weight style;
+  }
+
+  /* Đảm bảo toàn bộ chữ viết, nhãn nút bấm có độ đậm đà, không bị mờ nhạt */
+  button, input, select, textarea, kbd, span, p, h1, h2, h3, h4 {
+    -webkit-font-smoothing: antialiased !important;
+    -moz-osx-font-smoothing: grayscale !important;
+    text-rendering: optimizeLegibility !important;
+  }
+
+  /* Tối ưu hóa thanh Header: các nút bấm hiển thị đanh thép, rõ chữ */
+  header button {
+    font-weight: 800 !important;
+    letter-spacing: -0.01em !important;
+    text-shadow: 0 0.5px 0 rgba(0, 0, 0, 0.05);
+  }
+
+  /* Bàn phím ảo trên màn hình <= 1366px: Chữ và ký hiệu cực nét, tương phản tối đa */
+  .font-mono-key {
+    font-weight: 800 !important;
+    text-rendering: geometricPrecision !important;
+    -webkit-font-smoothing: antialiased !important;
+    letter-spacing: -0.02em !important;
+  }
+
+  /* Khung văn bản mẫu SGK trên màn hình <= 1366px: Chữ tròn đều, đậm nét, không nhòe */
+  .font-sgk-text {
+    font-size: 16.5px !important;
+    font-weight: 700 !important;
+    line-height: 1.62 !important;
+    color: #0f172a !important;
+    text-rendering: optimizeLegibility !important;
+  }
+
+  .font-sgk-text .font-sgk-active {
+    font-size: 18px !important;
+    font-weight: 800 !important;
+  }
+
+  /* Ô nhập liệu luyện gõ trên màn hình <= 1366px */
+  .font-input-box {
+    font-size: 17.5px !important;
+    font-weight: 800 !important;
+    color: #020617 !important;
+    letter-spacing: 0.015em !important;
+  }
+
+  /* Tăng độ sắc nét viền phím cơ học, đường nét tinh xảo chống vỡ hình */
+  .keycap-grey, .keycap-blue, .keycap-real-dell-alpha, .keycap-real-mitsumi-alpha,
+  .keycap-real-laptop-alpha, .keycap-real-keychron-alpha, .keycap-real-gaming-alpha {
+    border-width: 1.5px !important;
+    box-shadow: 0 3px 0 rgba(0, 0, 0, 0.35), inset 0 1px 0 rgba(255, 255, 255, 0.4) !important;
+  }
+
+  /* Phím đang ấn trên 1366px */
+  .key-pressed {
+    box-shadow: 0 1px 0 rgba(0, 0, 0, 0.35), inset 0 1px 2px rgba(0, 0, 0, 0.2) !important;
+  }
+
+  /* Khung nội dung SGK bên phải sắc sảo */
+  .custom-scrollbar {
+    scrollbar-width: thin;
+  }
+}
+
+/* ========================================================================= */
+/* 2. TỐI ƯU HÓA KHÔNG GIAN CHO MÀN HÌNH ĐỘ PHÂN GIẢI CAO (1920x1080px+)       */
+/* Hoành tráng, mở rộng tỷ lệ hiển thị, font lớn, padding thoáng đãng       */
+/* ========================================================================= */
+@media screen and (min-width: 1600px) and (min-height: 850px) {
+  html, body {
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  /* Khung văn bản mẫu SGK cỡ lớn, sắc sảo và hoành tráng */
+  .font-sgk-text {
+    font-size: 22px !important;
+    line-height: 1.82 !important;
+    letter-spacing: 0.03em !important;
+    font-weight: 700 !important;
+  }
+
+  .font-sgk-text .font-sgk-active {
+    font-size: 24px !important;
+    font-weight: 900 !important;
+  }
+
+  /* Ô nhập liệu cỡ lớn đĩnh đạc */
+  .font-input-box {
+    font-size: 23px !important;
+    line-height: 1.65 !important;
+    font-weight: 800 !important;
+  }
+
+  /* Nhãn phím bàn phím ảo to rõ, nổi bật */
+  .font-mono-key {
+    font-size: 16px !important;
+    font-weight: 800 !important;
+  }
+
+  /* Header và nút bấm trên 1920x1080 thoáng đãng */
+  header {
+    height: 46px !important;
+    max-height: 48px !important;
+    padding-left: 16px !important;
+    padding-right: 16px !important;
+  }
+
+  header button {
+    padding-top: 4px !important;
+    padding-bottom: 4px !important;
+    padding-left: 10px !important;
+    padding-right: 10px !important;
+    font-size: 12px !important;
+    font-weight: 800 !important;
+  }
+
+  /* Thẻ tranh SGK và nội dung bài đọc SGK bên phải */
+  .textbook-content-reading {
+    font-size: 17px !important;
+    line-height: 1.8 !important;
+  }
+}
+

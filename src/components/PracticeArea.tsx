@@ -9,7 +9,7 @@ import {
   FingerId,
   FINGER_DATA,
 } from '../types/typing';
-import { convertWordToTelexSteps, NUMBER_ROW_SYMBOLS_MAP } from '../utils/vietnameseKeystrokes';
+import { convertWordToTelexSteps, NUMBER_ROW_SYMBOLS_MAP, isPunctuationChar } from '../utils/vietnameseKeystrokes';
 import { getSymbolKeyGuideInfo, SymbolKeyGuideInfo } from '../utils/symbolKeyGuide';
 import { soundEngine } from '../utils/audio';
 import {
@@ -404,8 +404,20 @@ export const PracticeArea: React.FC<PracticeAreaProps> = ({
     const c = targetText[currentCharIndex];
     if (c === ' ') return '␣ Cách';
     if (c === '\n') return '↵ Enter';
+
+    // Ưu tiên tuyệt đối: Khi gặp dấu câu / ký tự đặc biệt dính liền với từ (như dấu phẩy ',', chấm '.', v.v.)
+    // Bắt buộc hiển thị chính xác ký tự dấu câu đó làm phím tiếp theo cần gõ
+    if (isPunctuationChar(c)) {
+      return c;
+    }
+
+    // Nếu có phím gõ được chỉ định riêng từ bước keystroke (ví dụ phím telex s, f, r, x, j, w, d)
+    if (currentKeyChar && currentKeyChar !== c && !isPunctuationChar(currentKeyChar)) {
+      return currentKeyChar;
+    }
+
     return c;
-  }, [currentCharIndex, targetText]);
+  }, [currentCharIndex, targetText, currentKeyChar]);
 
   const activeWordTelexScript = useMemo(() => {
     if (inputMode === 'telex' && activeToken && activeToken.type === 'word') {
@@ -434,10 +446,10 @@ export const PracticeArea: React.FC<PracticeAreaProps> = ({
 
   const fontSizeClass =
     textSize === 'huge'
-      ? 'text-xl sm:text-2xl md:text-[25px]'
+      ? 'text-xl sm:text-2xl md:text-[25px] 2xl:text-[28px]'
       : textSize === 'normal'
-      ? 'text-sm sm:text-[15px]'
-      : 'text-base sm:text-lg md:text-[19px]';
+      ? 'text-sm sm:text-base 2xl:text-lg'
+      : 'text-base sm:text-lg md:text-[20px] 2xl:text-[24px]';
 
   return (
     <div className="w-full bg-white border border-sky-300 rounded-xl p-2 sm:p-2.5 shadow-sm relative overflow-hidden text-slate-800 flex flex-col gap-1.5">
@@ -487,9 +499,8 @@ export const PracticeArea: React.FC<PracticeAreaProps> = ({
           )}
 
           {lesson.isAssignedHomework && (
-            <span className="text-[10px] sm:text-[11px] bg-gradient-to-r from-amber-500 via-orange-500 to-rose-500 text-white px-2.5 py-0.5 rounded-full font-black shadow-xs flex items-center gap-1 animate-pulse shrink-0">
-              <Sparkles className="w-3 h-3 text-yellow-200 fill-yellow-300" />
-              <span>BÀI TẬP CÔ GIAO - CẦN HOÀN THÀNH</span>
+            <span className="text-[9px] bg-rose-500 text-white px-1.5 py-0.2 rounded-full font-black shrink-0 animate-pulse hidden md:inline">
+              Cô Giao
             </span>
           )}
         </div>

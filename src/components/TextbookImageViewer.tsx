@@ -47,7 +47,6 @@ export interface TextbookImageViewerProps {
   isDrawer?: boolean;
   isOpen?: boolean;
   onClose?: () => void;
-  gradeAssignments?: Record<number, GradeAssignment>;
 }
 
 export const TextbookImageViewer: React.FC<TextbookImageViewerProps> = ({
@@ -73,33 +72,11 @@ export const TextbookImageViewer: React.FC<TextbookImageViewerProps> = ({
   isDrawer = false,
   isOpen = false,
   onClose,
-  gradeAssignments,
 }) => {
   const [internalTab, setInternalTab] = useState<TextbookTab>('curriculum');
   const [isZoomModalOpen, setIsZoomModalOpen] = useState<boolean>(false);
   const [curriculumSearch, setCurriculumSearch] = useState<string>('');
-  
-  // Khởi tạo bộ lọc theo đúng khối lớp học sinh đang chọn (Lớp 3, 4 hoặc 5)
-  const [curriculumGradeFilter, setCurriculumGradeFilter] = useState<'all' | '3' | '4' | '5' | 'teacher'>(
-    selectedGrade ? (String(selectedGrade) as '3' | '4' | '5') : 'all'
-  );
-  const [homeworkGradeTab, setHomeworkGradeTab] = useState<number | 'all'>(selectedGrade || 3);
-
-  // Tự động đồng bộ bộ lọc bài học theo khối lớp hiện tại của học sinh
-  useEffect(() => {
-    if (selectedGrade) {
-      setCurriculumGradeFilter(String(selectedGrade) as '3' | '4' | '5');
-      setHomeworkGradeTab(selectedGrade);
-    }
-  }, [selectedGrade]);
-
-  // Khi mở thanh drawer góc phải, đảm bảo luôn hiển thị đúng bài của lớp đang chọn
-  useEffect(() => {
-    if (isOpen && selectedGrade) {
-      setCurriculumGradeFilter(String(selectedGrade) as '3' | '4' | '5');
-      setHomeworkGradeTab(selectedGrade);
-    }
-  }, [isOpen]);
+  const [curriculumGradeFilter, setCurriculumGradeFilter] = useState<'all' | '3' | '4' | '5' | 'teacher'>('all');
 
   const currentTab = externalTab ?? internalTab;
 
@@ -138,60 +115,16 @@ export const TextbookImageViewer: React.FC<TextbookImageViewerProps> = ({
   const effectiveTeacherName = teacherName || lesson?.authorTeacher;
   const effectiveGradeLevel = gradeLevel || lesson?.gradeLevel || selectedGrade;
 
-  // Lấy danh sách ID bài tập cô giáo giao cho từng khối lớp
-  const getAssignedIdsForGrade = (targetGrade: number): string[] => {
-    const hw = gradeAssignments ? gradeAssignments[targetGrade] : (selectedGrade === targetGrade ? currentGradeHomework : undefined);
-    if (!hw) return [];
-    if (Array.isArray(hw.lessonIds) && hw.lessonIds.length > 0) {
-      return hw.lessonIds;
-    }
-    return hw.lessonId ? [hw.lessonId] : [];
-  };
-
-  // Tập hợp tất cả ID bài tập được cô giáo giao trên hệ thống
-  const allAssignedLessonIds = useMemo(() => {
-    const set = new Set<string>();
-    if (gradeAssignments) {
-      Object.values(gradeAssignments).forEach((ga) => {
-        if (!ga) return;
-        if (Array.isArray(ga.lessonIds)) {
-          ga.lessonIds.forEach((id) => set.add(id));
-        } else if (ga.lessonId) {
-          set.add(ga.lessonId);
-        }
-      });
-    } else if (currentGradeHomework) {
-      if (Array.isArray(currentGradeHomework.lessonIds)) {
-        currentGradeHomework.lessonIds.forEach((id) => set.add(id));
-      } else if (currentGradeHomework.lessonId) {
-        set.add(currentGradeHomework.lessonId);
-      }
-    }
-    return set;
-  }, [gradeAssignments, currentGradeHomework]);
-
   // Filter lessons for the curriculum tab
   const filteredCurriculumLessons = useMemo(() => {
     return allLessons.filter((l) => {
-      // 1. Lọc theo Khối Lớp hoặc Bài Cô Giao
-      if (curriculumGradeFilter === '3') {
-        const isGrade3 = l.gradeLevel === 3 || (!l.gradeLevel && (l.level || 0) <= 6);
-        if (!isGrade3) return false;
-      } else if (curriculumGradeFilter === '4') {
-        const isGrade4 = l.gradeLevel === 4 || (!l.gradeLevel && (l.level || 0) > 6 && (l.level || 0) <= 10);
-        if (!isGrade4) return false;
-      } else if (curriculumGradeFilter === '5') {
-        const isGrade5 = l.gradeLevel === 5 || (!l.gradeLevel && (l.level || 0) > 10);
-        if (!isGrade5) return false;
-      } else if (curriculumGradeFilter === 'teacher') {
-        // MỤC BÀI CÔ GIAO: Hiển thị đúng các bài cô giáo giao cho khối lớp đang chọn!
-        const assignedIdsThisGrade = getAssignedIdsForGrade(selectedGrade);
-        const isAssigned = assignedIdsThisGrade.includes(l.id);
-        const isTeacherCreated = (Boolean(l.authorTeacher) || l.id.startsWith('teacher-')) && (l.gradeLevel === selectedGrade || !l.gradeLevel);
-        if (!isAssigned && !isTeacherCreated) return false;
-      }
+      // Grade filter
+      if (curriculumGradeFilter === '3' && l.gradeLevel !== 3 && (l.level > 6 || l.gradeLevel)) return false;
+      if (curriculumGradeFilter === '4' && l.gradeLevel !== 4 && (l.level <= 6 || l.level > 10 || l.gradeLevel)) return false;
+      if (curriculumGradeFilter === '5' && l.gradeLevel !== 5 && (l.level <= 10 || l.gradeLevel)) return false;
+      if (curriculumGradeFilter === 'teacher' && !l.authorTeacher && !l.id.startsWith('teacher-')) return false;
 
-      // 2. Text search
+      // Text search
       if (curriculumSearch.trim()) {
         const query = curriculumSearch.toLowerCase();
         const matchTitle = l.title.toLowerCase().includes(query);
@@ -201,30 +134,20 @@ export const TextbookImageViewer: React.FC<TextbookImageViewerProps> = ({
       }
       return true;
     });
-  }, [allLessons, curriculumGradeFilter, curriculumSearch, selectedGrade, gradeAssignments, currentGradeHomework]);
-
-  // Cấu hình bài cô giao cho tab 'homework'
-  const activeHomeworkGrade = typeof homeworkGradeTab === 'number' ? homeworkGradeTab : selectedGrade;
-  const activeHomeworkConfig = gradeAssignments ? gradeAssignments[activeHomeworkGrade] : currentGradeHomework;
+  }, [allLessons, curriculumGradeFilter, curriculumSearch]);
 
   const assignedLessonsList = useMemo(() => {
-    if (homeworkGradeTab === 'all') {
-      const allIds = Array.from(allAssignedLessonIds);
-      return allIds
-        .map((id) => allLessons.find((l) => l.id === id))
-        .filter((l): l is Lesson => !!l);
-    }
-    if (!activeHomeworkConfig) return [];
+    if (!currentGradeHomework) return [];
     const ids =
-      activeHomeworkConfig.lessonIds && activeHomeworkConfig.lessonIds.length > 0
-        ? activeHomeworkConfig.lessonIds
-        : activeHomeworkConfig.lessonId
-        ? [activeHomeworkConfig.lessonId]
+      currentGradeHomework.lessonIds && currentGradeHomework.lessonIds.length > 0
+        ? currentGradeHomework.lessonIds
+        : currentGradeHomework.lessonId
+        ? [currentGradeHomework.lessonId]
         : [];
     return ids
       .map((id) => allLessons.find((l) => l.id === id))
       .filter((l): l is Lesson => !!l);
-  }, [allLessons, activeHomeworkConfig, homeworkGradeTab, allAssignedLessonIds]);
+  }, [allLessons, currentGradeHomework]);
 
   const assignedLessonObj = assignedLessonsList[0] || null;
 
@@ -283,18 +206,13 @@ export const TextbookImageViewer: React.FC<TextbookImageViewerProps> = ({
           {/* Tab 1: CHỌN BÀI SGK */}
           <button
             type="button"
-            onClick={() => {
-              handleSetTab('curriculum');
-              if (selectedGrade) {
-                setCurriculumGradeFilter(String(selectedGrade) as '3' | '4' | '5');
-              }
-            }}
+            onClick={() => handleSetTab('curriculum')}
             className={`py-1.5 px-1 rounded-xl text-xs font-black flex items-center justify-center gap-1 transition-all cursor-pointer ${
               currentTab === 'curriculum'
                 ? 'bg-indigo-600 text-white shadow-md'
                 : 'text-slate-600 hover:text-indigo-800 hover:bg-indigo-50'
             }`}
-            title={`Chọn bài học SGK Lớp ${selectedGrade}`}
+            title="Chọn bài học từ mục lục SGK Lớp 3, 4, 5"
           >
             <BookOpen className="w-3.5 h-3.5" />
             <span className="truncate">Chọn Bài</span>
@@ -303,18 +221,13 @@ export const TextbookImageViewer: React.FC<TextbookImageViewerProps> = ({
           {/* Tab 2: BÀI CÔ GIAO */}
           <button
             type="button"
-            onClick={() => {
-              handleSetTab('homework');
-              if (selectedGrade) {
-                setHomeworkGradeTab(selectedGrade);
-              }
-            }}
+            onClick={() => handleSetTab('homework')}
             className={`py-1.5 px-1 rounded-xl text-xs font-black flex items-center justify-center gap-1 transition-all cursor-pointer relative ${
               currentTab === 'homework'
                 ? 'bg-emerald-600 text-white shadow-md'
                 : 'text-slate-600 hover:text-emerald-800 hover:bg-emerald-50'
             }`}
-            title={`Xem bài tập do Cô giáo giao cho Lớp ${selectedGrade}`}
+            title="Xem bài tập do Cô giáo giao cho khối lớp"
           >
             <UserCheck className="w-3.5 h-3.5" />
             <span className="truncate">Cô Giao</span>
@@ -480,54 +393,24 @@ export const TextbookImageViewer: React.FC<TextbookImageViewerProps> = ({
                 </div>
 
                 <div className="flex items-center gap-1 flex-wrap text-[11px]">
-                  {(['all', '3', '4', '5', 'teacher'] as const).map((filter) => {
-                    const isCurrentGradePill = filter === String(selectedGrade);
-                    const assignedCountThisGrade = getAssignedIdsForGrade(selectedGrade).length;
-
-                    let label = 'Tất cả';
-                    if (filter === '3') label = 'Lớp 3';
-                    else if (filter === '4') label = 'Lớp 4';
-                    else if (filter === '5') label = 'Lớp 5';
-                    else if (filter === 'teacher') label = `Bài Cô Giao (Lớp ${selectedGrade})`;
-
-                    const isFilterActive = curriculumGradeFilter === filter;
-
-                    return (
-                      <button
-                        key={`curr-filter-${filter}`}
-                        type="button"
-                        onClick={() => {
-                          setCurriculumGradeFilter(filter);
-                          if (filter === '3' || filter === '4' || filter === '5') {
-                            onSelectGrade?.(Number(filter));
-                          }
-                        }}
-                        className={`px-2.5 py-1 rounded-lg font-black transition-all cursor-pointer flex items-center gap-1 ${
-                          isFilterActive
-                            ? filter === 'teacher'
-                              ? 'bg-rose-600 text-white shadow-xs ring-2 ring-rose-200'
-                              : 'bg-indigo-600 text-white shadow-xs ring-2 ring-indigo-200'
-                            : filter === 'teacher'
-                            ? 'bg-rose-50 text-rose-700 border border-rose-200 hover:bg-rose-100'
-                            : isCurrentGradePill
-                            ? 'bg-indigo-50 text-indigo-800 border-2 border-indigo-400 font-black'
-                            : 'bg-white text-slate-600 hover:bg-slate-100 border border-slate-200'
-                        }`}
-                      >
-                        {filter === 'teacher' && <UserCheck className="w-3 h-3 text-current" />}
-                        <span>{label}</span>
-                        {filter === 'teacher' && assignedCountThisGrade > 0 && (
-                          <span
-                            className={`px-1.5 py-0.2 rounded-full text-[9px] font-black ${
-                              isFilterActive ? 'bg-white text-rose-700' : 'bg-rose-500 text-white'
-                            }`}
-                          >
-                            {assignedCountThisGrade}
-                          </span>
-                        )}
-                      </button>
-                    );
-                  })}
+                  {(['all', '3', '4', '5', 'teacher'] as const).map((filter) => (
+                    <button
+                      key={`curr-filter-${filter}`}
+                      type="button"
+                      onClick={() => setCurriculumGradeFilter(filter)}
+                      className={`px-2.5 py-1 rounded-lg font-black transition-all cursor-pointer ${
+                        curriculumGradeFilter === filter
+                          ? 'bg-indigo-600 text-white shadow-xs'
+                          : 'bg-white text-slate-600 hover:bg-slate-100 border border-slate-200'
+                      }`}
+                    >
+                      {filter === 'all'
+                        ? 'Tất cả'
+                        : filter === 'teacher'
+                        ? 'Cô giáo'
+                        : `Lớp ${filter}`}
+                    </button>
+                  ))}
                 </div>
               </div>
 
@@ -536,7 +419,7 @@ export const TextbookImageViewer: React.FC<TextbookImageViewerProps> = ({
                 {filteredCurriculumLessons.map((item) => {
                   const isCurrent = lesson?.id === item.id;
                   const record = completedLessons[item.id];
-                  const isItemAssigned = allAssignedLessonIds.has(item.id) || currentGradeHomework?.lessonId === item.id;
+                  const isItemAssigned = currentGradeHomework?.lessonId === item.id;
 
                   return (
                     <div
@@ -602,55 +485,8 @@ export const TextbookImageViewer: React.FC<TextbookImageViewerProps> = ({
           {/* TAB 3: BÀI TẬP CÔ GIÁO GIAO (SGK) - HỖ TRỢ 1 HOẶC NHIỀU BÀI */}
           {currentTab === 'homework' && (
             <div className="flex flex-col gap-2.5 h-full">
-              {/* Thanh chọn khối lớp xem bài cô giao */}
-              <div className="flex items-center justify-between gap-1 p-1 bg-white rounded-xl border border-emerald-200 text-xs shadow-2xs shrink-0 flex-wrap">
-                <span className="text-[10px] font-black text-emerald-900 px-1 shrink-0">
-                  Xem theo khối:
-                </span>
-                <div className="flex items-center gap-1 flex-wrap">
-                  {[3, 4, 5].map((g) => {
-                    const isTabActive = homeworkGradeTab === g;
-                    const isStudentGrade = selectedGrade === g;
-                    const count = getAssignedIdsForGrade(g).length;
-                    return (
-                      <button
-                        key={`hw-tab-${g}`}
-                        type="button"
-                        onClick={() => {
-                          setHomeworkGradeTab(g);
-                          onSelectGrade?.(g);
-                        }}
-                        className={`px-2 py-0.5 rounded-lg font-black text-[10px] transition-all cursor-pointer flex items-center gap-1 ${
-                          isTabActive
-                            ? 'bg-emerald-600 text-white shadow-xs ring-2 ring-emerald-300'
-                            : isStudentGrade
-                            ? 'bg-emerald-50 text-emerald-800 border border-emerald-300 font-bold'
-                            : 'bg-slate-50 text-slate-600 hover:bg-slate-100'
-                        }`}
-                      >
-                        <span>Lớp {g}</span>
-                        <span className={`px-1 rounded-full text-[9px] font-black ${isTabActive ? 'bg-white text-emerald-700' : 'bg-emerald-200 text-emerald-800'}`}>
-                          {count}
-                        </span>
-                      </button>
-                    );
-                  })}
-                  <button
-                    type="button"
-                    onClick={() => setHomeworkGradeTab('all')}
-                    className={`px-2 py-0.5 rounded-lg font-black text-[10px] transition-all cursor-pointer ${
-                      homeworkGradeTab === 'all'
-                        ? 'bg-emerald-600 text-white shadow-xs ring-2 ring-emerald-300'
-                        : 'bg-slate-50 text-slate-600 hover:bg-slate-100'
-                    }`}
-                  >
-                    Tất cả ({allAssignedLessonIds.size})
-                  </button>
-                </div>
-              </div>
-
-              {assignedLessonsList.length > 0 ? (
-                <div className="flex flex-col gap-2.5 overflow-y-auto max-h-[calc(100vh-250px)] pr-1 custom-scrollbar">
+              {currentGradeHomework && assignedLessonsList.length > 0 ? (
+                <div className="flex flex-col gap-2.5 overflow-y-auto max-h-[calc(100vh-230px)] pr-1 custom-scrollbar">
                   {/* Header info */}
                   <div className="p-3 rounded-2xl bg-gradient-to-br from-emerald-50 via-teal-50 to-sky-50 border-2 border-emerald-300 shadow-sm">
                     <div className="flex items-center justify-between mb-1.5">
@@ -660,10 +496,10 @@ export const TextbookImageViewer: React.FC<TextbookImageViewerProps> = ({
                         </span>
                         <div>
                           <span className="font-black text-xs text-emerald-950 block">
-                            BÀI TẬP CÔ GIAO CHO KHỐI LỚP {typeof homeworkGradeTab === 'number' ? homeworkGradeTab : selectedGrade}
+                            BÀI TẬP CÔ GIAO CHO KHỐI LỚP {selectedGrade}
                           </span>
                           <span className="text-[10px] text-slate-500">
-                            Giáo viên: {activeHomeworkConfig?.teacherName || 'Cô Mai'} • {assignedLessonsList.length} bài tập cần hoàn thành
+                            Giáo viên: {currentGradeHomework.teacherName || 'Cô giáo'} • {assignedLessonsList.length} bài tập
                           </span>
                         </div>
                       </div>
@@ -672,9 +508,9 @@ export const TextbookImageViewer: React.FC<TextbookImageViewerProps> = ({
                       </span>
                     </div>
 
-                    {activeHomeworkConfig?.teacherNote && (
+                    {currentGradeHomework.teacherNote && (
                       <div className="p-2 rounded-xl bg-white border border-emerald-200 text-[11px] text-emerald-900 italic font-medium mt-1">
-                        "{activeHomeworkConfig.teacherNote}"
+                        "{currentGradeHomework.teacherNote}"
                       </div>
                     )}
                   </div>
@@ -708,7 +544,7 @@ export const TextbookImageViewer: React.FC<TextbookImageViewerProps> = ({
                                   {item.title}
                                 </h4>
                                 <span className="text-[10px] text-slate-500">
-                                  {item.categoryTitleVi} • Khối {item.gradeLevel || 3} • Mục tiêu: {item.targetWpm} WPM
+                                  {item.categoryTitleVi} • Mục tiêu: {item.targetWpm} WPM
                                 </span>
                               </div>
                             </div>
@@ -735,11 +571,6 @@ export const TextbookImageViewer: React.FC<TextbookImageViewerProps> = ({
                             type="button"
                             onClick={() => {
                               onSelectLesson?.(item);
-                              if (typeof homeworkGradeTab === 'number') {
-                                onSelectGrade?.(homeworkGradeTab);
-                              } else if (item.gradeLevel) {
-                                onSelectGrade?.(item.gradeLevel);
-                              }
                               handleSetTab('image');
                             }}
                             className={`w-full py-1.5 px-3 rounded-xl font-black text-xs flex items-center justify-center gap-1.5 transition-all cursor-pointer shadow-xs ${
@@ -766,7 +597,7 @@ export const TextbookImageViewer: React.FC<TextbookImageViewerProps> = ({
                 <div className="w-full h-full min-h-[200px] flex flex-col items-center justify-center text-center p-4 gap-2 bg-emerald-50/50 rounded-2xl border-2 border-dashed border-emerald-200">
                   <span className="text-3xl">🌸</span>
                   <span className="font-black text-xs text-slate-800">
-                    Chưa có bài tập cô giao riêng cho Lớp {typeof homeworkGradeTab === 'number' ? homeworkGradeTab : selectedGrade}
+                    Chưa có bài tập cô giao riêng cho Lớp {selectedGrade}
                   </span>
                   <span className="text-[11px] text-slate-500 max-w-xs">
                     Cô giáo có thể đăng nhập vào <strong>Góc Giáo Viên</strong> ở góc phải trên cùng để giao bài tập cho khối lớp này nhé!
