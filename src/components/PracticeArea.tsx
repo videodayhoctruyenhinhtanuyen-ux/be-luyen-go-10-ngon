@@ -69,6 +69,20 @@ interface PracticeAreaProps {
   isTargetUpper?: boolean;
   capsLockOn?: boolean;
   symbolGuideInfo?: SymbolKeyGuideInfo | null;
+  currentWordInfo?: {
+    targetWord: string;
+    wordStart: number;
+    wordEnd: number;
+    wordStepStart: number;
+    wordStepEnd: number;
+  } | null;
+  wordTypedKeys?: string[];
+  transformingWordEffect?: {
+    rawKeys: string;
+    finalWord: string;
+    wordStart: number;
+    timestamp: number;
+  } | null;
 }
 
 type TextSize = 'large' | 'huge' | 'normal';
@@ -129,6 +143,9 @@ export const PracticeArea: React.FC<PracticeAreaProps> = ({
   capsLockOn: capsLockOnProp,
   currentKeyChar,
   symbolGuideInfo,
+  currentWordInfo,
+  wordTypedKeys = [],
+  transformingWordEffect,
 }) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const activeCharRef = useRef<HTMLSpanElement>(null);
@@ -217,16 +234,75 @@ export const PracticeArea: React.FC<PracticeAreaProps> = ({
     };
   }, [targetText, currentCharIndex]);
 
-  // Chuỗi chữ bé đã gõ trên DUY NHẤT DÒNG HIỆN TẠI:
-  // Khi bé bấm phím Enter xuống dòng, lineStartIndex nhảy sang dòng mới -> xóa trắng 100% trong ô bé gõ!
-  const currentLineTypedText = useMemo(() => {
+  // =========================================================================
+  // XỬ LÝ LƯU GIỮ 1 DÒNG GÕ HIỆN THỜI & HIỂN THỊ QUÁ TRÌNH NHẬP TỪ CÓ DẤU (ví dụ: mays ➜ máy)
+  // =========================================================================
+  const lineTypedDisplay = useMemo(() => {
     const { lineStartIndex } = currentLineInfo;
-    const correctPart = targetText.slice(lineStartIndex, currentCharIndex);
-    if (hasMistake && mistakeChar) {
-      return correctPart + (mistakeChar === 'Space' ? ' ' : mistakeChar);
+
+    // 1. Nếu đang có hiệu ứng chuyển đổi từ gõ dấu vừa hoàn thành (ví dụ "mays" ➜ "máy")
+    if (transformingWordEffect && transformingWordEffect.wordStart >= lineStartIndex) {
+      const completedBeforeWord = targetText.slice(lineStartIndex, transformingWordEffect.wordStart);
+      return {
+        completedPrefix: completedBeforeWord,
+        activeWordRaw: transformingWordEffect.rawKeys,
+        activeWordFinal: transformingWordEffect.finalWord,
+        isTransforming: true,
+        inProgressWord: '',
+        mistakePart: '',
+        fullText: completedBeforeWord + transformingWordEffect.finalWord,
+      };
     }
-    return correctPart;
-  }, [currentLineInfo, currentCharIndex, hasMistake, mistakeChar, targetText]);
+
+    // 2. Nếu đang gõ dở một từ có dấu (currentWordInfo) và đã gõ ít nhất 1 phím
+    if (
+      currentWordInfo &&
+      currentWordInfo.wordStart >= lineStartIndex &&
+      currentWordInfo.wordStart <= currentCharIndex
+    ) {
+      const completedBeforeWord = targetText.slice(lineStartIndex, currentWordInfo.wordStart);
+      const rawKeysTyped = wordTypedKeys && wordTypedKeys.length > 0 ? wordTypedKeys.join('') : '';
+
+      const mistakePart =
+        hasMistake && mistakeChar ? (mistakeChar === 'Space' ? ' ' : mistakeChar) : '';
+
+      return {
+        completedPrefix: completedBeforeWord,
+        activeWordRaw: '',
+        activeWordFinal: '',
+        isTransforming: false,
+        inProgressWord: rawKeysTyped,
+        mistakePart,
+        fullText: completedBeforeWord + rawKeysTyped + mistakePart,
+      };
+    }
+
+    // 3. Bình thường: ký tự đã hoàn thành trên dòng hiện thời
+    const correctPart = targetText.slice(lineStartIndex, currentCharIndex);
+    const mistakePart =
+      hasMistake && mistakeChar ? (mistakeChar === 'Space' ? ' ' : mistakeChar) : '';
+
+    return {
+      completedPrefix: correctPart,
+      activeWordRaw: '',
+      activeWordFinal: '',
+      isTransforming: false,
+      inProgressWord: '',
+      mistakePart,
+      fullText: correctPart + mistakePart,
+    };
+  }, [
+    currentLineInfo,
+    currentCharIndex,
+    targetText,
+    currentWordInfo,
+    wordTypedKeys,
+    transformingWordEffect,
+    hasMistake,
+    mistakeChar,
+  ]);
+
+  const currentLineTypedText = lineTypedDisplay.fullText;
 
   // Cỡ chữ tùy chỉnh: 'normal', 'large', 'huge'
   const [textSize, setTextSize] = useState<TextSize>(() => {
@@ -943,13 +1019,40 @@ export const PracticeArea: React.FC<PracticeAreaProps> = ({
             </div>
 
             {currentLineTypedText.length === 0 && !hasMistake ? (
-              <span className="text-slate-400 font-input-box text-xs sm:text-sm md:text-base select-none truncate italic flex items-center gap-1.5">
-                <span className="inline-block w-2 h-2 rounded-full bg-sky-400 animate-ping" />
-                <span>Dòng {currentLineInfo.lineNumber}: Nhập từng từ vào đây... (Gõ hết câu bấm phím <strong>Enter ↵</strong> để sang dòng mới)</span>
-              </span>
+              !isInputFocused ? (
+                <span className="text-slate-400/80 font-input-box text-[11px] sm:text-xs select-none truncate not-italic font-normal flex items-center gap-1.5 transition-opacity duration-200">
+                  <span className="inline-block w-1.5 h-1.5 rounded-full bg-sky-400/70" />
+                  <span>Dòng {currentLineInfo.lineNumber}: Nhập từng từ vào đây... (Gõ hết câu bấm phím Enter ↵ để sang dòng mới)</span>
+                </span>
+              ) : (
+                /* Khi học sinh bấm vào ô để gõ: Hiển thị con trỏ soạn thảo nhấp nháy sắc nét */
+                <span className="inline-block w-[2.5px] h-5 sm:h-6 bg-sky-600 animate-editor-cursor align-middle rounded-xs" />
+              )
             ) : (
               <span className="text-slate-950 font-input-box whitespace-pre-wrap select-none truncate flex items-center text-base sm:text-lg md:text-xl">
-                <span className="text-emerald-700 font-black tracking-wide drop-shadow-2xs">{currentLineTypedText}</span>
+                {/* 1. Phần chữ đã hoàn thành trước đó trên dòng hiện thời */}
+                {lineTypedDisplay.completedPrefix && (
+                  <span className="text-emerald-700 font-black tracking-wide drop-shadow-2xs">
+                    {lineTypedDisplay.completedPrefix}
+                  </span>
+                )}
+
+                {/* 2. Từ đang gõ dở: Hiển thị rõ các chữ cái đã gõ (ví dụ "m", "ma", "may") */}
+                {lineTypedDisplay.inProgressWord && (
+                  <span className="text-sky-950 font-black bg-sky-100/90 border border-sky-300 px-1 py-0.2 rounded-md tracking-wider mx-0.5 shadow-2xs">
+                    {lineTypedDisplay.inProgressWord}
+                  </span>
+                )}
+
+                {/* 3. Hiệu ứng chuyển đổi khi vừa gõ phím dấu đúng (ví dụ: "mays" ➜ "máy") */}
+                {lineTypedDisplay.isTransforming && (
+                  <span className="inline-flex items-center gap-1 bg-amber-100 border border-amber-300 text-amber-950 px-1.5 py-0.2 rounded-md font-black tracking-wider shadow-xs animate-in zoom-in-95 duration-150">
+                    <span className="font-mono text-amber-900 font-black">{lineTypedDisplay.activeWordRaw}</span>
+                    <span className="text-emerald-700 font-black">➜ {lineTypedDisplay.activeWordFinal}</span>
+                  </span>
+                )}
+
+                {/* 4. Ký tự gõ sai nếu có */}
                 {hasMistake && mistakeChar && (
                   <span className="bg-rose-500 text-white font-input-box px-2 py-0.5 rounded-lg inline-flex items-center gap-1 animate-pulse mx-1 text-xs sm:text-sm font-black shadow-md border border-white">
                     <span>{mistakeChar === 'Space' ? '␣ Dấu cách' : mistakeChar === 'Enter' ? '↵ Enter' : mistakeChar}</span>
@@ -965,8 +1068,9 @@ export const PracticeArea: React.FC<PracticeAreaProps> = ({
                     )}
                   </span>
                 )}
-                {/* Typing cursor */}
-                <span className="inline-block w-[3px] h-6 sm:h-7 bg-sky-700 animate-pulse align-middle ml-1 rounded-full" />
+
+                {/* 5. Con trỏ soạn thảo nhấp nháy chuẩn Word/Notepad */}
+                <span className="inline-block w-[2.5px] h-5 sm:h-6 bg-sky-700 animate-editor-cursor align-middle ml-1 rounded-xs" />
               </span>
             )}
 

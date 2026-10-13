@@ -38,6 +38,7 @@ import {
   subscribeToSupabaseRealtime,
 } from './lib/supabase';
 import confetti from 'canvas-confetti';
+import appLogo from './assets/logo.svg';
 import {
   BookOpen,
   Gamepad2,
@@ -497,9 +498,14 @@ export default function App() {
     };
   }, [refreshViewport]);
 
-  // Chế độ gõ dấu thông minh / tự do (cho phép gõ dấu trước hoặc gõ dấu sau theo kiểu Telex)
   const [smartTelexFreeMode, setSmartTelexFreeMode] = useState<boolean>(true);
   const [wordTypedKeys, setWordTypedKeys] = useState<string[]>([]);
+  const [transformingWordEffect, setTransformingWordEffect] = useState<{
+    rawKeys: string;
+    finalWord: string;
+    wordStart: number;
+    timestamp: number;
+  } | null>(null);
 
   // Keyboard theme skin state - Mặc định: Bàn phím Cơ Keychron 2 Tone
   const [currentKeyboardTheme, setCurrentKeyboardTheme] = useState<KeyboardSkinTheme>(() => {
@@ -569,6 +575,7 @@ export default function App() {
     setCaseMistakeMessage(null);
     setRecentTypedKeys([]);
     setWordTypedKeys([]);
+    setTransformingWordEffect(null);
     setStats({
       wpm: 0,
       cpm: 0,
@@ -723,6 +730,45 @@ export default function App() {
       handleRestart();
     }
   };
+
+  // Nạp danh sách bài học và bài tập từ file USB (Offline)
+  const handleImportLessonsFromUSB = useCallback(
+    async (
+      importedLessons: Lesson[],
+      importedAssignments?: Record<number, GradeAssignment>
+    ) => {
+      if (Array.isArray(importedLessons) && importedLessons.length > 0) {
+        setAllLessons(importedLessons);
+        try {
+          localStorage.setItem('typing_kids_all_lessons', JSON.stringify(importedLessons));
+        } catch {
+          // ignore
+        }
+        // Thử đồng bộ dự phòng lên Supabase và server nếu có mạng
+        bulkUpsertLessonsToSupabase(importedLessons).catch(() => {});
+        fetch('/api/lessons', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ lessons: importedLessons }),
+        }).catch(() => {});
+      }
+
+      if (importedAssignments && typeof importedAssignments === 'object') {
+        setGradeAssignments(importedAssignments);
+        try {
+          localStorage.setItem('typing_kids_grade_assignments', JSON.stringify(importedAssignments));
+        } catch {
+          // ignore
+        }
+        fetch('/api/assignments', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ assignments: importedAssignments }),
+        }).catch(() => {});
+      }
+    },
+    []
+  );
 
   const handleResetSystemLesson = async (id: string) => {
     const defaultOriginal = LESSONS.find((l) => l.id === id);
@@ -911,10 +957,43 @@ export default function App() {
     }
   }, [stepIndex, currentWordInfo]);
 
+  // Hiệu ứng hiển thị chuyển đổi từ gõ phím thô sang chữ có dấu (ví dụ: mays ➜ máy)
+  const triggerWordTransformEffect = useCallback(
+    (
+      wordInfo: {
+        targetWord: string;
+        wordStart: number;
+        wordEnd: number;
+        wordStepStart: number;
+        wordStepEnd: number;
+      } | null,
+      keys: string[],
+      lastKey: string
+    ) => {
+      if (!wordInfo) return;
+      const rawTyped = [...keys, lastKey].join('');
+      if (rawTyped.toLowerCase() !== wordInfo.targetWord.toLowerCase()) {
+        const timestamp = Date.now();
+        setTransformingWordEffect({
+          rawKeys: rawTyped,
+          finalWord: wordInfo.targetWord,
+          wordStart: wordInfo.wordStart,
+          timestamp,
+        });
+        setTimeout(() => {
+          setTransformingWordEffect((prev) => (prev && prev.timestamp === timestamp ? null : prev));
+        }, 280);
+      }
+    },
+    []
+  );
+
   // Process key input
   const handleInputEvent = useCallback(
     (keyChar: string, keyCode?: string) => {
       if (isCompleted || !currentStep) return;
+
+      setTransformingWordEffect((prev) => (prev ? null : prev));
 
       const now = Date.now();
 
@@ -1182,6 +1261,7 @@ export default function App() {
               const nextKeys = [...wordTypedKeys, keyChar];
               if (smartCheck.isWordCompleted) {
                 advanceCount = Math.max(1, currentWordInfo.wordStepEnd - stepIndex);
+                triggerWordTransformEffect(currentWordInfo, wordTypedKeys, keyChar);
                 setWordTypedKeys([]);
               } else {
                 setWordTypedKeys(nextKeys);
@@ -1208,6 +1288,7 @@ export default function App() {
               isMatch = true;
               advanceCount = unikeyCheck.advanceCount;
               if (unikeyCheck.isWordCompleted || stepIndex + advanceCount >= currentWordInfo.wordStepEnd) {
+                triggerWordTransformEffect(currentWordInfo, wordTypedKeys, keyChar);
                 setWordTypedKeys([]);
               } else {
                 setWordTypedKeys((prev) => [...prev, keyChar]);
@@ -1223,6 +1304,7 @@ export default function App() {
               const nextKeys = [...wordTypedKeys, keyChar];
               if (smartCheck.isWordCompleted) {
                 advanceCount = Math.max(1, currentWordInfo.wordStepEnd - stepIndex);
+                triggerWordTransformEffect(currentWordInfo, wordTypedKeys, keyChar);
                 setWordTypedKeys([]);
               } else {
                 setWordTypedKeys(nextKeys);
@@ -1233,6 +1315,7 @@ export default function App() {
             // Trùng khớp tuần tự
             const smartCheck = checkKeyInSmartTelexWord(currentWordInfo.targetWord, wordTypedKeys, keyChar);
             if (smartCheck.isWordCompleted || stepIndex + 1 >= currentWordInfo.wordStepEnd) {
+              triggerWordTransformEffect(currentWordInfo, wordTypedKeys, keyChar);
               setWordTypedKeys([]);
             } else {
               setWordTypedKeys((prev) => [...prev, keyChar]);
@@ -1402,6 +1485,7 @@ export default function App() {
       keyboardImeMode,
       currentWordInfo,
       wordTypedKeys,
+      triggerWordTransformEffect,
     ]
   );
 
@@ -1523,6 +1607,7 @@ export default function App() {
     setCaseMistakeMessage(null);
     setRecentTypedKeys([]);
     setWordTypedKeys([]);
+    setTransformingWordEffect(null);
     setStats({
       wpm: 0,
       cpm: 0,
@@ -1698,7 +1783,14 @@ export default function App() {
         {/* CLUSTER 1: LOGO + KHỐI LỚP (LỚP 3 / 4 / 5) */}
         <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
           <div className="w-7 h-7 rounded-full overflow-hidden shadow-xs border border-sky-300 flex items-center justify-center select-none bg-white shrink-0 hover:scale-105 transition-transform">
-            <img src="/logo.svg" alt="Logo Luyện Gõ Bàn Phím 10 Ngón" className="w-full h-full object-contain" />
+            <img
+              src={appLogo}
+              alt="Logo Luyện Gõ Bàn Phím 10 Ngón"
+              className="w-full h-full object-contain"
+              onError={(e) => {
+                (e.currentTarget as HTMLImageElement).src = './logo.svg';
+              }}
+            />
           </div>
           <div className="flex items-center gap-1">
             <h1 className="text-xs sm:text-sm font-black text-slate-900 tracking-tight whitespace-nowrap">
@@ -2087,6 +2179,9 @@ export default function App() {
                 isTargetUpper={isTargetUpper}
                 capsLockOn={capsLockOn}
                 symbolGuideInfo={currentSymbolGuide}
+                currentWordInfo={currentWordInfo}
+                wordTypedKeys={wordTypedKeys}
+                transformingWordEffect={transformingWordEffect}
               />
             </section>
 
@@ -2318,6 +2413,7 @@ export default function App() {
             onSelectLesson={(lesson) => setCustomLesson(lesson)}
             gradeAssignments={gradeAssignments}
             onAssignLessonToGrade={handleAssignLessonToGrade}
+            onImportLessons={handleImportLessonsFromUSB}
             initialEditingLesson={editingLessonForModal}
           />
         </ErrorBoundary>

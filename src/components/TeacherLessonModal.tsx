@@ -31,6 +31,8 @@ import {
   Lock,
   BookmarkCheck,
   ShieldCheck,
+  Download,
+  HardDrive,
 } from 'lucide-react';
 import { Lesson, GradeAssignment } from '../types/typing';
 import { compressImageFile } from '../utils/imageUtils';
@@ -53,6 +55,10 @@ interface TeacherLessonModalProps {
     teacherName: string,
     teacherNote: string
   ) => void;
+  onImportLessons?: (
+    importedLessons: Lesson[],
+    importedAssignments?: Record<number, GradeAssignment>
+  ) => void;
   initialEditingLesson?: Lesson | null;
 }
 
@@ -67,6 +73,7 @@ export const TeacherLessonModal: React.FC<TeacherLessonModalProps> = ({
   onSelectLesson,
   gradeAssignments = {},
   onAssignLessonToGrade,
+  onImportLessons,
   initialEditingLesson,
 }) => {
   // Authentication state
@@ -514,6 +521,94 @@ export const TeacherLessonModal: React.FC<TeacherLessonModalProps> = ({
         setSyncAllMsg('');
       }, 5000);
     }
+  };
+
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [offlineSyncMsg, setOfflineSyncMsg] = useState<string>('');
+
+  // 1. Xuất file JSON bài học ra USB để mang sang máy học sinh khác (chạy offline)
+  const handleExportLessonsToUSB = () => {
+    try {
+      const exportData = {
+        exportDate: new Date().toISOString(),
+        version: '1.0.0',
+        appName: 'Phần mềm Luyện gõ 10 ngón Tiểu học',
+        teacherName: teacherName || 'Giáo viên',
+        totalLessons: effectiveLessons.length,
+        lessons: effectiveLessons,
+        gradeAssignments: safeAssignments,
+      };
+
+      const dataStr = 'data:text/json;charset=utf-8,' + encodeURIComponent(JSON.stringify(exportData, null, 2));
+      const downloadAnchor = document.createElement('a');
+      downloadAnchor.setAttribute('href', dataStr);
+      downloadAnchor.setAttribute(
+        'download',
+        `danh_sach_bai_hoc_luyen_go_10ngon_${new Date().toISOString().slice(0, 10)}.json`
+      );
+      document.body.appendChild(downloadAnchor);
+      downloadAnchor.click();
+      downloadAnchor.remove();
+
+      setOfflineSyncMsg(
+        `💾 Đã xuất thành công ${effectiveLessons.length} bài học ra file JSON! Cô hãy copy file này vào USB để cắm sang các máy tính học sinh.`
+      );
+      setTimeout(() => setOfflineSyncMsg(''), 7000);
+    } catch (err: any) {
+      alert(`Lỗi khi xuất file: ${err?.message || 'Không thể tạo file'}`);
+    }
+  };
+
+  // 2. Nạp bài học từ file JSON trong USB vào máy học sinh
+  const handleImportLessonsFromUSB = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      try {
+        const content = event.target?.result as string;
+        const parsed = JSON.parse(content);
+
+        let lessonsToImport: Lesson[] = [];
+        let assignmentsToImport: Record<number, GradeAssignment> | undefined;
+
+        if (Array.isArray(parsed)) {
+          lessonsToImport = parsed;
+        } else if (parsed && typeof parsed === 'object') {
+          if (Array.isArray(parsed.lessons)) {
+            lessonsToImport = parsed.lessons;
+          }
+          if (parsed.gradeAssignments && typeof parsed.gradeAssignments === 'object') {
+            assignmentsToImport = parsed.gradeAssignments;
+          }
+        }
+
+        if (lessonsToImport.length === 0) {
+          alert('File JSON không chứa danh sách bài học hợp lệ!');
+          return;
+        }
+
+        if (onImportLessons) {
+          onImportLessons(lessonsToImport, assignmentsToImport);
+        } else {
+          localStorage.setItem('typing_kids_all_lessons', JSON.stringify(lessonsToImport));
+          if (assignmentsToImport) {
+            localStorage.setItem('typing_kids_grade_assignments', JSON.stringify(assignmentsToImport));
+          }
+          window.location.reload();
+        }
+
+        setOfflineSyncMsg(
+          `🎉 Nạp thành công ${lessonsToImport.length} bài học từ file USB vào máy tính này! Học sinh trên máy này có thể luyện tập ngay.`
+        );
+        setTimeout(() => setOfflineSyncMsg(''), 7000);
+      } catch (err: any) {
+        alert(`Không thể đọc file JSON: ${err?.message || 'Định dạng file không đúng'}`);
+      }
+    };
+    reader.readAsText(file);
+    e.target.value = '';
   };
 
   // Khi đổi khối lớp ở tab Giao bài
@@ -1176,13 +1271,45 @@ export const TeacherLessonModal: React.FC<TeacherLessonModalProps> = ({
               </div>
 
               {/* Action Buttons right side */}
-              <div className="flex items-center gap-2 ml-auto">
+              <div className="flex items-center gap-2 ml-auto flex-wrap">
+                {/* Input file ẩn cho chức năng nạp từ USB */}
+                <input
+                  type="file"
+                  ref={fileInputRef}
+                  onChange={handleImportLessonsFromUSB}
+                  accept=".json,application/json"
+                  className="hidden"
+                />
+
+                {/* Nút 1: Xuất bài học ra file JSON cho USB */}
+                <button
+                  type="button"
+                  onClick={handleExportLessonsToUSB}
+                  className="px-2.5 sm:px-3 py-1.5 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-black text-xs flex items-center gap-1.5 shadow-sm cursor-pointer border border-blue-400 active:scale-95 transition-all"
+                  title="Xuất toàn bộ bài học ra file JSON để copy vào USB mang sang cài đặt trên các máy tính học sinh khác"
+                >
+                  <Download className="w-3.5 h-3.5" />
+                  <span>💾 Xuất File USB (.json)</span>
+                </button>
+
+                {/* Nút 2: Nạp bài học từ USB vào máy học sinh */}
+                <button
+                  type="button"
+                  onClick={() => fileInputRef.current?.click()}
+                  className="px-2.5 sm:px-3 py-1.5 rounded-xl bg-purple-600 hover:bg-purple-500 text-white font-black text-xs flex items-center gap-1.5 shadow-sm cursor-pointer border border-purple-400 active:scale-95 transition-all"
+                  title="Chọn file bài học JSON từ USB để nạp vào máy tính học sinh này (không cần internet)"
+                >
+                  <HardDrive className="w-3.5 h-3.5" />
+                  <span>📥 Nạp Từ USB</span>
+                </button>
+
+                {/* Nút 3: Đồng bộ đám mây Supabase */}
                 <button
                   type="button"
                   onClick={handleSyncAllToSupabase}
                   disabled={isSyncingAllToSupabase}
-                  className="px-3 py-1.5 rounded-xl bg-emerald-700 hover:bg-emerald-600 disabled:opacity-50 text-white font-black text-xs flex items-center gap-1.5 shadow-sm cursor-pointer border border-emerald-500"
-                  title="Lưu trữ toàn bộ danh sách bài học và hình ảnh SGK lên Supabase Cloud"
+                  className="px-2.5 sm:px-3 py-1.5 rounded-xl bg-emerald-700 hover:bg-emerald-600 disabled:opacity-50 text-white font-black text-xs flex items-center gap-1.5 shadow-sm cursor-pointer border border-emerald-500"
+                  title="Lưu trữ toàn bộ danh sách bài học và hình ảnh SGK lên Supabase Cloud Database"
                 >
                   {isSyncingAllToSupabase ? (
                     <>
@@ -1197,6 +1324,7 @@ export const TeacherLessonModal: React.FC<TeacherLessonModalProps> = ({
                   )}
                 </button>
 
+                {/* Nút 4: Soạn bài mới */}
                 <button
                   type="button"
                   onClick={() => handleStartCreateNew(false)}
@@ -1207,6 +1335,13 @@ export const TeacherLessonModal: React.FC<TeacherLessonModalProps> = ({
                 </button>
               </div>
             </div>
+
+            {/* Thông báo sao chép USB hoặc Sync Cloud */}
+            {offlineSyncMsg && (
+              <div className="mx-4 mt-2 p-2.5 rounded-2xl bg-blue-50 border-2 border-blue-400 text-blue-950 text-xs font-bold flex items-center gap-2 animate-in fade-in shrink-0">
+                <span>{offlineSyncMsg}</span>
+              </div>
+            )}
 
             {/* Sync All notification banner */}
             {syncAllMsg && (
